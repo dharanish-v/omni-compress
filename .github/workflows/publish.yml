@@ -27,7 +27,11 @@ jobs:
           bun-version: latest
       - name: Build Library
         working-directory: packages/omni-compress
-        run: wasm-pack build --target web --out-name omni_compress
+        run: |
+          wasm-pack build --target web --out-name omni_compress
+          sed -i 's/"name": "omni-compress"/"name": "@dharanish\/omni-compress"/' pkg/package.json
+          cp ../../LICENSE pkg/
+          cp ../../README.md pkg/
       - name: Publish to NPM
         working-directory: packages/omni-compress/pkg
         env:
