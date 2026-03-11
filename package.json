@@ -1,0 +1,15 @@
+{
+  "name": "omni-compress-monorepo",
+  "version": "0.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build:rust": "cd packages/omni-compress && wasm-pack build --target web",
+    "build:client": "cd apps/playground && bun run build",
+    "dev:client": "cd apps/playground && bun run dev",
+    "build": "bun run build:rust && bun run build:client"
+  }
+}
