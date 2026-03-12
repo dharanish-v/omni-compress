@@ -1,0 +1,49 @@
+{
+  "name": "@dharanish/omni-compress",
+  "version": "0.1.0",
+  "description": "Universal compressor in WASM",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dharanish-v/omni-compress.git"
+  },
+  "keywords": [
+    "wasm",
+    "rust",
+    "compression",
+    "image",
+    "zlib"
+  ],
+  "author": "Dharanish V",
+  "license": "MIT",
+  "module": "./pkg/index.js",
+  "types": "./pkg/index.d.ts",
+  "files": [
+    "pkg"
+  ],
+  "exports": {
+    ".": {
+      "types": "./pkg/index.d.ts",
+      "import": "./pkg/index.js"
+    },
+    "./worker": {
+      "import": "./pkg/worker.js"
+    }
+  },
+  "scripts": {
+    "build": "wasm-pack build --target web --out-name omni_compress && vite build",
+    "dev": "vite build --watch"
+  },
+  "devDependencies": {
+    "ajv": "^6.0.0",
+    "esbuild": "^0.27.3",
+    "tsc-alias": "^1.8.16",
+    "typescript": "~5.9.3",
+    "vite": "^7.0.0",
+    "vite-plugin-dts": "^4.0.0",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

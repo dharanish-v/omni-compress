@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
-import init, { compress_image } from "omni-compress";
+import { useState, useEffect, useRef } from "react";
+import { OmniCompressor } from "omni-compress";
 
 function App() {
   const [isReady, setIsReady] = useState(false);
+  const compressorRef = useRef<OmniCompressor | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
 
   const [wasmResult, setWasmResult] = useState<{
@@ -19,7 +20,15 @@ function App() {
   const [originalSize, setOriginalSize] = useState(0);
 
   useEffect(() => {
-    init().then(() => setIsReady(true));
+    const compressor = new OmniCompressor();
+    compressor.init().then(() => {
+      compressorRef.current = compressor;
+      setIsReady(true);
+    });
+
+    return () => {
+      compressorRef.current?.terminate();
+    };
   }, []);
 
   const compressWithCanvas = (
@@ -69,14 +78,16 @@ function App() {
 
     const targetQuality = 80;
 
-    // 🏎️ CONTESTANT 1: WEB ASSEMBLY (RUST)
+    // 🏎️ CONTESTANT 1: WEB ASSEMBLY (RUST) - Now with Worker!
     const reader = new FileReader();
     reader.readAsArrayBuffer(file);
-    reader.onload = () => {
+    reader.onload = async () => {
       const inputBytes = new Uint8Array(reader.result as ArrayBuffer);
 
+      if (!compressorRef.current) return;
+
       const startWasm = performance.now();
-      const outputBytes = compress_image(inputBytes, 0, targetQuality);
+      const outputBytes = await compressorRef.current.compressImage(inputBytes, 0, targetQuality);
       const endWasm = performance.now();
 
       const wasmBlob = new Blob([new Uint8Array(outputBytes)], { type: "image/jpeg" });
