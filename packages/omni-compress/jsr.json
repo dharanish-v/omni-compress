@@ -1,6 +1,6 @@
 {
   "name": "@dharanish/omni-compress",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "exports": "./pkg/omni_compress.js",
   "publish": {
     "include": [
