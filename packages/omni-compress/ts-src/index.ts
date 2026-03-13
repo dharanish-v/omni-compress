@@ -53,6 +53,22 @@ export class OmniCompressor {
   }
 
   /**
+   * Compress audio to FLAC asynchronously in a background thread.
+   * @param data Raw f32 PCM data (interleaved)
+   */
+  async compressAudioFlac(data: Float32Array, sampleRate: number, channels: number, bitsPerSample: number): Promise<Uint8Array> {
+    return this.send("compress_audio_flac", { data, sampleRate, channels, bitsPerSample });
+  }
+
+  /**
+   * Compress audio to MP3 asynchronously in a background thread.
+   * @param data Raw f32 PCM data (interleaved)
+   */
+  async compressAudioMp3(data: Float32Array, sampleRate: number, channels: number, bitrate: number): Promise<Uint8Array> {
+    return this.send("compress_audio_mp3", { data, sampleRate, channels, bitrate });
+  }
+
+  /**
    * Terminate the worker and free resources.
    */
   terminate() {

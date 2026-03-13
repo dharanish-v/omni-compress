@@ -17,7 +17,18 @@ function App() {
     time: number;
   } | null>(null);
 
+  const [audioResult, setAudioResult] = useState<{
+    url: string;
+    size: number;
+    time: number;
+    format: string;
+    flacUrl: string;
+    flacSize: number;
+    flacTime: number;
+  } | null>(null);
+
   const [originalSize, setOriginalSize] = useState(0);
+  const [activeTab, setActiveTab] = useState<"image" | "audio">("image");
 
   useEffect(() => {
     const compressor = new OmniCompressor();
@@ -30,6 +41,63 @@ function App() {
       compressorRef.current?.terminate();
     };
   }, []);
+
+  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !compressorRef.current) return;
+
+    setOriginalUrl(null);
+    setWasmResult(null);
+    setAudioResult(null);
+    setOriginalSize(file.size);
+
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const arrayBuffer = await file.arrayBuffer();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+    // Get interleaved samples
+    const channels = audioBuffer.numberOfChannels;
+    const pcmData = new Float32Array(audioBuffer.length * channels);
+    for (let i = 0; i < channels; i++) {
+      const channelData = audioBuffer.getChannelData(i);
+      for (let j = 0; j < channelData.length; j++) {
+        pcmData[j * channels + i] = channelData[j];
+      }
+    }
+
+    // 🏎️ CONTESTANT: WASM AUDIO (MP3)
+    const startMp3 = performance.now();
+    const compressedMp3 = await compressorRef.current.compressAudioMp3(
+      pcmData,
+      audioBuffer.sampleRate,
+      channels,
+      128 // 128kbps
+    );
+    const endMp3 = performance.now();
+
+    const mp3Blob = new Blob([new Uint8Array(compressedMp3)], { type: "audio/mp3" });
+    
+    // 🏎️ CONTESTANT: WASM AUDIO (FLAC)
+    const startFlac = performance.now();
+    const compressedFlac = await compressorRef.current.compressAudioFlac(
+      pcmData,
+      audioBuffer.sampleRate,
+      channels,
+      16 // 16-bit
+    );
+    const endFlac = performance.now();
+    const flacBlob = new Blob([new Uint8Array(compressedFlac)], { type: "audio/flac" });
+
+    setAudioResult({
+      url: URL.createObjectURL(mp3Blob),
+      size: mp3Blob.size,
+      time: Math.round(endMp3 - startMp3),
+      format: "MP3",
+      flacUrl: URL.createObjectURL(flacBlob),
+      flacSize: flacBlob.size,
+      flacTime: Math.round(endFlac - startFlac),
+    });
+  };
 
   const compressWithCanvas = (
     file: File,
@@ -114,29 +182,134 @@ function App() {
     <div className="app-root">
       <div className="container">
         <div className="card">
-          <h1 className="title">The Sovereign Benchmark</h1>
+          <h1 className="title">Omni Compressor</h1>
 
-          <div className="upload-area">
-            <input
-              type="file"
-              onChange={handleUpload}
-              disabled={!isReady}
-              accept="image/png, image/jpeg, image/gif"
-              className="file-input"
-              id="file-upload"
-            />
-            <label
-              htmlFor="file-upload"
-              className={`btn ${isReady ? "btn-ready" : "btn-loading"}`}
+          <div className="tabs" style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
+            <button 
+              className={`btn ${activeTab === "image" ? "btn-ready" : ""}`}
+              onClick={() => setActiveTab("image")}
             >
-              {isReady ? "Upload Heavy Image (2MB+)" : "Loading Engines..."}
-            </label>
-            <p className="hint">
-              Upload a high-res image to compare Wasm vs Native UI thread.
-            </p>
+              Images
+            </button>
+            <button 
+              className={`btn ${activeTab === "audio" ? "btn-ready" : ""}`}
+              onClick={() => setActiveTab("audio")}
+            >
+              Audio
+            </button>
           </div>
 
-          {originalUrl && (
+          {activeTab === "image" ? (
+            <div className="upload-area">
+              <input
+                type="file"
+                onChange={handleUpload}
+                disabled={!isReady}
+                accept="image/png, image/jpeg, image/gif"
+                className="file-input"
+                id="file-upload"
+              />
+              <label
+                htmlFor="file-upload"
+                className={`btn ${isReady ? "btn-ready" : "btn-loading"}`}
+              >
+                {isReady ? "Upload Heavy Image (2MB+)" : "Loading Engines..."}
+              </label>
+              <p className="hint">
+                Upload a high-res image to compare Wasm vs Native UI thread.
+              </p>
+            </div>
+          ) : (
+            <div className="upload-area">
+              <input
+                type="file"
+                onChange={handleAudioUpload}
+                disabled={!isReady}
+                accept="audio/*"
+                className="file-input"
+                id="audio-upload"
+              />
+              <label
+                htmlFor="audio-upload"
+                className={`btn ${isReady ? "btn-ready" : "btn-loading"}`}
+              >
+                {isReady ? "Upload Audio File" : "Loading Engines..."}
+              </label>
+              <p className="hint">
+                Upload a WAV/MP3 to compress to MP3 via Rust WASM.
+              </p>
+            </div>
+          )}
+
+          {activeTab === "audio" && audioResult && (
+            <div className="results">
+               <div style={{ flex: "1 1 250px" }}>
+                <h3 className="results-title">Original</h3>
+                <ul className="stats">
+                  <li>
+                    <span className="k">Size</span>{" "}
+                    <span className="v">
+                      {(originalSize / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </li>
+                </ul>
+              </div>
+              <div style={{ flex: "1 1 250px" }}>
+                <h3 className="results-title" style={{ color: "var(--accent-2)" }}>🦀 Wasm MP3</h3>
+                <ul className="stats">
+                  <li>
+                    <span className="k">Size</span>{" "}
+                    <span className="v">
+                      {(audioResult.size / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </li>
+                  <li>
+                    <span className="k">Time</span>{" "}
+                    <span className="v" style={{ color: "var(--accent-2)", fontWeight: "bold" }}>
+                      {audioResult.time} ms
+                    </span>
+                  </li>
+                </ul>
+                <audio controls src={audioResult.url} style={{ marginTop: "10px", width: "100%" }} />
+                <a 
+                  href={audioResult.url} 
+                  download="compressed.mp3"
+                  className="btn btn-ready"
+                  style={{ marginTop: "10px", display: "block", textAlign: "center", textDecoration: "none" }}
+                >
+                  Download MP3
+                </a>
+              </div>
+              <div style={{ flex: "1 1 250px" }}>
+                <h3 className="results-title" style={{ color: "#00d1ff" }}>🦀 Wasm FLAC</h3>
+                <ul className="stats">
+                  <li>
+                    <span className="k">Size</span>{" "}
+                    <span className="v">
+                      {(audioResult.flacSize / 1024 / 1024).toFixed(2)} MB
+                    </span>
+                  </li>
+                  <li>
+                    <span className="k">Time</span>{" "}
+                    <span className="v" style={{ color: "#00d1ff", fontWeight: "bold" }}>
+                      {audioResult.flacTime} ms
+                    </span>
+                  </li>
+                </ul>
+                <audio controls src={audioResult.flacUrl} style={{ marginTop: "10px", width: "100%" }} />
+                <a 
+                  href={audioResult.flacUrl} 
+                  download="compressed.flac"
+                  className="btn btn-ready"
+                  style={{ marginTop: "10px", display: "block", textAlign: "center", textDecoration: "none", backgroundColor: "#00d1ff" }}
+                >
+                  Download FLAC
+                </a>
+              </div>
+            </div>
+          )}
+
+          {activeTab === "image" && originalUrl && (
             <div className="results">
               {/* Column 1: Original */}
               <div style={{ flex: "1 1 250px" }}>

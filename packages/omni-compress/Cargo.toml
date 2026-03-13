@@ -16,3 +16,5 @@ console_error_panic_hook = "0.1.7"
 zip = { version = "0.6", default-features = false, features = ["deflate"] }
 flate2 = "1.0"
 js-sys = "0.3"
+flacenc = "0.3"
+shine-rs = "0.1"
