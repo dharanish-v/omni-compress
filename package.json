@@ -11,5 +11,8 @@
     "build:client": "cd apps/playground && bun run build",
     "dev:client": "cd apps/playground && bun run dev",
     "build": "bun run build:rust && bun run build:client"
+  },
+  "devDependencies": {
+    "ajv": "^8.18.0"
   }
 }

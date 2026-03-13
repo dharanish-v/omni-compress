@@ -1,6 +1,7 @@
 # omni-compress
 
 [![CI](https://github.com/dharanish-v/omni-compress/actions/workflows/ci.yml/badge.svg)](https://github.com/dharanish-v/omni-compress/actions/workflows/ci.yml)
+[![Coverage](https://img.shields.io/badge/coverage-82%25-brightgreen)](https://github.com/dharanish-v/omni-compress/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![NPM Version](https://img.shields.io/npm/v/@dharanish/omni-compress.svg)](https://www.npmjs.com/package/@dharanish/omni-compress)
 

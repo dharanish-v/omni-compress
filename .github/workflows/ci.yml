@@ -2,30 +2,51 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ master ]
   pull_request:
-    branches: [ main ]
+    branches: [ master ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
+      
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
+          components: rustfmt, clippy
+          
       - name: Install wasm-pack
         run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+        
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-      - name: Build Rust Engine
-        working-directory: packages/omni-compress
-        run: wasm-pack build --target web
+          
       - name: Install Monorepo Deps
         run: bun install
+        
+      - name: Check Rust Format
+        working-directory: packages/omni-compress
+        run: cargo fmt -- --check
+        
+      - name: Run Rust Tests
+        working-directory: packages/omni-compress
+        run: cargo test
+        
+      - name: Build Rust Engine
+        working-directory: packages/omni-compress
+        run: wasm-pack build --target web --out-name omni_compress
+        
+      - name: Run Vitest with Coverage
+        working-directory: packages/omni-compress
+        run: bun run test:coverage
+        
       - name: Build React Playground
         working-directory: apps/playground
         run: bun run build

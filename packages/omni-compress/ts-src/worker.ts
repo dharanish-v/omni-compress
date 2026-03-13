@@ -1,4 +1,9 @@
-import init, { compress_image, compress_zlib, compress_to_flac, compress_to_mp3 } from "../pkg/omni_compress.js";
+import init, {
+  compress_image,
+  compress_zlib,
+  compress_to_flac,
+  compress_to_mp3,
+} from "../pkg/omni_compress.js";
 
 let initialized = false;
 
@@ -33,9 +38,15 @@ self.onmessage = async (e: MessageEvent) => {
 
     // Transferable objects (ArrayBuffer) for performance
     if (result instanceof Uint8Array) {
-      self.postMessage({ id, type: "success", payload: result }, { transfer: [result.buffer] });
+      self.postMessage(
+        { id, type: "success", payload: result },
+        { transfer: [result.buffer] },
+      );
     } else if (result instanceof Float32Array) {
-      self.postMessage({ id, type: "success", payload: result }, { transfer: [result.buffer] });
+      self.postMessage(
+        { id, type: "success", payload: result },
+        { transfer: [result.buffer] },
+      );
     } else {
       self.postMessage({ id, type: "success", payload: result });
     }
