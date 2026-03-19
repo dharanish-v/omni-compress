@@ -38,7 +38,7 @@ jobs:
           cd packages/omni-compress
           if [ -n "$NPM_TOKEN" ]; then
             npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-            npm publish --access public || true
+            npm publish --access public --workspaces=false || true
           fi
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
