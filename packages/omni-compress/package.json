@@ -1,6 +1,6 @@
 {
   "name": "@dharanish/omni-compress",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Zero-compromise, hyper-optimized media processing abstraction layer.",
   "author": "Dharanish V",
   "type": "module",
