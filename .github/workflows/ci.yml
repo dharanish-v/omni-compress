@@ -38,6 +38,9 @@ jobs:
           path: './apps/playground/dist'
 
   deploy_pages:
+    permissions:
+      pages: write
+      id-token: write
     needs: build_and_deploy
     runs-on: ubuntu-latest
     environment:
