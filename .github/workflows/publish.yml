@@ -23,7 +23,10 @@ jobs:
         run: bun install
       - name: Build Library
         working-directory: packages/omni-compress
-        run: bun run build
+        run: |
+          bun run build
+          cp ../../README.md .
+          cp ../../LICENSE .
       - name: Publish to NPM
         working-directory: .
         env:
