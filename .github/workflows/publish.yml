@@ -28,9 +28,7 @@ jobs:
           cp ../../README.md .
           cp ../../LICENSE .
       - name: Publish to NPM
-        working-directory: .
+        working-directory: packages/omni-compress
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
-          npm publish -w @dharanish/omni-compress --access public
+          BUN_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: bun publish --access public
