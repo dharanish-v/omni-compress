@@ -1,4 +1,4 @@
-name: CI & Publish
+name: CI & Playground Deployment
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   id-token: write
 
 jobs:
-  build_and_publish:
+  build_and_deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -32,23 +32,13 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: Publish to NPM
-        # Ensures it only publishes if version changed
-        run: |
-          if [ -n "$NPM_TOKEN" ]; then
-            npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-            npm publish -w @dharanish/omni-compress --access public || true
-          fi
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: './apps/playground/dist'
 
   deploy_pages:
-    needs: build_and_publish
+    needs: build_and_deploy
     runs-on: ubuntu-latest
     environment:
       name: github-pages
