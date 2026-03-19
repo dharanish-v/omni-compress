@@ -35,10 +35,9 @@ jobs:
       - name: Publish to NPM
         # Ensures it only publishes if version changed
         run: |
-          cd packages/omni-compress
           if [ -n "$NPM_TOKEN" ]; then
             npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN
-            npm publish --access public --workspaces=false || true
+            npm publish -w @dharanish/omni-compress --access public || true
           fi
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

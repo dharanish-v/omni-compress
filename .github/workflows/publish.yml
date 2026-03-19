@@ -25,17 +25,17 @@ jobs:
         working-directory: packages/omni-compress
         run: bun run build
       - name: Publish to NPM
-        working-directory: packages/omni-compress
+        working-directory: .
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
-          npm publish --access public --workspaces=false
+          npm publish -w @dharanish/omni-compress --access public
       - name: Publish to GitHub Packages
-        working-directory: packages/omni-compress
+        working-directory: .
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm config set @dharanish:registry https://npm.pkg.github.com
           npm config set //npm.pkg.github.com/:_authToken $NODE_AUTH_TOKEN
-          npm publish --workspaces=false
+          npm publish -w @dharanish/omni-compress
