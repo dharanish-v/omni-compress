@@ -13,6 +13,8 @@ A zero-compromise, hyper-optimized media processing abstraction layer for modern
 
 It guarantees **100% format support** by falling back to WebAssembly when necessary, while rigorously protecting your bundle size by attempting to use native 0-byte Web APIs first.
 
+The library is designed for both frontend (React, Vue, Svelte) and backend (Node.js, Electron) environments.
+
 ---
 
 ## ✨ Features
