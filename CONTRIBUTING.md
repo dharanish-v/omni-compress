@@ -1,44 +1,67 @@
-# Contributing to omni-compress
+# 🤝 Contributing to Omni Compress
 
-Thank you for your interest in contributing to **omni-compress**! We appreciate your help in making this a truly universal compression engine.
+First off, thank you for taking the time to contribute! 🎉 We welcome all bug reports, feature requests, and pull requests.
 
 ## 🛠️ Development Setup
 
-The project uses a monorepo structure managed by **Bun** and **npm workspaces**.
+This project uses [Bun](https://bun.sh/) for blazingly fast dependency management and script execution. It is structured as a monorepo.
 
 ### Prerequisites
-- [Rust](https://www.rust-lang.org/tools/install) (latest stable)
-- [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
-- [Bun](https://bun.sh/) (for monorepo management)
+- Install [Bun](https://bun.sh/docs/installation)
 
-### Local Workflow
-1.  **Fork and clone** the repository.
-2.  **Install dependencies**:
-    ```bash
-    bun install
-    ```
-3.  **Build the WASM engine**:
-    ```bash
-    bun run build:rust
-    ```
-4.  **Start the development server**:
-    ```bash
-    bun run dev:client
-    ```
+### Getting Started
 
-## 🏗️ Project Structure
-- `packages/omni-compress`: The core Rust library.
-- `apps/playground`: The React app for testing and benchmarking.
+1. **Clone the repository and install dependencies:**
+   ```bash
+   git clone https://github.com/dharanish-v/omni-compress.git
+   cd omni-compress
+   bun install
+   ```
 
-## ✅ Contribution Guidelines
-- **Rust**: Ensure all code is formatted with `cargo fmt`.
-- **TypeScript**: Use `bun run lint` in the playground to check for issues.
-- **Tests**: Add tests for new compression features in Rust or integration tests in the playground.
+2. **Run the local development server:**
+   ```bash
+   bun run dev
+   ```
+   This command concurrently watches the library (`packages/omni-compress`) for changes and runs the React playground (`apps/playground`) on a local port.
 
-## 🚀 Submitting a Pull Request
-1. Create a new feature branch: `git checkout -b feat/my-new-feature`.
-2. Commit your changes with clear, descriptive messages.
-3. Push to your branch and open a PR against the `main` branch.
+3. **Build the packages:**
+   ```bash
+   bun run build
+   ```
 
-## ⚖️ Code of Conduct
-Please be respectful and professional in all interactions. We follow the standard Contributor Covenant Code of Conduct.
+## 📂 Project Structure
+
+```text
+/
+├── packages/omni-compress/ # The core NPM library
+│   ├── src/
+│   │   ├── adapters/       # Environment-specific logic (browser vs node)
+│   │   ├── core/           # Routing and shared utilities
+│   │   ├── workers/        # Web Worker entry points
+│   │   └── index.ts        # Main package export
+│   └── tsup.config.ts      # Bundler configuration
+│
+└── apps/playground/        # Vite + React Demo Application
+    ├── src/
+    │   ├── App.tsx         # Picasso-themed UI
+    │   └── index.css       # Tailwind v4 configuration
+    └── vite.config.ts
+```
+
+## ✅ Commit Guidelines
+
+To maintain a clean history, please follow these guidelines:
+- **Be concise.** Use short, descriptive commit messages.
+- **Use Conventional Commits:** Start your commit with a type (e.g., `feat:`, `fix:`, `docs:`, `refactor:`).
+- **Ensure Quality:** Make sure all `eslint` and TypeScript errors are resolved before pushing.
+
+## 🚀 Pull Request Process
+
+1. Fork the repository.
+2. Create a new feature branch (`git checkout -b feature/amazing-feature`).
+3. Make your changes, following the architectural rules (Zero-Copy Transfers, Memory Safety).
+4. Commit your changes (`git commit -m 'feat: add amazing feature'`).
+5. Push to the branch (`git push origin feature/amazing-feature`).
+6. Open a Pull Request targeting the `main` branch.
+
+We look forward to reviewing your PR!

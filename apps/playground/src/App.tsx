@@ -1,410 +1,199 @@
-import { useState, useEffect, useRef } from "react";
-import { OmniCompressor } from "omni-compress";
+import { useState, useRef, useEffect } from "react";
+import { OmniCompressor } from "@dharanish/omni-compress";
 
 function App() {
-  const [isReady, setIsReady] = useState(false);
-  const compressorRef = useRef<OmniCompressor | null>(null);
+  const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-
-  const [wasmResult, setWasmResult] = useState<{
-    url: string;
-    size: number;
-    time: number;
-  } | null>(null);
-  const [canvasResult, setCanvasResult] = useState<{
-    url: string;
-    size: number;
-    time: number;
-  } | null>(null);
-
-  const [audioResult, setAudioResult] = useState<{
-    url: string;
-    size: number;
-    time: number;
-    format: string;
-    flacUrl: string;
-    flacSize: number;
-    flacTime: number;
-  } | null>(null);
-
-  const [originalSize, setOriginalSize] = useState(0);
-  const [activeTab, setActiveTab] = useState<"image" | "audio">("image");
+  const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [stats, setStats] = useState<{ origSize: number; newSize: number; time: number } | null>(null);
+  
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const compressor = new OmniCompressor();
-    compressor.init().then(() => {
-      compressorRef.current = compressor;
-      setIsReady(true);
-    });
-
     return () => {
-      compressorRef.current?.terminate();
+      if (originalUrl) URL.revokeObjectURL(originalUrl);
+      if (compressedUrl) URL.revokeObjectURL(compressedUrl);
     };
-  }, []);
+  }, [originalUrl, compressedUrl]);
 
-  const handleAudioUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !compressorRef.current) return;
-
-    setOriginalUrl(null);
-    setWasmResult(null);
-    setAudioResult(null);
-    setOriginalSize(file.size);
-
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const arrayBuffer = await file.arrayBuffer();
-    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-
-    // Get interleaved samples
-    const channels = audioBuffer.numberOfChannels;
-    const pcmData = new Float32Array(audioBuffer.length * channels);
-    for (let i = 0; i < channels; i++) {
-      const channelData = audioBuffer.getChannelData(i);
-      for (let j = 0; j < channelData.length; j++) {
-        pcmData[j * channels + i] = channelData[j];
-      }
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFile = e.target.files[0];
+      setFile(selectedFile);
+      if (originalUrl) URL.revokeObjectURL(originalUrl);
+      setOriginalUrl(URL.createObjectURL(selectedFile));
+      setCompressedUrl(null);
+      setStats(null);
+      setProgress(0);
     }
+  };
 
-    // 🏎️ CONTESTANT: WASM AUDIO (MP3)
-    const startMp3 = performance.now();
-    const compressedMp3 = await compressorRef.current.compressAudioMp3(
-      pcmData,
-      audioBuffer.sampleRate,
-      channels,
-      128 // 128kbps
-    );
-    const endMp3 = performance.now();
-
-    const mp3Blob = new Blob([new Uint8Array(compressedMp3)], { type: "audio/mp3" });
+  const handleCompress = async () => {
+    if (!file) return;
+    setIsProcessing(true);
+    setProgress(0);
     
-    // 🏎️ CONTESTANT: WASM AUDIO (FLAC)
-    const startFlac = performance.now();
-    const compressedFlac = await compressorRef.current.compressAudioFlac(
-      pcmData,
-      audioBuffer.sampleRate,
-      channels,
-      16 // 16-bit
-    );
-    const endFlac = performance.now();
-    const flacBlob = new Blob([new Uint8Array(compressedFlac)], { type: "audio/flac" });
+    try {
+      const isImage = file.type.startsWith('image/');
+      const type = isImage ? 'image' : 'audio';
+      const format = isImage ? 'webp' : 'mp3';
 
-    setAudioResult({
-      url: URL.createObjectURL(mp3Blob),
-      size: mp3Blob.size,
-      time: Math.round(endMp3 - startMp3),
-      format: "MP3",
-      flacUrl: URL.createObjectURL(flacBlob),
-      flacSize: flacBlob.size,
-      flacTime: Math.round(endFlac - startFlac),
-    });
-  };
-
-  const compressWithCanvas = (
-    file: File,
-    quality: number,
-  ): Promise<{ blob: Blob; time: number }> => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      const url = URL.createObjectURL(file);
-
-      img.onload = () => {
-        const start = performance.now();
-        const canvas = document.createElement("canvas");
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext("2d");
-
-        ctx?.drawImage(img, 0, 0);
-
-        canvas.toBlob(
-          (blob) => {
-            const end = performance.now();
-            if (blob) resolve({ blob, time: Math.round(end - start) });
-          },
-          "image/jpeg",
-          quality / 100,
-        );
-      };
-      img.src = url;
-    });
-  };
-
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !isReady) return;
-
-    if (file.type === "image/gif") {
-      alert(
-        "GIFs are animated timelines, not static images. Wasm will only process the first frame. Use a heavy PNG or JPG for the true benchmark.",
-      );
-    }
-
-    setOriginalUrl(URL.createObjectURL(file));
-    setOriginalSize(file.size);
-    setWasmResult(null);
-    setCanvasResult(null);
-
-    const targetQuality = 80;
-
-    // 🏎️ CONTESTANT 1: WEB ASSEMBLY (RUST) - Now with Worker!
-    const reader = new FileReader();
-    reader.readAsArrayBuffer(file);
-    reader.onload = async () => {
-      const inputBytes = new Uint8Array(reader.result as ArrayBuffer);
-
-      if (!compressorRef.current) return;
-
-      const startWasm = performance.now();
-      const outputBytes = await compressorRef.current.compressImage(inputBytes, 0, targetQuality);
-      const endWasm = performance.now();
-
-      const wasmBlob = new Blob([new Uint8Array(outputBytes)], { type: "image/jpeg" });
-      setWasmResult({
-        url: URL.createObjectURL(wasmBlob),
-        size: wasmBlob.size,
-        time: Math.round(endWasm - startWasm),
+      const start = performance.now();
+      
+      const resultBlob = await OmniCompressor.process(file, {
+        type,
+        format,
+        quality: 0.8,
+        onProgress: (p) => setProgress(Math.round(p))
       });
-    };
 
-    // 🏎️ CONTESTANT 2: NATIVE CANVAS (JS)
-    const { blob: canvasBlob, time: canvasTime } = await compressWithCanvas(
-      file,
-      targetQuality,
-    );
-    setCanvasResult({
-      url: URL.createObjectURL(canvasBlob),
-      size: canvasBlob.size,
-      time: canvasTime,
-    });
+      const time = Math.round(performance.now() - start);
+
+      const url = URL.createObjectURL(resultBlob);
+      setCompressedUrl(url);
+      setStats({
+        origSize: file.size,
+        newSize: resultBlob.size,
+        time
+      });
+    } catch (err) {
+      console.error(err);
+      alert("Failed to compress file");
+    } finally {
+      setIsProcessing(false);
+    }
   };
+
+  const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(2) + " MB";
 
   return (
-    <div className="app-root">
-      <div className="container">
-        <div className="card">
-          <h1 className="title">Omni Compressor</h1>
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 font-sans selection:bg-picasso-rose selection:text-white flex items-center justify-center">
+      <div className="max-w-5xl w-full grid grid-cols-1 md:grid-cols-12 gap-8 relative">
+        
+        {/* Decorative background shapes mimicking cubism */}
+        <div className="absolute -top-10 -left-10 w-48 h-48 bg-picasso-lightblue rounded-full mix-blend-multiply opacity-50 blur-xl"></div>
+        <div className="absolute -bottom-10 -right-10 w-72 h-72 bg-picasso-ochre mix-blend-multiply opacity-30 blur-2xl transform rotate-12"></div>
+        <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-picasso-rose mix-blend-multiply opacity-40 blur-2xl transform -translate-y-1/2"></div>
 
-          <div className="tabs" style={{ display: "flex", gap: "10px", marginBottom: "20px" }}>
-            <button 
-              className={`btn ${activeTab === "image" ? "btn-ready" : ""}`}
-              onClick={() => setActiveTab("image")}
-            >
-              Images
-            </button>
-            <button 
-              className={`btn ${activeTab === "audio" ? "btn-ready" : ""}`}
-              onClick={() => setActiveTab("audio")}
-            >
-              Audio
-            </button>
+        {/* Header / Intro Section (Spans 5 cols) */}
+        <div className="md:col-span-5 flex flex-col justify-center relative z-10">
+          <div className="bg-white border-4 border-picasso-dark p-8 shadow-[12px_12px_0px_0px_rgba(43,43,43,1)] transform -rotate-1 hover:rotate-0 transition-transform duration-300">
+            <h1 className="text-5xl font-black text-picasso-dark tracking-tighter uppercase leading-none mb-4">
+              Omni<br />
+              <span className="text-picasso-terracotta">Compress</span>
+            </h1>
+            <p className="text-lg text-gray-700 font-medium leading-relaxed mb-6 border-l-4 border-picasso-blue pl-4">
+              The zero-compromise media abstraction layer. 
+              Upload an image or audio file and let WebAssembly and standard Web APIs sculpt it down to size.
+            </p>
+            
+            <div className="space-y-4">
+              <button 
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full bg-picasso-blue hover:bg-picasso-dark text-white font-bold py-4 px-6 border-2 border-transparent hover:border-picasso-blue shadow-[4px_4px_0px_0px_rgba(43,43,43,1)] hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] transition-all"
+              >
+                {file ? file.name : "Select Media File"}
+              </button>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept="image/*,audio/*" 
+                className="hidden" 
+              />
+              
+              <button 
+                onClick={handleCompress} 
+                disabled={!file || isProcessing}
+                className={`w-full font-bold py-4 px-6 border-2 border-picasso-dark shadow-[4px_4px_0px_0px_rgba(43,43,43,1)] transition-all flex justify-center items-center gap-2
+                  ${(!file || isProcessing) 
+                    ? "bg-gray-200 text-gray-500 cursor-not-allowed shadow-none translate-x-[4px] translate-y-[4px]" 
+                    : "bg-picasso-ochre text-picasso-dark hover:bg-picasso-terracotta hover:text-white hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"}`}
+              >
+                {isProcessing ? (
+                  <>
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing... {progress}%
+                  </>
+                ) : 'Start Compression'}
+              </button>
+            </div>
           </div>
+        </div>
 
-          {activeTab === "image" ? (
-            <div className="upload-area">
-              <input
-                type="file"
-                onChange={handleUpload}
-                disabled={!isReady}
-                accept="image/png, image/jpeg, image/gif"
-                className="file-input"
-                id="file-upload"
-              />
-              <label
-                htmlFor="file-upload"
-                className={`btn ${isReady ? "btn-ready" : "btn-loading"}`}
-              >
-                {isReady ? "Upload Heavy Image (2MB+)" : "Loading Engines..."}
-              </label>
-              <p className="hint">
-                Upload a high-res image to compare Wasm vs Native UI thread.
-              </p>
-            </div>
-          ) : (
-            <div className="upload-area">
-              <input
-                type="file"
-                onChange={handleAudioUpload}
-                disabled={!isReady}
-                accept="audio/*"
-                className="file-input"
-                id="audio-upload"
-              />
-              <label
-                htmlFor="audio-upload"
-                className={`btn ${isReady ? "btn-ready" : "btn-loading"}`}
-              >
-                {isReady ? "Upload Audio File" : "Loading Engines..."}
-              </label>
-              <p className="hint">
-                Upload a WAV/MP3 to compress to MP3 via Rust WASM.
+        {/* Results / Preview Section (Spans 7 cols) */}
+        <div className="md:col-span-7 relative z-10 flex flex-col justify-center">
+          {(!file && !compressedUrl) && (
+            <div className="h-full min-h-[400px] border-4 border-dashed border-picasso-lightblue/50 bg-white/40 flex items-center justify-center transform rotate-1 p-8 text-center">
+              <p className="text-2xl font-bold text-picasso-lightblue/70 rotate-[-2deg]">
+                "Art is the elimination of the unnecessary."<br/>
+                <span className="text-lg opacity-70 block mt-2">- Pablo Picasso</span>
               </p>
             </div>
           )}
 
-          {activeTab === "audio" && audioResult && (
-            <div className="results">
-               <div style={{ flex: "1 1 250px" }}>
-                <h3 className="results-title">Original</h3>
-                <ul className="stats">
-                  <li>
-                    <span className="k">Size</span>{" "}
-                    <span className="v">
-                      {(originalSize / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </li>
-                </ul>
-              </div>
-              <div style={{ flex: "1 1 250px" }}>
-                <h3 className="results-title" style={{ color: "var(--accent-2)" }}>🦀 Wasm MP3</h3>
-                <ul className="stats">
-                  <li>
-                    <span className="k">Size</span>{" "}
-                    <span className="v">
-                      {(audioResult.size / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </li>
-                  <li>
-                    <span className="k">Time</span>{" "}
-                    <span className="v" style={{ color: "var(--accent-2)", fontWeight: "bold" }}>
-                      {audioResult.time} ms
-                    </span>
-                  </li>
-                </ul>
-                <audio controls src={audioResult.url} style={{ marginTop: "10px", width: "100%" }} />
-                <a 
-                  href={audioResult.url} 
-                  download="compressed.mp3"
-                  className="btn btn-ready"
-                  style={{ marginTop: "10px", display: "block", textAlign: "center", textDecoration: "none" }}
-                >
-                  Download MP3
-                </a>
-              </div>
-              <div style={{ flex: "1 1 250px" }}>
-                <h3 className="results-title" style={{ color: "#00d1ff" }}>🦀 Wasm FLAC</h3>
-                <ul className="stats">
-                  <li>
-                    <span className="k">Size</span>{" "}
-                    <span className="v">
-                      {(audioResult.flacSize / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </li>
-                  <li>
-                    <span className="k">Time</span>{" "}
-                    <span className="v" style={{ color: "#00d1ff", fontWeight: "bold" }}>
-                      {audioResult.flacTime} ms
-                    </span>
-                  </li>
-                </ul>
-                <audio controls src={audioResult.flacUrl} style={{ marginTop: "10px", width: "100%" }} />
-                <a 
-                  href={audioResult.flacUrl} 
-                  download="compressed.flac"
-                  className="btn btn-ready"
-                  style={{ marginTop: "10px", display: "block", textAlign: "center", textDecoration: "none", backgroundColor: "#00d1ff" }}
-                >
-                  Download FLAC
-                </a>
-              </div>
-            </div>
-          )}
-
-          {activeTab === "image" && originalUrl && (
-            <div className="results">
-              {/* Column 1: Original */}
-              <div style={{ flex: "1 1 250px" }}>
-                <h3 className="results-title">Original</h3>
-                <ul className="stats">
-                  <li>
-                    <span className="k">Size</span>{" "}
-                    <span className="v">
-                      {(originalSize / 1024 / 1024).toFixed(2)} MB
-                    </span>
-                  </li>
-                  <li>
-                    <span className="k">Time</span> <span className="v">-</span>
-                  </li>
-                </ul>
-                <div className="preview">
-                  <img src={originalUrl} alt="Original" />
+          {(file || compressedUrl) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 h-full">
+              
+              {/* Original Card */}
+              {originalUrl && (
+                <div className="bg-white border-4 border-picasso-dark p-4 shadow-[8px_8px_0px_0px_rgba(83,134,180,1)] flex flex-col">
+                  <div className="bg-picasso-lightblue text-white font-bold uppercase tracking-wider py-1 px-3 inline-block self-start mb-4 border-2 border-picasso-dark">
+                    Original
+                  </div>
+                  <div className="flex-grow flex items-center justify-center bg-stone-100 border-2 border-picasso-dark overflow-hidden relative group">
+                    {file?.type.startsWith('image/') ? (
+                      <img src={originalUrl} alt="Original" className="max-h-64 object-contain group-hover:scale-105 transition-transform" />
+                    ) : (
+                      <audio controls src={originalUrl} className="w-full px-2" />
+                    )}
+                  </div>
+                  {stats && (
+                    <div className="mt-4 flex justify-between items-end border-t-2 border-dashed border-gray-300 pt-4">
+                      <span className="text-sm font-bold text-gray-500 uppercase">Size</span>
+                      <span className="text-xl font-black text-picasso-dark">{formatSize(stats.origSize)}</span>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
-              {/* Column 2: Wasm */}
-              <div style={{ flex: "1 1 250px" }}>
-                <h3
-                  className="results-title"
-                  style={{ color: "var(--accent-2)" }}
-                >
-                  🦀 Wasm
-                </h3>
-                {wasmResult ? (
-                  <>
-                    <ul className="stats">
-                      <li>
-                        <span className="k">Size</span>{" "}
-                        <span className="v">
-                          {(wasmResult.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
-                      </li>
-                      <li>
-                        <span className="k">Time</span>{" "}
-                        <span
-                          className="v"
-                          style={{
-                            color: "var(--accent-2)",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          {wasmResult.time} ms
-                        </span>
-                      </li>
-                    </ul>
-                    <div className="preview">
-                      <img src={wasmResult.url} alt="Wasm Result" />
+              {/* Compressed Card */}
+              {compressedUrl && stats && (
+                <div className="bg-picasso-dark border-4 border-picasso-dark p-4 shadow-[8px_8px_0px_0px_rgba(214,140,137,1)] flex flex-col text-white transform md:translate-y-8">
+                  <div className="bg-picasso-rose text-picasso-dark font-black uppercase tracking-wider py-1 px-3 inline-block self-start mb-4 border-2 border-white">
+                    Masterpiece
+                  </div>
+                  <div className="flex-grow flex items-center justify-center bg-[#1a1a1a] border-2 border-gray-600 overflow-hidden relative">
+                    {file?.type.startsWith('image/') ? (
+                      <img src={compressedUrl} alt="Compressed" className="max-h-64 object-contain" />
+                    ) : (
+                      <audio controls src={compressedUrl} className="w-full px-2 filter invert sepia hue-rotate-180" />
+                    )}
+                  </div>
+                  <div className="mt-4 grid grid-cols-2 gap-4 border-t-2 border-dashed border-gray-600 pt-4">
+                    <div>
+                      <span className="text-xs font-bold text-gray-400 uppercase block">New Size</span>
+                      <span className="text-xl font-black text-picasso-ochre">{formatSize(stats.newSize)}</span>
                     </div>
-                  </>
-                ) : (
-                  <p className="hint" style={{ padding: "14px" }}>
-                    Processing in Wasm...
-                  </p>
-                )}
-              </div>
-
-              {/* Column 3: Canvas */}
-              <div style={{ flex: "1 1 250px" }}>
-                <h3 className="results-title" style={{ color: "#f7df1e" }}>
-                  🟨 Canvas
-                </h3>
-                {canvasResult ? (
-                  <>
-                    <ul className="stats">
-                      <li>
-                        <span className="k">Size</span>{" "}
-                        <span className="v">
-                          {(canvasResult.size / 1024 / 1024).toFixed(2)} MB
-                        </span>
-                      </li>
-                      <li>
-                        <span className="k">Time</span>{" "}
-                        <span
-                          className="v"
-                          style={{ color: "#f7df1e", fontWeight: "bold" }}
-                        >
-                          {canvasResult.time} ms
-                        </span>
-                      </li>
-                    </ul>
-                    <div className="preview">
-                      <img src={canvasResult.url} alt="Canvas Result" />
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-gray-400 uppercase block">Time</span>
+                      <span className="text-xl font-black text-picasso-lightblue">{stats.time}ms</span>
                     </div>
-                  </>
-                ) : (
-                  <p className="hint" style={{ padding: "14px" }}>
-                    Processing in DOM...
-                  </p>
-                )}
-              </div>
+                  </div>
+                  <a 
+                    href={compressedUrl} 
+                    download={`compressed-${file?.name}`}
+                    className="mt-4 w-full bg-picasso-terracotta hover:bg-white hover:text-picasso-terracotta text-white text-center font-bold py-3 px-4 border-2 border-transparent hover:border-picasso-terracotta transition-colors uppercase tracking-widest"
+                  >
+                    Download Art
+                  </a>
+                </div>
+              )}
             </div>
           )}
         </div>

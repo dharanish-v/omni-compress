@@ -15,38 +15,27 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
+      - name: Install dependencies
+        run: bun install
       - name: Build Library
         working-directory: packages/omni-compress
-        run: |
-          wasm-pack build --target web --out-name omni_compress
-          sed -i 's/"name": "omni-compress"/"name": "@dharanish\/omni-compress"/' pkg/package.json
-          cp ../../LICENSE pkg/
-          cp ../../README.md pkg/
+        run: bun run build
       - name: Publish to NPM
-        working-directory: packages/omni-compress/pkg
+        working-directory: packages/omni-compress
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
           npm publish --access public
       - name: Publish to GitHub Packages
-        working-directory: packages/omni-compress/pkg
+        working-directory: packages/omni-compress
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           npm config set @dharanish:registry https://npm.pkg.github.com
           npm config set //npm.pkg.github.com/:_authToken $NODE_AUTH_TOKEN
           npm publish
-      - name: Publish to JSR
-        working-directory: packages/omni-compress
-        run: npx jsr publish

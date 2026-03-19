@@ -1,23 +1,34 @@
-import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
-import wasm from "vite-plugin-wasm";
-import topLevelAwait from "vite-plugin-top-level-await";
-
+// https://vitejs.dev/config/
 export default defineConfig({
-  plugins: [
-    react({
-      babel: {
-        plugins: [["babel-plugin-react-compiler"]],
-      },
-    }),
-    wasm(), // Allows importing .wasm files
-    topLevelAwait(), // Allows "await" at the top of the file
-  ],
+  plugins: [react(), tailwindcss()],
+  base: process.env.NODE_ENV === 'production' ? '/omni-compress/' : '/',
   server: {
-    fs: {
-      // Allow serving files from the project root (one level up)
-      allow: [".."],
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
     },
   },
-});
+  optimizeDeps: {
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+  },
+  build: {
+    rollupOptions: {
+      external: [
+        'node:child_process',
+        'node:os',
+        'node:path',
+        'node:crypto',
+        'node:fs',
+        'child_process',
+        'os',
+        'path',
+        'crypto',
+        'fs'
+      ]
+    }
+  }
+})

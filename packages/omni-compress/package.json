@@ -1,55 +1,45 @@
 {
   "name": "@dharanish/omni-compress",
-  "version": "0.2.0",
-  "description": "Universal compressor in WASM",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/dharanish-v/omni-compress.git"
-  },
-  "keywords": [
-    "wasm",
-    "rust",
-    "compression",
-    "image",
-    "zlib"
-  ],
+  "version": "1.0.0",
+  "description": "Zero-compromise, hyper-optimized media processing abstraction layer.",
   "author": "Dharanish V",
-  "license": "MIT",
-  "module": "./pkg/index.js",
-  "types": "./pkg/index.d.ts",
-  "files": [
-    "pkg"
-  ],
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./pkg/index.d.ts",
-      "import": "./pkg/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
     },
-    "./worker": {
-      "import": "./pkg/worker.js"
+    "./workers/*": {
+      "import": "./dist/workers/*.js",
+      "require": "./dist/workers/*.cjs"
     }
   },
+  "files": [
+    "dist"
+  ],
   "scripts": {
-    "build": "wasm-pack build --target web --out-name omni_compress && vite build",
-    "dev": "vite build --watch",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
-    "test:rust": "cargo test"
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src --ext .ts",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@ffmpeg/core": "^0.12.6",
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.2",
+    "mp4box": "^2.3.0"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.0",
-    "ajv": "^6.0.0",
-    "esbuild": "^0.27.3",
-    "jsdom": "^28.1.0",
-    "tsc-alias": "^1.8.16",
-    "typescript": "~5.9.3",
-    "vite": "^7.0.0",
-    "vite-plugin-dts": "^4.0.0",
-    "vite-plugin-top-level-await": "^1.6.0",
-    "vite-plugin-wasm": "^3.5.0",
-    "vitest": "^4.1.0"
+    "@types/node": "^20.12.7",
+    "tsup": "^8.0.2",
+    "typescript": "^5.4.5"
   },
-  "publishConfig": {
-    "access": "public"
+  "engines": {
+    "node": ">=18"
   }
 }

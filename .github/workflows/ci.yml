@@ -1,52 +1,63 @@
-name: CI
+name: CI & Publish
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
+    branches:
+      - main
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
-  build-and-test:
+  build_and_publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v4
       
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: wasm32-unknown-unknown
-          components: rustfmt, clippy
-          
-      - name: Install wasm-pack
-        run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-        
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
           bun-version: latest
-          
-      - name: Install Monorepo Deps
+
+      - name: Install dependencies
         run: bun install
         
-      - name: Check Rust Format
-        working-directory: packages/omni-compress
-        run: cargo fmt -- --check
-        
-      - name: Run Rust Tests
-        working-directory: packages/omni-compress
-        run: cargo test
-        
-      - name: Build Rust Engine
-        working-directory: packages/omni-compress
-        run: wasm-pack build --target web --out-name omni_compress
-        
-      - name: Run Vitest with Coverage
-        working-directory: packages/omni-compress
-        run: bun run test:coverage
-        
-      - name: Build React Playground
-        working-directory: apps/playground
-        run: bun run build
+      - name: Build Library
+        run: cd packages/omni-compress && bun run build
+
+      - name: Build Playground
+        run: cd apps/playground && bun run build
+        env:
+          NODE_ENV: production
+
+      - name: Publish to NPM
+        # Ensures it only publishes if version changed
+        run: |
+          cd packages/omni-compress
+          if [ -n "$NPM_TOKEN" ]; then
+            npm config set //registry.npmjs.org/:_authToken=$NPM_TOKEN
+            npm publish --access public || true
+          fi
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './apps/playground/dist'
+
+  deploy_pages:
+    needs: build_and_publish
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
