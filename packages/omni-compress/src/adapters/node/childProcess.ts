@@ -2,9 +2,12 @@ import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
+// @ts-ignore
+import ffmpegPath from 'ffmpeg-static';
 
 import type { CompressorOptions } from '../../core/router.js';
 import { fileToArrayBuffer } from '../../core/utils.js';
+import { logger } from '../../core/logger.js';
 
 /**
  * Ensures the input is an ArrayBuffer (handling Blob/File in Node contexts)
@@ -32,6 +35,10 @@ export async function processWithNode(
   const inputPath = join(tmpdir(), `input_${tempId}`);
   const outputPath = join(tmpdir(), `output_${tempId}.${options.format}`);
 
+  // Guarantee FFmpeg availability: Use ffmpeg-static path if available, fallback to global 'ffmpeg'
+  const binary = ffmpegPath || 'ffmpeg';
+  logger.debug(`Using FFmpeg binary at: ${binary}`);
+
   try {
     // 1. Write the buffer to a temporary file
     await fs.writeFile(inputPath, buffer);
@@ -51,10 +58,8 @@ export async function processWithNode(
     args.push(outputPath);
 
     // 3. Execute FFmpeg
-    // Note: In a real environment, you'd ensure 'ffmpeg' is in the system PATH
-    // or use a path to a bundled binary like 'ffmpeg-static'.
     await new Promise<void>((resolve, reject) => {
-      const child = spawn('ffmpeg', args);
+      const child = spawn(binary, args);
 
       child.on('close', (code) => {
         if (code === 0) {
@@ -65,7 +70,7 @@ export async function processWithNode(
       });
 
       child.on('error', (err) => {
-        reject(new Error(`Failed to start FFmpeg child process: ${err.message}. Is ffmpeg installed?`));
+        reject(new Error(`Failed to start FFmpeg child process: ${err.message}. Ensure ffmpeg is installed or ffmpeg-static is bundled.`));
       });
     });
 

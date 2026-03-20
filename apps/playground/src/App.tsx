@@ -7,9 +7,17 @@ function App() {
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [stats, setStats] = useState<{ origSize: number; newSize: number; time: number } | null>(null);
+  const [stats, setStats] = useState<{ origSize: number; newSize: number; time: number; format: string } | null>(null);
+  const [selectedFormat, setSelectedFormat] = useState<string>("");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (file) {
+      const isImage = file.type.startsWith('image/');
+      setSelectedFormat(isImage ? 'webp' : 'mp3');
+    }
+  }, [file]);
 
   useEffect(() => {
     return () => {
@@ -31,20 +39,19 @@ function App() {
   };
 
   const handleCompress = async () => {
-    if (!file) return;
+    if (!file || !selectedFormat) return;
     setIsProcessing(true);
     setProgress(0);
     
     try {
       const isImage = file.type.startsWith('image/');
       const type = isImage ? 'image' : 'audio';
-      const format = isImage ? 'webp' : 'mp3';
 
       const start = performance.now();
       
       const resultBlob = await OmniCompressor.process(file, {
         type,
-        format,
+        format: selectedFormat,
         quality: 0.8,
         onProgress: (p) => setProgress(Math.round(p))
       });
@@ -56,7 +63,8 @@ function App() {
       setStats({
         origSize: file.size,
         newSize: resultBlob.size,
-        time
+        time,
+        format: selectedFormat
       });
     } catch (err) {
       console.error(err);
@@ -103,6 +111,33 @@ function App() {
                 accept="image/*,audio/*" 
                 className="hidden" 
               />
+
+              {file && (
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm font-bold text-picasso-dark uppercase">Output Format</label>
+                  <select 
+                    value={selectedFormat}
+                    onChange={(e) => setSelectedFormat(e.target.value)}
+                    className="w-full bg-stone-100 border-2 border-picasso-dark p-2 font-bold focus:outline-none focus:bg-picasso-sand transition-colors"
+                  >
+                    {file.type.startsWith('image/') ? (
+                      <>
+                        <option value="webp">WebP (Optimized)</option>
+                        <option value="avif">AVIF (High Quality)</option>
+                        <option value="jpeg">JPEG (Standard)</option>
+                        <option value="png">PNG (Lossless)</option>
+                      </>
+                    ) : (
+                      <>
+                        <option value="mp3">MP3 (Compressed)</option>
+                        <option value="flac">FLAC (Lossless)</option>
+                        <option value="opus">Opus (Web-ready)</option>
+                        <option value="wav">WAV (Uncompressed)</option>
+                      </>
+                    )}
+                  </select>
+                </div>
+              )}
               
               <button 
                 onClick={handleCompress} 
@@ -187,7 +222,7 @@ function App() {
                   </div>
                   <a 
                     href={compressedUrl} 
-                    download={`compressed-${file?.name}`}
+                    download={`compressed-${file?.name.split('.').slice(0, -1).join('.') || 'file'}.${stats.format}`}
                     className="mt-4 w-full bg-picasso-terracotta hover:bg-white hover:text-picasso-terracotta text-white text-center font-bold py-3 px-4 border-2 border-transparent hover:border-picasso-terracotta transition-colors uppercase tracking-widest"
                   >
                     Download Art
