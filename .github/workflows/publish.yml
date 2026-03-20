@@ -21,14 +21,16 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
+      - name: Type Check
+        working-directory: packages/omni-compress
+        run: bun run typecheck
       - name: Build Library
         working-directory: packages/omni-compress
-        run: |
-          bun run build
-          cp ../../README.md .
-          cp ../../LICENSE .
+        run: bun run build
       - name: Publish to NPM
         working-directory: packages/omni-compress
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > .npmrc
           bun publish --access public
+        env:
+          NPM_CONFIG_PROVENANCE: true

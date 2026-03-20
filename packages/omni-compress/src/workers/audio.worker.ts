@@ -16,15 +16,16 @@ self.onmessage = async (event: MessageEvent) => {
       resultBuffer = await processAudioFastPath(buffer, options);
     } else {
       console.debug(`[OmniCompress:Worker:Audio] Executing Heavy Path (FFmpeg)`);
-      resultBuffer = await processAudioHeavyPath(buffer, options);
+      resultBuffer = await processAudioHeavyPath(buffer, options, (progress) => {
+        self.postMessage({ id, type: 'progress', progress });
+      });
     }
 
     console.debug(`[OmniCompress:Worker:Audio] Task ${id} complete. Transferring buffer back.`);
     // Zero-Copy Memory Transfer back to main thread
-    self.postMessage({ id, buffer: resultBuffer }, { transfer: [resultBuffer] });
+    self.postMessage({ id, type: 'success', buffer: resultBuffer }, { transfer: [resultBuffer] });
   } catch (error: any) {
     console.error(`[OmniCompress:Worker:Audio] Error in task ${id}:`, error);
-    self.postMessage({ id, error: error.message });
+    self.postMessage({ id, type: 'error', error: error.message });
   }
 };
-

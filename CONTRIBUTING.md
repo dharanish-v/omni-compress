@@ -1,67 +1,83 @@
-# 🤝 Contributing to Omni Compress
+# Contributing to Omni Compress
 
-First off, thank you for taking the time to contribute! 🎉 We welcome all bug reports, feature requests, and pull requests.
+Thank you for your interest in contributing! We welcome bug reports, feature requests, and pull requests.
 
-## 🛠️ Development Setup
+## Development Setup
 
-This project uses [Bun](https://bun.sh/) for blazingly fast dependency management and script execution. It is structured as a monorepo.
+This project uses [Bun](https://bun.sh/) workspaces. Ensure you have Bun installed before proceeding.
 
 ### Prerequisites
-- Install [Bun](https://bun.sh/docs/installation)
+
+- [Bun](https://bun.sh/docs/installation) (latest)
+- [ffmpeg](https://ffmpeg.org/) (optional — only needed for Node adapter testing)
 
 ### Getting Started
 
-1. **Clone the repository and install dependencies:**
-   ```bash
-   git clone https://github.com/dharanish-v/omni-compress.git
-   cd omni-compress
-   bun install
-   ```
-
-2. **Run the local development server:**
-   ```bash
-   bun run dev
-   ```
-   This command concurrently watches the library (`packages/omni-compress`) for changes and runs the React playground (`apps/playground`) on a local port.
-
-3. **Build the packages:**
-   ```bash
-   bun run build
-   ```
-
-## 📂 Project Structure
-
-```text
-/
-├── packages/omni-compress/ # The core NPM library
-│   ├── src/
-│   │   ├── adapters/       # Environment-specific logic (browser vs node)
-│   │   ├── core/           # Routing and shared utilities
-│   │   ├── workers/        # Web Worker entry points
-│   │   └── index.ts        # Main package export
-│   └── tsup.config.ts      # Bundler configuration
-│
-└── apps/playground/        # Vite + React Demo Application
-    ├── src/
-    │   ├── App.tsx         # Picasso-themed UI
-    │   └── index.css       # Tailwind v4 configuration
-    └── vite.config.ts
+```bash
+git clone https://github.com/dharanish-v/omni-compress.git
+cd omni-compress
+bun install
 ```
 
-## ✅ Commit Guidelines
+### Commands
 
-To maintain a clean history, please follow these guidelines:
-- **Be concise.** Use short, descriptive commit messages.
-- **Use Conventional Commits:** Start your commit with a type (e.g., `feat:`, `fix:`, `docs:`, `refactor:`).
-- **Ensure Quality:** Make sure all `eslint` and TypeScript errors are resolved before pushing.
+```bash
+# Run the playground locally (Vite dev server)
+bun run dev
 
-## 🚀 Pull Request Process
+# Build the library and playground
+bun run build
+
+# Type-check the library
+cd packages/omni-compress && bun run typecheck
+
+# Clean all build artifacts and node_modules
+bun run clean
+```
+
+## Project Structure
+
+```
+├── packages/omni-compress/   → Core library (published to npm)
+│   ├── src/
+│   │   ├── adapters/         → Environment-specific adapters (browser / node)
+│   │   ├── core/             → Router, utils, logger
+│   │   ├── workers/          → Web Worker entry points
+│   │   └── index.ts          → Public API
+│   └── tsup.config.ts        → Build config
+│
+└── apps/playground/          → Vite + React interactive demo
+```
+
+## Architecture Rules
+
+When contributing code, please maintain these design invariants:
+
+1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
+2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` and `ffmpeg.terminate()` in a `finally` block.
+3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
+4. **No main-thread work** — All media processing in browsers must run inside Web Workers.
+
+## Commit Guidelines
+
+We use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add HEIC support via Heavy Path
+fix: prevent Wasm OOM on large audio files
+docs: update supported formats table
+refactor: extract shared FFmpeg args builder
+```
+
+## Pull Request Process
 
 1. Fork the repository.
-2. Create a new feature branch (`git checkout -b feature/amazing-feature`).
-3. Make your changes, following the architectural rules (Zero-Copy Transfers, Memory Safety).
-4. Commit your changes (`git commit -m 'feat: add amazing feature'`).
-5. Push to the branch (`git push origin feature/amazing-feature`).
-6. Open a Pull Request targeting the `main` branch.
+2. Create a feature branch from `master` (`git checkout -b feature/amazing-feature`).
+3. Make your changes, ensuring `bun run typecheck` passes.
+4. Test your changes in the playground (`bun run dev`).
+5. Commit using conventional commit messages.
+6. Push to your fork and open a Pull Request targeting `master`.
 
-We look forward to reviewing your PR!
+## Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold this code.

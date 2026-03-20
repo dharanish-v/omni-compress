@@ -15,7 +15,13 @@ function App() {
   useEffect(() => {
     if (file) {
       const isImage = file.type.startsWith('image/');
-      setSelectedFormat(isImage ? 'webp' : 'mp3');
+      if (isImage) {
+        if (file.type === 'image/webp') setSelectedFormat('avif');
+        else setSelectedFormat('webp');
+      } else {
+        if (file.type === 'audio/mpeg' || file.type === 'audio/mp3') setSelectedFormat('opus');
+        else setSelectedFormat('mp3');
+      }
     }
   }, [file]);
 
@@ -74,6 +80,17 @@ function App() {
     }
   };
 
+  const isLossy = (file: File | null) => {
+    if (!file) return false;
+    const lossyMimes = [
+      'image/jpeg', 'image/jpg', 'audio/mpeg', 'audio/mp3', 'audio/opus', 'audio/ogg', 'audio/webm', 'video/webm'
+    ];
+    const lossyExts = ['.jpg', '.jpeg', '.mp3', '.ogg', '.opus', '.webm'];
+    const fileName = file.name.toLowerCase();
+    
+    return lossyMimes.includes(file.type) || lossyExts.some(ext => fileName.endsWith(ext));
+  };
+
   const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(2) + " MB";
 
   return (
@@ -114,7 +131,14 @@ function App() {
 
               {file && (
                 <div className="flex flex-col gap-2">
-                  <label className="text-sm font-bold text-picasso-dark uppercase">Output Format</label>
+                  <div className="flex justify-between items-center">
+                    <label className="text-sm font-bold text-picasso-dark uppercase">Output Format</label>
+                    {isLossy(file) && (
+                      <span className="text-[10px] bg-picasso-terracotta text-white px-2 py-0.5 font-bold rounded">
+                        LOSSY SOURCE
+                      </span>
+                    )}
+                  </div>
                   <select 
                     value={selectedFormat}
                     onChange={(e) => setSelectedFormat(e.target.value)}
@@ -122,20 +146,31 @@ function App() {
                   >
                     {file.type.startsWith('image/') ? (
                       <>
-                        <option value="webp">WebP (Optimized)</option>
-                        <option value="avif">AVIF (High Quality)</option>
-                        <option value="jpeg">JPEG (Standard)</option>
-                        <option value="png">PNG (Lossless)</option>
+                        {file.type !== 'image/webp' && <option value="webp">WebP (Optimized)</option>}
+                        {file.type !== 'image/avif' && <option value="avif">AVIF (High Quality)</option>}
+                        {!(file.type === 'image/jpeg' || file.type === 'image/jpg') && <option value="jpeg">JPEG (Standard)</option>}
+                        {/* Only allow PNG if the source is NOT lossy */}
+                        {!isLossy(file) && file.type !== 'image/png' && <option value="png">PNG (Lossless)</option>}
                       </>
                     ) : (
                       <>
-                        <option value="mp3">MP3 (Compressed)</option>
-                        <option value="flac">FLAC (Lossless)</option>
-                        <option value="opus">Opus (Web-ready)</option>
-                        <option value="wav">WAV (Uncompressed)</option>
+                        {file.type !== 'audio/mpeg' && file.type !== 'audio/mp3' && <option value="mp3">MP3 (Compressed)</option>}
+                        {file.type !== 'audio/opus' && <option value="opus">Opus (Web-ready)</option>}
+                        {/* Only allow Lossless outputs (FLAC/WAV) if the source is NOT lossy */}
+                        {!isLossy(file) && (
+                          <>
+                            {file.type !== 'audio/flac' && <option value="flac">FLAC (Lossless)</option>}
+                            {file.type !== 'audio/wav' && file.type !== 'audio/x-wav' && <option value="wav">WAV (Uncompressed)</option>}
+                          </>
+                        )}
                       </>
                     )}
                   </select>
+                  {isLossy(file) && (
+                    <p className="text-[10px] text-gray-500 italic mt-1">
+                      * Lossless options disabled to prevent file size bloating from a compressed source.
+                    </p>
+                  )}
                 </div>
               )}
               

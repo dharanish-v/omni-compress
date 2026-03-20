@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
+import { randomUUID } from 'node:crypto';
 // @ts-ignore
 import ffmpegPath from 'ffmpeg-static';
 
@@ -29,7 +30,7 @@ export async function processWithNode(
   options: CompressorOptions
 ): Promise<Blob> {
   const buffer = await ensureBuffer(file);
-  const tempId = Math.random().toString(36).substring(2, 15);
+  const tempId = randomUUID();
   
   // We use the OS temp directory for processing
   const inputPath = join(tmpdir(), `input_${tempId}`);
@@ -44,15 +45,25 @@ export async function processWithNode(
     await fs.writeFile(inputPath, buffer);
 
     // 2. Construct FFmpeg arguments based on type and options
-    const args = ['-y', '-i', inputPath]; // -y overwrites output if it exists
+    const args = ['-y', '-i', inputPath];
 
     if (options.type === 'image') {
-      if (options.quality !== undefined) {
-        args.push('-q:v', Math.floor(options.quality * 100).toString());
+      if (options.format === 'webp') {
+        args.push('-vcodec', 'libwebp');
+        if (options.quality !== undefined) {
+          args.push('-q:v', Math.floor(options.quality * 100).toString());
+        }
+      } else if (options.format === 'avif') {
+        args.push('-vcodec', 'libaom-av1', '-crf', '32');
       }
     } else if (options.type === 'audio') {
-      // Simplified default for audio
-      args.push('-b:a', '128k');
+      if (options.format === 'mp3') {
+        args.push('-acodec', 'libmp3lame', '-b:a', '128k');
+      } else if (options.format === 'flac') {
+        args.push('-acodec', 'flac');
+      } else if (options.format === 'opus') {
+        args.push('-acodec', 'libopus', '-b:a', '128k');
+      }
     }
 
     args.push(outputPath);
@@ -60,6 +71,21 @@ export async function processWithNode(
     // 3. Execute FFmpeg
     await new Promise<void>((resolve, reject) => {
       const child = spawn(binary, args);
+
+      // FFmpeg outputs progress and logs to stderr
+      child.stderr.on('data', (data) => {
+        const output = data.toString();
+        logger.debug(`[OmniCompress:FFmpeg:Node] ${output.trim()}`);
+        
+        // Simple progress parsing logic (e.g., parsing "time=00:00:05.12")
+        // Since we don't always know total duration here, we just emit periodic updates
+        // In a more robust version, we'd probe total duration first.
+        if (output.includes('time=')) {
+          // For now, we'll just indicate we are working. 
+          // Native node is usually so fast for small files that 0 -> 100 is almost instant.
+          options.onProgress?.(50); 
+        }
+      });
 
       child.on('close', (code) => {
         if (code === 0) {

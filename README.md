@@ -1,85 +1,82 @@
-# 🗜️ Omni Compress
+# Omni Compress
 
 <p align="center">
   <img src="https://img.shields.io/npm/v/@dharanish/omni-compress?style=flat-square&color=0f4c81" alt="NPM Version" />
   <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
   <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
-  <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=main&style=flat-square&color=d9a05b" alt="CI Status" />
+  <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
 </p>
 
-A zero-compromise, hyper-optimized media processing abstraction layer for modern web and Node.js applications.
-
-`omni-compress` is a smart-routing media library. It accepts an image or audio `File` (or `Blob` / `ArrayBuffer`), evaluates the runtime environment, and dynamically routes the compression task to the most performant engine available.
-
-It guarantees **100% format support** by falling back to WebAssembly when necessary, while rigorously protecting your bundle size by attempting to use native 0-byte Web APIs first.
-
-The library is designed for both frontend (React, Vue, Svelte) and backend (Node.js, Electron) environments.
+<p align="center">
+  <b>Smart-routing media compression for browsers and Node.js.</b><br/>
+  One API. Three engines. Zero main-thread blocking.
+</p>
 
 ---
 
-## ✨ Features
-
-- **⚡ Zero Main-Thread Blocking:** ALL processing in the browser occurs seamlessly inside Web Workers.
-- **🚀 Zero-Copy Memory Transfers:** Uses `Transferable Objects` (`ArrayBuffers`) when passing data between the Main Thread and Web Workers, preventing RAM duplication and UI freezing.
-- **📦 Dynamic Imports:** Wasm dependencies (`@ffmpeg/ffmpeg`) are lazily imported ONLY when the Heavy Path is triggered.
-- **🧹 Wasm Memory Safety:** Explicit memory cleanup and virtual file system management after every single execution to prevent memory leaks and tab crashes.
-- **🖥️ Node.js / Electron Support:** Automatically detects Node environments and bypasses Wasm entirely to spawn native OS child processes (`ffmpeg`) for maximum backend performance.
-- **🌲 Tree-Shaking Ready:** Built as a modern ESM package with conditional exports and no side effects.
-
-## 📦 Installation
-
-```bash
-# Using npm
-npm install @dharanish/omni-compress
-
-# Using bun
-bun add @dharanish/omni-compress
-
-# Using pnpm
-pnpm add @dharanish/omni-compress
-```
-
-## 🚀 Quick Start
-
-The consumer only needs to interact with a single, unified interface:
+`omni-compress` accepts an image or audio file and automatically routes compression to the fastest engine available at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries.
 
 ```typescript
 import { OmniCompressor } from '@dharanish/omni-compress';
 
-async function compressMyFile(inputFile: File) {
-  try {
-    const outputBlob = await OmniCompressor.process(inputFile, {
-      type: "image", // or 'audio'
-      format: "webp", // e.g., 'webp', 'avif', 'jpeg', 'mp3', 'flac'
-      quality: 0.8, // 0.0 to 1.0 (for lossy formats)
-      onProgress: (percent) => {
-        console.log(`Compression Progress: ${percent}%`);
-      },
-    });
-
-    console.log("Compression successful!", outputBlob);
-    return outputBlob;
-  } catch (error) {
-    console.error("Compression failed:", error);
-  }
-}
+const compressed = await OmniCompressor.process(file, {
+  type: 'image',
+  format: 'webp',
+  quality: 0.8,
+  onProgress: (p) => console.log(`${p}%`),
+});
 ```
 
-## 🧠 Architecture: The Smart Router
+## Highlights
 
-When you call `OmniCompressor.process`, the library evaluates the payload and routes it through one of three paths:
+- **Zero main-thread blocking** — All browser processing runs in Web Workers
+- **Zero-copy memory** — `Transferable` ArrayBuffer transfers, no RAM duplication
+- **Smart routing** — Native `OffscreenCanvas` for standard formats, lazy-loaded FFmpeg Wasm for the rest
+- **Isomorphic** — Same API for browser, Node.js, and Electron
+- **Tree-shakeable** — ESM + CJS dual build, no side effects
+- **Wasm memory safe** — Explicit cleanup after every execution
 
-1. **Fast Path (Native Web):**
-   If the file is a standard web format (JPG, PNG, WebM) and the environment is a Browser, we do **not** load Wasm. We use `OffscreenCanvas` (Images) and `WebCodecs API` (Audio) inside a Web Worker.
-2. **Heavy Path (Wasm Fallback):**
-   If the file is an obscure format (HEIC, TIFF, FLAC, WAV), we dynamically lazy-load WebAssembly micro-engines (`@ffmpeg/ffmpeg`) inside a Web Worker.
-3. **Node/Electron Adapter:**
-   If `process.versions.node` is detected, we bypass Wasm and Native Web APIs entirely. The library spawns a native `child_process` to use OS binaries.
+## Monorepo Structure
 
-## 🤝 Contributing
+```
+├── packages/omni-compress/   → Core library (published to npm)
+└── apps/playground/          → Interactive demo (React + Vite + Tailwind)
+```
 
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details on how to set up the repository, run the playground, and submit a pull request.
+| Package | Description | Links |
+|---|---|---|
+| `@dharanish/omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/@dharanish/omni-compress) |
+| `playground` | Live demo UI | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/) |
 
-## 📄 License
+## Quick Start
 
-This project is licensed under the [MIT License](LICENSE).
+```bash
+npm install @dharanish/omni-compress
+```
+
+For full API reference, supported formats, architecture details, and framework examples, see the **[package README](packages/omni-compress/README.md)**.
+
+## Development
+
+```bash
+# Prerequisites: Bun (https://bun.sh)
+bun install
+
+# Run the playground locally
+bun run dev
+
+# Build everything
+bun run build
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for our vulnerability reporting policy.
+
+## License
+
+[MIT](LICENSE) &copy; Dharanish V

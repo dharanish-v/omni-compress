@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - master
+  pull_request:
+    branches:
+      - master
 
 permissions:
   contents: read
@@ -23,6 +26,10 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Type Check
+        working-directory: packages/omni-compress
+        run: bun run typecheck
         
       - name: Build Library
         run: cd packages/omni-compress && bun run build
@@ -33,11 +40,13 @@ jobs:
           NODE_ENV: production
 
       - name: Upload artifact
+        if: github.ref == 'refs/heads/master' && github.event_name == 'push'
         uses: actions/upload-pages-artifact@v3
         with:
           path: './apps/playground/dist'
 
   deploy_pages:
+    if: github.ref == 'refs/heads/master' && github.event_name == 'push'
     permissions:
       pages: write
       id-token: write

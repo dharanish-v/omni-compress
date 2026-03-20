@@ -4,6 +4,7 @@ let workerIdCounter = 0;
 
 interface WorkerJob {
   id: number;
+  options: CompressorOptions;
   resolve: (value: ArrayBuffer) => void;
   reject: (reason: any) => void;
 }
@@ -24,14 +25,21 @@ function getWorker(type: 'image' | 'audio'): Worker {
   const worker = new Worker(workerUrl, { type: 'module' });
 
   worker.onmessage = (event: MessageEvent) => {
-    const { id, buffer, error } = event.data;
+    const { id, type, buffer, error, progress } = event.data;
     const job = pendingJobs.get(id);
+    
     if (job) {
-      if (error) {
+      if (type === 'progress') {
+        job.options.onProgress?.(progress);
+        return;
+      }
+
+      if (type === 'error') {
         job.reject(new Error(error));
-      } else {
+      } else if (type === 'success') {
         job.resolve(buffer);
       }
+      
       pendingJobs.delete(id);
       worker.terminate(); // Kill worker after job to free memory
     }
@@ -54,7 +62,7 @@ export function processWithBrowserWorker(
     const id = ++workerIdCounter;
     const worker = getWorker(options.type);
 
-    pendingJobs.set(id, { id, resolve, reject });
+    pendingJobs.set(id, { id, options, resolve, reject });
 
     // Strip functions like `onProgress` because they cannot be cloned via postMessage
     const safeOptions = { ...options };

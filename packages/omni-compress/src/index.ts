@@ -2,19 +2,63 @@ import { Router, CompressorOptions } from './core/router.js';
 import { fileToArrayBuffer, arrayBufferToBlob, getMimeType } from './core/utils.js';
 import { processWithBrowserWorker } from './adapters/browser/workerPool.js';
 import { logger } from './core/logger.js';
+import type { processWithNode as ProcessWithNodeFn } from './adapters/node/childProcess.js';
 
 // Dynamically imported to avoid breaking browser environments
-let processWithNode: any = null;
+let processWithNode: typeof ProcessWithNodeFn | null = null;
+
+const VALID_TYPES = new Set(['image', 'audio']);
+const VALID_IMAGE_FORMATS = new Set(['webp', 'avif', 'jpeg', 'jpg', 'png']);
+const VALID_AUDIO_FORMATS = new Set(['opus', 'mp3', 'flac', 'wav', 'aac', 'ogg']);
+
+function validateOptions(options: CompressorOptions): void {
+  if (!options || typeof options !== 'object') {
+    throw new Error('Options object is required.');
+  }
+  if (!VALID_TYPES.has(options.type)) {
+    throw new Error(`Invalid type "${options.type}". Must be "image" or "audio".`);
+  }
+  if (!options.format || typeof options.format !== 'string') {
+    throw new Error('A target format string is required.');
+  }
+  const knownFormats = options.type === 'image' ? VALID_IMAGE_FORMATS : VALID_AUDIO_FORMATS;
+  if (!knownFormats.has(options.format.toLowerCase())) {
+    logger.warn(`Format "${options.format}" is not a recognized ${options.type} format. Proceeding via Heavy Path.`);
+  }
+  if (options.quality !== undefined && (options.quality < 0 || options.quality > 1)) {
+    throw new Error(`Quality must be between 0.0 and 1.0. Received: ${options.quality}`);
+  }
+  if (options.maxSizeMB !== undefined && (typeof options.maxSizeMB !== 'number' || options.maxSizeMB <= 0)) {
+    throw new Error(`maxSizeMB must be a positive number. Received: ${options.maxSizeMB}`);
+  }
+}
 
 export class OmniCompressor {
   /**
    * Processes a media file (Image or Audio) using the optimal available engine.
-   * 
-   * @param file The input File or Blob.
-   * @param options Configuration for compression.
+   *
+   * Automatically selects the best processing path:
+   * - **Fast Path**: Native OffscreenCanvas/WebCodecs (0 KB Wasm) for standard web formats
+   * - **Heavy Path**: FFmpeg Wasm for obscure/complex formats
+   * - **Node Adapter**: Native OS ffmpeg binary via child_process
+   *
+   * @param file - The input File or Blob to process.
+   * @param options - Configuration for compression (type, format, quality, etc.).
    * @returns A Promise resolving to the compressed Blob.
+   * @throws {Error} If options are invalid or processing fails.
+   *
+   * @example
+   * ```typescript
+   * const compressed = await OmniCompressor.process(file, {
+   *   type: 'image',
+   *   format: 'webp',
+   *   quality: 0.8,
+   *   onProgress: (p) => console.log(`${p}%`),
+   * });
+   * ```
    */
   static async process(file: File | Blob, options: CompressorOptions): Promise<Blob> {
+    validateOptions(options);
     logger.info('Starting compression process', { type: options.type, format: options.format });
     const route = Router.evaluate(options);
     logger.debug('Route evaluated', route);
@@ -59,7 +103,15 @@ export class OmniCompressor {
   }
 
   /**
-   * Configure the global logging level
+   * Configure the global logging level.
+   *
+   * @param level - The minimum log level to output.
+   *
+   * @example
+   * ```typescript
+   * OmniCompressor.setLogLevel('debug'); // Show all logs
+   * OmniCompressor.setLogLevel('error'); // Only show errors
+   * ```
    */
   static setLogLevel(level: 'debug' | 'info' | 'warn' | 'error') {
     logger.setLevel(level);

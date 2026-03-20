@@ -10,6 +10,5 @@ export default defineConfig({
   treeshake: true,
   minify: true,
   target: 'es2022',
-  noExternal: ['mp4box'],
 });
 

@@ -10,12 +10,14 @@ self.onmessage = async (event: MessageEvent) => {
     if (isFastPath) {
       resultBuffer = await processImageFastPath(buffer, options);
     } else {
-      resultBuffer = await processImageHeavyPath(buffer, options);
+      resultBuffer = await processImageHeavyPath(buffer, options, (progress) => {
+        self.postMessage({ id, type: 'progress', progress });
+      });
     }
 
     // Zero-Copy Memory Transfer back to main thread
-    self.postMessage({ id, buffer: resultBuffer }, { transfer: [resultBuffer] });
+    self.postMessage({ id, type: 'success', buffer: resultBuffer }, { transfer: [resultBuffer] });
   } catch (error: any) {
-    self.postMessage({ id, error: error.message });
+    self.postMessage({ id, type: 'error', error: error.message });
   }
 };

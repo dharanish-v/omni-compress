@@ -1,109 +1,215 @@
-import type { CompressorOptions } from '../../core/router.js';
+import type { CompressorOptions } from "../../core/router.js";
+import { logger } from "../../core/logger.js";
 
-let ffmpegInstance: any = null;
-
-async function getFFmpeg() {
-  if (ffmpegInstance) return ffmpegInstance;
-
-  // Rule 3: Dynamic Imports Only. Load FFmpeg ONLY when the Heavy Path is triggered.
-  const { FFmpeg } = await import('@ffmpeg/ffmpeg');
-  const { fetchFile } = await import('@ffmpeg/util');
+async function createFFmpeg() {
+  logger.debug("Initializing FFmpeg Wasm...");
+  const { FFmpeg } = await import("@ffmpeg/ffmpeg");
 
   const ffmpeg = new FFmpeg();
-  
-  // Note: For production, core/wasm files should ideally be hosted and loaded explicitly.
-  // Using unpkg/jsDelivr can cause issues in strict CSP environments, but we'll use defaults
-  // for the sake of this library structure.
-  await ffmpeg.load();
-  ffmpegInstance = { ffmpeg, fetchFile };
-  
-  return ffmpegInstance;
+
+  ffmpeg.on("log", ({ message }: { message: string }) => {
+    logger.debug(`[FFmpeg] ${message}`);
+  });
+
+  try {
+    await ffmpeg.load();
+    logger.debug("FFmpeg Wasm loaded successfully.");
+    return ffmpeg;
+  } catch (err) {
+    logger.error("Failed to load FFmpeg Wasm:", err);
+    throw err;
+  }
 }
 
 export async function processImageHeavyPath(
   buffer: ArrayBuffer,
-  options: CompressorOptions
+  options: CompressorOptions,
+  onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
-  const { ffmpeg, fetchFile } = await getFFmpeg();
-  
-  const inputFileName = options.originalFileName || 'input_image';
-  const outputFileName = `output_image.${options.format}`;
-  
-  // Convert ArrayBuffer to Uint8Array for FFmpeg
-  const fileData = new Uint8Array(buffer);
-  
-  try {
-    // Write file to virtual FS
-    await ffmpeg.writeFile(inputFileName, await fetchFile(fileData));
+  const ffmpeg = await createFFmpeg();
 
-    // Execute FFmpeg command
-    // E.g., convert to webp: -i input -vcodec libwebp -lossless 0 -q:v 80 output.webp
-    const qualityArgs = options.quality !== undefined ? ['-q:v', Math.floor(options.quality * 100).toString()] : [];
-    
-    const code = await ffmpeg.exec(['-i', inputFileName, ...qualityArgs, outputFileName]);
-    if (code !== 0) {
-      throw new Error(`FFmpeg image conversion failed with exit code ${code}`);
+  const ext =
+    options.originalFileName?.split(".").pop()?.toLowerCase() || "img";
+  const inputFileName = `input.${ext}`;
+  const outputFileName = `output.${options.format}`;
+
+  const fileData = new Uint8Array(buffer);
+
+  const progressHandler = ({ progress }: { progress: number }) => {
+    onProgress?.(progress * 100);
+  };
+
+  try {
+    ffmpeg.on("progress", progressHandler);
+    await ffmpeg.writeFile(inputFileName, fileData);
+
+    // -map 0:v:0: Select only the first video stream
+    const args = ["-i", inputFileName, "-map", "0:v:0"];
+
+    if (options.format === "webp") {
+      args.push("-c:v", "libwebp");
+      if (options.quality !== undefined) {
+        args.push("-q:v", Math.floor(options.quality * 100).toString());
+      }
+    } else if (options.format === "avif") {
+      args.push("-c:v", "libaom-av1", "-crf", "32");
     }
 
-    // Read result
-    const resultData = await ffmpeg.readFile(outputFileName) as Uint8Array;
-    
-    // Convert back to ArrayBuffer, cloning data out of the Wasm memory space
-    // so we can free the Wasm memory immediately
-    const outBuffer = resultData.buffer.slice(resultData.byteOffset, resultData.byteOffset + resultData.byteLength);
-    
-    return outBuffer;
+    args.push(outputFileName);
+
+    const code = await ffmpeg.exec(args);
+    if (code !== 0)
+      throw new Error(`FFmpeg image conversion failed (code ${code}).`);
+
+    const resultData = (await ffmpeg.readFile(outputFileName)) as Uint8Array;
+    return resultData.slice().buffer; // Copy out of Wasm heap
   } finally {
-    // Rule 4: Wasm Memory Safety. Explicitly free memory after EVERY execution.
+    ffmpeg.off("progress", progressHandler);
     try {
       await ffmpeg.deleteFile(inputFileName);
       await ffmpeg.deleteFile(outputFileName);
-    } catch (cleanupError) {
-      console.warn('Failed to clean up FFmpeg virtual file system:', cleanupError);
-    }
+    } catch (e) {}
+    ffmpeg.terminate();
   }
 }
 
 export async function processAudioHeavyPath(
   buffer: ArrayBuffer,
-  options: CompressorOptions
+  options: CompressorOptions,
+  onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
-  const { ffmpeg, fetchFile } = await getFFmpeg();
-  
-  // Sanitize original file name to avoid FFmpeg command line parsing issues
-  // Replace spaces and special characters with underscores
-  let inputFileName = 'input_audio';
-  if (options.originalFileName) {
-    inputFileName = options.originalFileName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-  }
-  const outputFileName = `output_audio.${options.format}`;
-  
-  const fileData = new Uint8Array(buffer);
-  
-  try {
-    await ffmpeg.writeFile(inputFileName, await fetchFile(fileData));
+  const ffmpeg = await createFFmpeg();
 
-    // Audio encoding arguments
-    const bitrateArgs = ['-b:a', '128k']; // Simplified default
-    
-    const code = await ffmpeg.exec(['-y', '-i', inputFileName, ...bitrateArgs, outputFileName]);
-    if (code !== 0) {
-      throw new Error(`FFmpeg audio conversion failed with exit code ${code}`);
+  const ext =
+    options.originalFileName?.split(".").pop()?.toLowerCase() || "audio";
+  const inputFileName = `input.${ext}`;
+  const outputFileName = `output.${options.format}`;
+
+  const fileData = new Uint8Array(buffer);
+
+  const progressHandler = ({ progress }: { progress: number }) => {
+    onProgress?.(progress * 100);
+  };
+
+  try {
+    ffmpeg.on("progress", progressHandler);
+    await ffmpeg.writeFile(inputFileName, fileData);
+
+    if (options.format === "opus") {
+      // Two-pass approach for Opus to avoid "memory access out of bounds" in
+      // the single-threaded @ffmpeg/core WASM build:
+      //   1. The raw 'opus' muxer (output.opus) is unstable in this build.
+      //      Using the OGG muxer (.ogg) with '-c:a libopus' is safer.
+      //   2. Resampling to 48kHz AND encoding in a single exec can cause
+      //      peak memory spikes that exceed WASM linear memory bounds.
+      //      Splitting into resample + encode avoids this.
+      const intermediateFile = "resampled.wav";
+      // Use OGG container — the raw 'opus' muxer crashes in this WASM build
+      const opusOutputFile = "output.ogg";
+
+      // Pass 1: Resample to 48kHz PCM (no encoding overhead)
+      const resampleArgs = [
+        "-nostdin",
+        "-y",
+        "-threads",
+        "1",
+        "-i",
+        inputFileName,
+        "-map",
+        "0:a",
+        "-map_metadata",
+        "-1",
+        "-ar",
+        "48000",
+        "-c:a",
+        "pcm_s16le",
+        intermediateFile,
+      ];
+      const resampleCode = await ffmpeg.exec(resampleArgs);
+      if (resampleCode !== 0)
+        throw new Error(
+          `FFmpeg audio resampling failed (code ${resampleCode}).`,
+        );
+
+      // Free input from WASM FS before encoding to reduce WASM heap pressure
+      try {
+        await ffmpeg.deleteFile(inputFileName);
+      } catch (e) {}
+
+      // Pass 2: Encode resampled audio to Opus via OGG muxer
+      const encodeArgs = [
+        "-nostdin",
+        "-y",
+        "-threads",
+        "1",
+        "-i",
+        intermediateFile,
+        "-c:a",
+        "libopus",
+        "-b:a",
+        "128k",
+        "-compression_level",
+        "0",
+        "-frame_duration",
+        "20",
+        "-application",
+        "audio",
+        opusOutputFile,
+      ];
+      const encodeCode = await ffmpeg.exec(encodeArgs);
+      if (encodeCode !== 0)
+        throw new Error(`FFmpeg Opus encoding failed (code ${encodeCode}).`);
+
+      try {
+        await ffmpeg.deleteFile(intermediateFile);
+      } catch (e) {}
+
+      const resultData = (await ffmpeg.readFile(opusOutputFile)) as Uint8Array;
+      try {
+        await ffmpeg.deleteFile(opusOutputFile);
+      } catch (e) {}
+      return resultData.slice().buffer;
+    } else {
+      // ROBUST ARGUMENTS:
+      // -nostdin: Non-interactive
+      // -threads 1: Stability in Wasm
+      // -i: Input
+      // -map 0:a: ONLY audio. Ignore album art MJPEG which causes OOM.
+      // -map_metadata -1: Strip metadata to save space.
+      const args = [
+        "-nostdin",
+        "-y",
+        "-threads",
+        "1",
+        "-i",
+        inputFileName,
+        "-map",
+        "0:a",
+        "-map_metadata",
+        "-1",
+      ];
+
+      if (options.format === "mp3") {
+        args.push("-c:a", "libmp3lame", "-b:a", "128k");
+      } else if (options.format === "flac") {
+        args.push("-c:a", "flac");
+      }
+
+      args.push(outputFileName);
+
+      const code = await ffmpeg.exec(args);
+      if (code !== 0)
+        throw new Error(`FFmpeg audio conversion failed (code ${code}).`);
     }
 
-    const resultData = await ffmpeg.readFile(outputFileName) as Uint8Array;
-    
-    // Extract ArrayBuffer
-    const outBuffer = resultData.buffer.slice(resultData.byteOffset, resultData.byteOffset + resultData.byteLength);
-    
-    return outBuffer;
+    const resultData = (await ffmpeg.readFile(outputFileName)) as Uint8Array;
+    return resultData.slice().buffer; // Copy out of Wasm heap
   } finally {
-    // Rule 4: Wasm Memory Safety
+    ffmpeg.off("progress", progressHandler);
     try {
       await ffmpeg.deleteFile(inputFileName);
       await ffmpeg.deleteFile(outputFileName);
-    } catch (cleanupError) {
-      console.warn('Failed to clean up FFmpeg virtual file system:', cleanupError);
-    }
+    } catch (e) {}
+    ffmpeg.terminate();
   }
 }

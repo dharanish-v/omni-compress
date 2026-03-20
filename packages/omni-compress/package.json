@@ -1,10 +1,43 @@
 {
   "name": "@dharanish/omni-compress",
-  "version": "1.0.6",
-  "description": "Zero-compromise, hyper-optimized media processing abstraction layer.",
+  "version": "1.1.0",
+  "description": "Smart-routing media compression library. Automatically selects the fastest engine — native Web APIs, FFmpeg Wasm, or OS binaries — for images and audio in browsers and Node.js.",
   "author": "Dharanish V",
+  "license": "MIT",
   "type": "module",
   "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dharanish-v/omni-compress.git",
+    "directory": "packages/omni-compress"
+  },
+  "homepage": "https://github.com/dharanish-v/omni-compress#readme",
+  "bugs": {
+    "url": "https://github.com/dharanish-v/omni-compress/issues"
+  },
+  "keywords": [
+    "compression",
+    "image",
+    "audio",
+    "media",
+    "ffmpeg",
+    "wasm",
+    "webassembly",
+    "webcodecs",
+    "offscreencanvas",
+    "webp",
+    "avif",
+    "opus",
+    "mp3",
+    "flac",
+    "convert",
+    "encoder",
+    "web-worker",
+    "zero-copy",
+    "isomorphic",
+    "browser",
+    "node"
+  ],
   "main": "./dist/index.cjs",
   "module": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -20,20 +53,22 @@
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "LICENSE",
+    "README.md"
   ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
-    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.6",
-    "@ffmpeg/ffmpeg": "^0.12.10",
-    "@ffmpeg/util": "^0.12.2",
-    "ffmpeg-static": "^5.3.0",
-    "mp4box": "^2.3.0"
+    "@ffmpeg/ffmpeg": "^0.12.10"
+  },
+  "optionalDependencies": {
+    "ffmpeg-static": "^5.3.0"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
