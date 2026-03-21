@@ -121,4 +121,5 @@ export class OmniCompressor {
 export * from './core/router.js';
 export * from './core/utils.js';
 export * from './core/logger.js';
+export { WorkerConfig } from './adapters/browser/workerPool.js';
 

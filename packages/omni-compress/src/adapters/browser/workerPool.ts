@@ -11,13 +11,18 @@ interface WorkerJob {
 
 const pendingJobs = new Map<number, WorkerJob>();
 
+export const WorkerConfig = {
+  imageWorkerUrl: '',
+  audioWorkerUrl: ''
+};
+
 function getWorker(type: 'image' | 'audio'): Worker {
   let workerUrl = '';
   
   if (type === 'image') {
-    workerUrl = new URL('./workers/image.worker.js', import.meta.url).href;
+    workerUrl = WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
   } else {
-    workerUrl = new URL('./workers/audio.worker.js', import.meta.url).href;
+    workerUrl = WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
   }
 
   const worker = new Worker(workerUrl, { type: 'module' });
