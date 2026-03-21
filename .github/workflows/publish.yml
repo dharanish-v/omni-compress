@@ -15,6 +15,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org'
       - name: Setup Bun
         uses: oven-sh/setup-bun@v1
         with:
@@ -30,6 +35,4 @@ jobs:
       - name: Publish to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
-          npm publish -w @dharanish/omni-compress --access public --provenance
+        run: npm publish -w @dharanish/omni-compress --access public --provenance
