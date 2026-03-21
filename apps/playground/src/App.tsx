@@ -1,9 +1,11 @@
 import { useState, useRef, useEffect } from "react";
 import { OmniCompressor, WorkerConfig } from "@dharanish/omni-compress";
-// @ts-ignore
-import ImageWorkerUrl from '../../../packages/omni-compress/dist/workers/image.worker.js?url';
-// @ts-ignore
-import AudioWorkerUrl from '../../../packages/omni-compress/dist/workers/audio.worker.js?url';
+
+// Vite bundles these workers into self-contained assets and returns their URLs.
+// @ts-ignore - Vite ?worker&url import
+import ImageWorkerUrl from '../../../packages/omni-compress/src/workers/image.worker.ts?worker&url';
+// @ts-ignore - Vite ?worker&url import
+import AudioWorkerUrl from '../../../packages/omni-compress/src/workers/audio.worker.ts?worker&url';
 
 WorkerConfig.imageWorkerUrl = ImageWorkerUrl;
 WorkerConfig.audioWorkerUrl = AudioWorkerUrl;
