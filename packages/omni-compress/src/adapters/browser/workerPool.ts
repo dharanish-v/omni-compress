@@ -11,15 +11,18 @@ interface WorkerJob {
 
 const pendingJobs = new Map<number, WorkerJob>();
 
+export const WorkerConfig = {
+  imageWorkerUrl: '',
+  audioWorkerUrl: ''
+};
+
 function getWorker(type: 'image' | 'audio'): Worker {
-  // In a real production scenario, we'd pool these. For now, we spawn on demand or reuse a singleton.
   let workerUrl = '';
-  // When compiled via tsup to the `dist` folder, the worker files end up in `dist/workers/*`
-  // and this code runs from `dist/chunk-*` or `dist/index.js`.
+  
   if (type === 'image') {
-    workerUrl = new URL('./workers/image.worker.js', import.meta.url).href;
+    workerUrl = WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
   } else {
-    workerUrl = new URL('./workers/audio.worker.js', import.meta.url).href;
+    workerUrl = WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
   }
 
   const worker = new Worker(workerUrl, { type: 'module' });
@@ -46,7 +49,7 @@ function getWorker(type: 'image' | 'audio'): Worker {
   };
 
   worker.onerror = (error) => {
-    console.error('Worker error:', error);
+    console.error('OmniCompress Worker error:', error);
     worker.terminate();
   };
 

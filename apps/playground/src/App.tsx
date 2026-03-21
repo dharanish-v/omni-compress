@@ -1,5 +1,12 @@
 import { useState, useRef, useEffect } from "react";
-import { OmniCompressor } from "@dharanish/omni-compress";
+import { OmniCompressor, WorkerConfig } from "@dharanish/omni-compress";
+// @ts-ignore
+import ImageWorkerUrl from '../../../packages/omni-compress/dist/workers/image.worker.js?url';
+// @ts-ignore
+import AudioWorkerUrl from '../../../packages/omni-compress/dist/workers/audio.worker.js?url';
+
+WorkerConfig.imageWorkerUrl = ImageWorkerUrl;
+WorkerConfig.audioWorkerUrl = AudioWorkerUrl;
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
