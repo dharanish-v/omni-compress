@@ -28,9 +28,8 @@ jobs:
         working-directory: packages/omni-compress
         run: bun run build
       - name: Publish to NPM
-        working-directory: packages/omni-compress
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
-          npm config set //registry.npmjs.org/:_authToken $NODE_AUTH_TOKEN
-          npm publish --access public --provenance --workspaces=false
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          npm publish -w @dharanish/omni-compress --access public --provenance
