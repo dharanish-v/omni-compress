@@ -29,5 +29,8 @@ export default defineConfig({
                 'fs'
             ]
         }
+    },
+    worker: {
+        format: 'es'
     }
 });
