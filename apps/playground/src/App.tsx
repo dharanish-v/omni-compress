@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import { OmniCompressor, WorkerConfig } from "@dharanish/omni-compress";
 // @ts-ignore
-import ImageWorkerUrl from '../../../packages/omni-compress/dist/workers/image.worker.js?url';
+import ImageWorkerUrl from '../../../packages/omni-compress/dist/workers/image.worker.js?worker&url';
 // @ts-ignore
-import AudioWorkerUrl from '../../../packages/omni-compress/dist/workers/audio.worker.js?url';
+import AudioWorkerUrl from '../../../packages/omni-compress/dist/workers/audio.worker.js?worker&url';
 
 WorkerConfig.imageWorkerUrl = ImageWorkerUrl;
 WorkerConfig.audioWorkerUrl = AudioWorkerUrl;
