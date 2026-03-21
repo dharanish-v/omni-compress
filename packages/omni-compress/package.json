@@ -1,6 +1,6 @@
 {
   "name": "@dharanish/omni-compress",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "description": "Smart-routing media compression library. Automatically selects the fastest engine — native Web APIs, FFmpeg Wasm, or OS binaries — for images and audio in browsers and Node.js.",
   "author": "Dharanish V",
   "license": "MIT",
@@ -11,7 +11,7 @@
     "url": "git+https://github.com/dharanish-v/omni-compress.git",
     "directory": "packages/omni-compress"
   },
-  "homepage": "https://github.com/dharanish-v/omni-compress#readme",
+  "homepage": "https://dharanish-v.github.io/omni-compress/",
   "bugs": {
     "url": "https://github.com/dharanish-v/omni-compress/issues"
   },
