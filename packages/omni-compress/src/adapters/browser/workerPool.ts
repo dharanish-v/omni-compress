@@ -12,20 +12,30 @@ interface WorkerJob {
 const pendingJobs = new Map<number, WorkerJob>();
 
 export const WorkerConfig = {
+  createImageWorker: (): Worker | null => null,
+  createAudioWorker: (): Worker | null => null,
   imageWorkerUrl: '',
   audioWorkerUrl: ''
 };
 
 function getWorker(type: 'image' | 'audio'): Worker {
-  let workerUrl = '';
-  
-  if (type === 'image') {
-    workerUrl = WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
-  } else {
-    workerUrl = WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
-  }
+  let worker: Worker;
 
-  const worker = new Worker(workerUrl, { type: 'module' });
+  if (type === 'image') {
+    if (WorkerConfig.createImageWorker) {
+      const customWorker = WorkerConfig.createImageWorker();
+      if (customWorker) return customWorker;
+    }
+    const workerUrl = WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
+    worker = new Worker(workerUrl, { type: 'module' });
+  } else {
+    if (WorkerConfig.createAudioWorker) {
+      const customWorker = WorkerConfig.createAudioWorker();
+      if (customWorker) return customWorker;
+    }
+    const workerUrl = WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
+    worker = new Worker(workerUrl, { type: 'module' });
+  }
 
   worker.onmessage = (event: MessageEvent) => {
     const { id, type, buffer, error, progress } = event.data;

@@ -1,12 +1,14 @@
 import { useState, useRef, useEffect } from "react";
 import { OmniCompressor, WorkerConfig } from "@dharanish/omni-compress";
 // @ts-ignore
-import ImageWorkerUrl from '../../../packages/omni-compress/dist/workers/image.worker.js?worker&url';
+import ImageWorker from '../../../packages/omni-compress/src/workers/image.worker.ts?worker';
 // @ts-ignore
-import AudioWorkerUrl from '../../../packages/omni-compress/dist/workers/audio.worker.js?worker&url';
+import AudioWorker from '../../../packages/omni-compress/src/workers/audio.worker.ts?worker';
 
-WorkerConfig.imageWorkerUrl = ImageWorkerUrl;
-WorkerConfig.audioWorkerUrl = AudioWorkerUrl;
+// Override the default worker initialization with Vite's native worker constructors
+// This avoids cross-workspace code-splitting issues in CI environments
+WorkerConfig.createImageWorker = () => new ImageWorker();
+WorkerConfig.createAudioWorker = () => new AudioWorker();
 
 function App() {
   const [file, setFile] = useState<File | null>(null);
