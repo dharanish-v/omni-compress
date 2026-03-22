@@ -1,19 +1,90 @@
 @import "tailwindcss";
 
-@theme {
-  --color-picasso-blue: #0f4c81;
-  --color-picasso-lightblue: #5386b4;
-  --color-picasso-rose: #d68c89;
-  --color-picasso-terracotta: #c06c5b;
-  --color-picasso-ochre: #d9a05b;
-  --color-picasso-sand: #f4f1ea;
-  --color-picasso-dark: #2b2b2b;
+:root {
+  --theme-bg: #f4f1ea;
+  --theme-text: #2b2b2b;
+  --theme-primary: #0f4c81;
+  --theme-primary-text: #ffffff;
+  --theme-secondary: #5386b4;
+  --theme-accent: #c06c5b;
+  --theme-accent-text: #ffffff;
+  --theme-border: #2b2b2b;
+  --theme-shape1: #5386b4;
+  --theme-shape2: #d9a05b;
+  --theme-shape3: #d68c89;
+  --theme-card-bg: #ffffff;
+  --theme-card-alt: #1a1a1a;
+  --theme-card-alt-text: #ffffff;
+  --theme-shadow: #000000;
 }
 
 body {
-  @apply bg-picasso-sand text-picasso-dark;
-  background-image: radial-gradient(var(--color-picasso-ochre) 1px, transparent 1px);
-  background-size: 40px 40px;
-  background-position: -19px -19px;
-  background-color: var(--color-picasso-sand);
+  background-color: var(--theme-bg);
+  color: var(--theme-text);
+  transition: background-color 0.5s ease, color 0.5s ease;
 }
+
+body.pattern-dots {
+  background-image: radial-gradient(color-mix(in srgb, var(--theme-border) 20%, transparent) 1.5px, transparent 1.5px);
+  background-size: 30px 30px;
+  background-position: 0 0;
+}
+
+body.pattern-grid {
+  background-image: 
+    linear-gradient(to right, color-mix(in srgb, var(--theme-border) 10%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--theme-border) 10%, transparent) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+body.pattern-cross {
+  background-image:
+    linear-gradient(45deg, color-mix(in srgb, var(--theme-border) 10%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--theme-border) 10%, transparent) 75%, color-mix(in srgb, var(--theme-border) 10%, transparent)),
+    linear-gradient(45deg, color-mix(in srgb, var(--theme-border) 10%, transparent) 25%, transparent 25%, transparent 75%, color-mix(in srgb, var(--theme-border) 10%, transparent) 75%, color-mix(in srgb, var(--theme-border) 10%, transparent));
+  background-size: 20px 20px;
+  background-position: 0 0, 10px 10px;
+}
+
+body.pattern-lines {
+  background-image: repeating-linear-gradient(0deg, transparent, transparent 19px, color-mix(in srgb, var(--theme-border) 10%, transparent) 19px, color-mix(in srgb, var(--theme-border) 10%, transparent) 20px);
+  background-size: 100% 20px;
+}
+
+body.pattern-none {
+  background-image: none;
+}
+
+/* Neo-Brutalist Scrollbar Styling */
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--theme-bg);
+  border-left: 2px solid var(--theme-border);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--theme-primary);
+  border: 2px solid var(--theme-border);
+  box-shadow: 2px 2px 0px 0px var(--theme-shadow);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-accent);
+}
+
+/* Magic Move View Transitions */
+::view-transition-group(*) {
+  animation-duration: 0.8s;
+  animation-timing-function: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+::view-transition-old(*),
+::view-transition-new(*) {
+  /* Prevent default crossfade on root if we want pure element morphs, 
+     but keeping it empty allows the browser default crossfade + spatial morph */
+}
+
+

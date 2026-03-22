@@ -1,73 +1,46 @@
-# React + TypeScript + Vite
+# Omni-Compress Playground 🎨
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> "Brevity is the soul of wit." — William Shakespeare
 
-Currently, two official plugins are available:
+The **Omni-Compress Playground** is an interactive, high-performance web application designed to demonstrate the power of the `@dharanish/omni-compress` library. It combines cutting-edge WebAssembly technology with a bold, **Neo-Brutalist** design system.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## 🏛️ Design Thinking: Neo-Brutalism
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The playground is built on a **Neo-Brutalist** (or *New Brutalist*) design philosophy. This approach rejects the "softness" and over-polishing of modern SaaS interfaces in favor of something more raw, honest, and mechanical.
 
-## Expanding the ESLint configuration
+### Key Pillars:
+- **Raw Functionality:** High-contrast `4px` and `2px` borders define every element. There are no gradients or subtle blurs—only solid colors and sharp lines.
+- **Mechanical UI:** Every component is designed to feel like a physical machine. 
+    - The **Audio Player** features a "digital readout" for duration and a tactile "mechanical knob" for seeking.
+    - **Select Dropdowns** use heavy shadows and sharp corners instead of floating native menus.
+- **Haptic Feedback:** To simulate physical interaction, elements use a consistent `6px` or `4px` offset shadow. On hover/active states, the element translates `1:1` into its shadow, creating a satisfying "press" effect. This is paired with actual **Haptic Vibrations** (`navigator.vibrate`) for a truly tactile experience.
+- **Mechanical Sound Synthesis:** Utilizing the **Web Audio API**, the playground synthesizes "engine-like" click, shift, and success sounds in real-time. No sound files are downloaded; the audio is generated on-the-fly to ensure zero latency and a mechanical feel.
+- **Intentional Chaos:** Diagonal background patterns, oversized typography, and overlapping decorative shapes create a sense of raw energy and "construction."
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 🎭 Persona-Driven Themes
+The playground features **26 unique themes**, each tied to a historical persona (from *Leonardo da Vinci* to *Aryabhata*). 
+- **Cultural Color Theory:** Each theme uses a palette inspired by the persona's era or art style (e.g., Monet's soft saturations vs. Picasso's bold blues).
+- **Localized Context:** Themes include localized strings and quotes that reflect the persona's philosophy on "brevity" and "simplicity."
+- **Seamless Transitions:** Leveraging the modern **View Transitions API**, switching personas morphs the entire UI—from background patterns to button shapes—seamlessly.
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+---
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 🛠️ Technical Highlights
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- **Isomorphic Compression:** Automatically routes between native browser APIs (`OffscreenCanvas`, `WebCodecs`) and heavy-duty FFmpeg WebAssembly.
+- **Zero-Copy Memory:** Uses `Transferable Objects` to pass large media buffers between the main thread and Web Workers without RAM duplication.
+- **Responsive "Transformation Flow":** The UI clearly visualizes the "Original" vs. the "Masterpiece," including a desktop-only conversion indicator and real-time performance stats.
+- **Performance Optimized:** Despite the heavy visual style, the app maintains 60fps animations and ultra-fast theme switching.
+
+---
+
+## 🚀 Development
+
+```bash
+# From the project root:
+bun run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
-
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
-
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+The playground is built with **React**, **TypeScript**, and **Tailwind CSS**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.

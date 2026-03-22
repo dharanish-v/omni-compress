@@ -13,6 +13,10 @@
   One API. Three engines. Zero main-thread blocking.
 </p>
 
+<p align="center">
+  <a href="https://dharanish-v.github.io/omni-compress/"><b>Live Neo-Brutalist Demo 🚀</b></a>
+</p>
+
 ---
 
 `omni-compress` accepts an image or audio file and automatically routes the compression to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries — without you writing a single line of platform-specific code.

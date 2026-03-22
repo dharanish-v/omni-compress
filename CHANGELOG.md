@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2026-03-22
+
+### Added
+- **Neo-Brutalist UI Overhaul:** Complete redesign of the Playground with a raw, high-contrast aesthetic.
+- **26 Persona Themes:** Persona-driven themes ranging from Shakespeare to Aryabhata, each with unique color palettes, background patterns, and cultural quotes.
+- **Mechanical Audio Player:** Custom-built audio component featuring a stylized "digital readout" for duration and a tactile "mechanical knob" for seeking.
+- **Brutalist Select Components:** Replaced native dropdowns with custom Neo-Brutalist selectors that follow the theme's color palette and haptic feedback system.
+- **Haptic Interaction & Sound Synthesis:** Standardized 6px offset shadows and 1:1 translation for a tactile, physical feel. Paired with actual **Haptic Vibrations** (`navigator.vibrate`) and **Synthesized Mechanical Sounds** (Web Audio API) for ultra-low latency sensory feedback.
+- **Transformation Flow Visuals:** Desktop-only "conversion arrow" between media cards and a progress-fill animation on the compression button to visualize the transformation process.
+- **Global Brutalist Scrollbar:** Custom scrollbar styling in `index.css` that reflects the project's heavy-bordered, high-contrast identity.
+- **Design Thinking Documentation:** Added comprehensive design philosophy and Neo-Brutalist principles to the playground README.
+
+### Changed
+- Refined typography and spacing for better readability in high-contrast modes.
+- Improved media card accessibility and contrast across all 26 themes.
+- Updated View Transitions logic for smoother persona switching.
+
+### Fixed
+- URL Revocation Bug: Fixed a race condition where the original media URL was prematurely revoked after compression, preventing side-by-side comparison.
+
 ## [1.1.0] - 2026-03-20
 
 ### Added

@@ -43,6 +43,18 @@ const compressed = await OmniCompressor.process(file, {
 └── apps/playground/          → Interactive demo (React + Vite + Tailwind)
 ```
 
+## 🎨 The Neo-Brutalist Playground
+
+The project includes an interactive playground built with a **Neo-Brutalist** design system. This isn't just a compression tool—it's a cultural and visual exploration of **brevity**.
+
+- **26 Historical Personas:** Switch between themes ranging from *Leonardo da Vinci* to *Aryabhata*, each with unique cultural quotes and color palettes.
+- **Mechanical UI:** Custom-built components (Mechanical Audio Player, Brutalist Selects) that prioritize raw functionality.
+- **Sensory Feedback:** Experience the app through synthesized mechanical sounds (Web Audio API) and tactile haptic vibrations synced with UI interactions.
+- **View Transitions:** Experience seamless theme morphing using modern browser APIs.
+- **Live Preview:** Real-time side-by-side comparison of original media vs. compressed "masterpieces."
+
+[**Explore the Playground 🚀**](https://dharanish-v.github.io/omni-compress/)
+
 | Package | Description | Links |
 |---|---|---|
 | `@dharanish/omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/@dharanish/omni-compress) |

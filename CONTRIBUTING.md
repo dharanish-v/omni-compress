@@ -53,10 +53,17 @@ bun run clean
 
 When contributing code, please maintain these design invariants:
 
+### Core Library (`packages/omni-compress/`):
 1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
 2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` and `ffmpeg.terminate()` in a `finally` block.
 3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
 4. **No main-thread work** — All media processing in browsers must run inside Web Workers.
+
+### Playground (`apps/playground/`):
+1. **Neo-Brutalist Aesthetic** — Maintain high-contrast `4px`/`2px` borders and sharp `6px`/`4px` offset shadows.
+2. **Haptic Feedback** — Standardize `active:translate` behavior to match the 1:1 shadow translation pattern.
+3. **Persona-First** — New UI components should adapt to the theme's `primary`, `secondary`, and `accent` color variables.
+4. **Mechanical Components** — Prioritize raw, physical-feeling UI elements over polished or "soft" components.
 
 ## Commit Guidelines
 
