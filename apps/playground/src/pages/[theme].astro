@@ -1,0 +1,22 @@
+---
+import Layout from '../layouts/Layout.astro';
+import App from '../App.tsx';
+import { themes } from '../themes';
+
+export function getStaticPaths() {
+  // Generate a page for every theme EXCEPT the default English one, 
+  // which will be handled by index.astro to sit at the root `/`.
+  return themes
+    .filter(theme => theme.id !== 'en')
+    .map(theme => ({
+      params: { theme: theme.id },
+      props: { theme },
+    }));
+}
+
+const { theme } = Astro.props;
+---
+
+<Layout themeId={theme.id}>
+  <App initialTheme={theme.id} client:load />
+</Layout>

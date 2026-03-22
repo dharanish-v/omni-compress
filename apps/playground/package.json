@@ -4,25 +4,28 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "lint": "eslint .",
-    "preview": "vite preview"
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "astro": "astro",
+    "lint": "eslint ."
   },
   "dependencies": {
+    "@astrojs/check": "^0.9.8",
+    "@astrojs/react": "^5.0.1",
+    "@astrojs/sitemap": "^3.7.1",
+    "@dharanish/omni-compress": "workspace:*",
+    "astro": "^6.0.8",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "@dharanish/omni-compress": "workspace:*"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.2.2",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.1",
     "coi-serviceworker": "^0.1.7",
     "eslint": "^9.9.0",
     "tailwindcss": "^4.2.2",
-    "typescript": "^5.5.3",
-    "vite": "^5.4.1"
+    "typescript": "^5.9.3"
   }
 }

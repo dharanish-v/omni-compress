@@ -206,8 +206,8 @@ function CustomSelect({
   );
 }
 
-function App() {
-  const [activeThemeId, setActiveThemeId] = useState<string>('en');
+function App({ initialTheme = 'en' }: { initialTheme?: string }) {
+  const [activeThemeId, setActiveThemeId] = useState<string>(initialTheme);
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
@@ -223,6 +223,8 @@ function App() {
   const t = activeTheme.strings;
 
   useEffect(() => {
+    // Astro Layout handles the initial CSS var injection. 
+    // This effect is kept to handle potential client-side fallback/hydration edge cases.
     const root = document.documentElement;
     Object.entries(activeTheme.colors).forEach(([key, value]) => {
       if (key !== 'filter' && key !== 'pattern') {
@@ -339,13 +341,8 @@ function App() {
 
   const handleThemeChange = (nextTheme: string) => {
     triggerFeedback('shift', isMuted);
-    if (!document.startViewTransition) {
-      setActiveThemeId(nextTheme);
-      return;
-    }
-    document.startViewTransition(() => {
-      setActiveThemeId(nextTheme);
-    });
+    // Navigate via standard URL for Astro SSG and View Transitions
+    window.location.href = `/omni-compress/${nextTheme === 'en' ? '' : nextTheme}`;
   };
 
   return (

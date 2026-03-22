@@ -1,0 +1,83 @@
+---
+import { themes } from '../themes';
+import { ClientRouter } from 'astro:transitions';
+import '../index.css';
+
+interface Props {
+  themeId: string;
+}
+
+const { themeId } = Astro.props;
+const activeTheme = themes.find(t => t.id === themeId) || themes[0];
+const title = `Omni-Compress | ${activeTheme.person} Mode`;
+const description = activeTheme.strings.desc;
+---
+
+<!doctype html>
+<html lang={activeTheme.id}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="description" content={description} />
+    <meta name="viewport" content="width=device-width" />
+    <link rel="icon" type="image/svg+xml" href="/omni-compress/favicon.svg" />
+    <meta name="generator" content={Astro.generator} />
+    <title>{title}</title>
+    <ClientRouter />
+    
+    <!-- Open Graph / Facebook -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    
+    <!-- Twitter -->
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+
+    <script is:inline>
+      // Apply theme colors to root early to prevent flash
+      const applyTheme = (themeId) => {
+        // Need to duplicate a minimal version of themes here or inject it
+        // For SSG, we can inject the CSS variables directly in a style tag below
+      };
+    </script>
+    <style is:inline define:vars={{
+      'theme-bg': activeTheme.colors.bg,
+      'theme-text': activeTheme.colors.text,
+      'theme-primary': activeTheme.colors.primary,
+      'theme-primary-text': activeTheme.colors.primaryText,
+      'theme-secondary': activeTheme.colors.secondary,
+      'theme-accent': activeTheme.colors.accent,
+      'theme-accent-text': activeTheme.colors.accentText,
+      'theme-border': activeTheme.colors.border,
+      'theme-shape1': activeTheme.colors.shape1,
+      'theme-shape2': activeTheme.colors.shape2,
+      'theme-shape3': activeTheme.colors.shape3,
+      'theme-card-bg': activeTheme.colors.cardBg,
+      'theme-card-alt': activeTheme.colors.cardAlt,
+      'theme-card-alt-text': activeTheme.colors.cardAltText,
+      'theme-shadow': activeTheme.colors.shadow,
+    }}>
+      :root {
+        --theme-bg: var(--theme-bg);
+        --theme-text: var(--theme-text);
+        --theme-primary: var(--theme-primary);
+        --theme-primary-text: var(--theme-primary-text);
+        --theme-secondary: var(--theme-secondary);
+        --theme-accent: var(--theme-accent);
+        --theme-accent-text: var(--theme-accent-text);
+        --theme-border: var(--theme-border);
+        --theme-shape1: var(--theme-shape1);
+        --theme-shape2: var(--theme-shape2);
+        --theme-shape3: var(--theme-shape3);
+        --theme-card-bg: var(--theme-card-bg);
+        --theme-card-alt: var(--theme-card-alt);
+        --theme-card-alt-text: var(--theme-card-alt-text);
+        --theme-shadow: var(--theme-shadow);
+      }
+    </style>
+  </head>
+  <body class={`pattern-${activeTheme.colors.pattern}`}>
+    <slot />
+  </body>
+</html>
