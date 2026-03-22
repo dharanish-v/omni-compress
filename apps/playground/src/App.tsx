@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { OmniCompressor, WorkerConfig } from "@dharanish/omni-compress";
 import { themes } from "./themes";
 import { triggerFeedback } from "./utils/feedback";
+import { navigate } from "astro:transitions/client";
 
 // Vite bundles these workers into self-contained assets and returns their URLs.
 // @ts-ignore - Vite ?worker&url import
@@ -341,8 +342,8 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
 
   const handleThemeChange = (nextTheme: string) => {
     triggerFeedback('shift', isMuted);
-    // Navigate via standard URL for Astro SSG and View Transitions
-    window.location.href = `/omni-compress/${nextTheme === 'en' ? '' : nextTheme}`;
+    // Navigate via Astro router to preserve View Transitions
+    navigate(`/omni-compress/${nextTheme === 'en' ? '' : nextTheme}`);
   };
 
   return (
