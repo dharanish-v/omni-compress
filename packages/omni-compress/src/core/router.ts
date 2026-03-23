@@ -5,6 +5,14 @@ export interface CompressorOptions {
   quality?: number; // 0.0 to 1.0
   onProgress?: (percent: number) => void;
   originalFileName?: string;
+  // Advanced Image Options
+  maxWidth?: number;
+  maxHeight?: number;
+  preserveMetadata?: boolean;
+  // Advanced Audio Options
+  bitrate?: string; // e.g., '128k', '192k'
+  channels?: 1 | 2;
+  sampleRate?: number;
 }
 
 export type Environment = 'browser' | 'node';

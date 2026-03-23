@@ -46,6 +46,16 @@ export async function processImageHeavyPath(
     // -map 0:v:0: Select only the first video stream
     const args = ["-i", inputFileName, "-map", "0:v:0"];
 
+    if (!options.preserveMetadata) {
+      args.push("-map_metadata", "-1");
+    }
+
+    if (options.maxWidth || options.maxHeight) {
+      const w = options.maxWidth || -1;
+      const h = options.maxHeight || -1;
+      args.push("-vf", `scale=${w}:${h}:force_original_aspect_ratio=decrease`);
+    }
+
     if (options.format === "webp") {
       args.push("-c:v", "libwebp");
       if (options.quality !== undefined) {
@@ -147,15 +157,18 @@ export async function processAudioHeavyPath(
         "-c:a",
         "libopus",
         "-b:a",
-        "128k",
+        options.bitrate || "128k",
         "-compression_level",
         "0",
         "-frame_duration",
         "20",
         "-application",
         "audio",
-        opusOutputFile,
       ];
+      
+      if (options.channels) encodeArgs.push("-ac", options.channels.toString());
+      encodeArgs.push(opusOutputFile);
+
       const encodeCode = await ffmpeg.exec(encodeArgs);
       if (encodeCode !== 0)
         throw new Error(`FFmpeg Opus encoding failed (code ${encodeCode}).`);
@@ -175,7 +188,6 @@ export async function processAudioHeavyPath(
       // -threads 1: Stability in Wasm
       // -i: Input
       // -map 0:a: ONLY audio. Ignore album art MJPEG which causes OOM.
-      // -map_metadata -1: Strip metadata to save space.
       const args = [
         "-nostdin",
         "-y",
@@ -185,12 +197,17 @@ export async function processAudioHeavyPath(
         inputFileName,
         "-map",
         "0:a",
-        "-map_metadata",
-        "-1",
       ];
 
+      if (!options.preserveMetadata) {
+        args.push("-map_metadata", "-1");
+      }
+
+      if (options.channels) args.push("-ac", options.channels.toString());
+      if (options.sampleRate) args.push("-ar", options.sampleRate.toString());
+
       if (options.format === "mp3") {
-        args.push("-c:a", "libmp3lame", "-b:a", "128k");
+        args.push("-c:a", "libmp3lame", "-b:a", options.bitrate || "128k");
       } else if (options.format === "flac") {
         args.push("-c:a", "flac");
       }

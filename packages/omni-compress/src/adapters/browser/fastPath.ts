@@ -12,11 +12,33 @@ export async function processImageFastPath(
   const blob = new Blob([buffer]);
   const bitmap = await createImageBitmap(blob);
   
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  let targetWidth = bitmap.width;
+  let targetHeight = bitmap.height;
+
+  // Calculate new dimensions while maintaining aspect ratio
+  if (options.maxWidth || options.maxHeight) {
+    const ratio = bitmap.width / bitmap.height;
+    
+    if (options.maxWidth && targetWidth > options.maxWidth) {
+      targetWidth = options.maxWidth;
+      targetHeight = targetWidth / ratio;
+    }
+    
+    if (options.maxHeight && targetHeight > options.maxHeight) {
+      targetHeight = options.maxHeight;
+      targetWidth = targetHeight * ratio;
+    }
+  }
+
+  // Ensure dimensions are integers
+  targetWidth = Math.floor(targetWidth);
+  targetHeight = Math.floor(targetHeight);
+
+  const canvas = new OffscreenCanvas(targetWidth, targetHeight);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
 
-  ctx.drawImage(bitmap, 0, 0);
+  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
 
   const mimeType = getMimeType(options.type, options.format);
   const outBlob = await canvas.convertToBlob({

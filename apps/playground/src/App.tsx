@@ -217,11 +217,42 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [stats, setStats] = useState<{ origSize: number; newSize: number; time: number; format: string } | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<string>("");
   const [isMuted, setIsMuted] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  // Advanced Controls State
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [quality, setQuality] = useState(80);
+  const [maxWidth, setMaxWidth] = useState<string>("");
+  const [maxHeight, setMaxHeight] = useState<string>("");
+  const [preserveMetadata, setPreserveMetadata] = useState(false);
+  const [audioBitrate, setAudioBitrate] = useState("128k");
+  const [audioChannels, setAudioChannels] = useState<string>("auto");
+  const [audioSampleRate, setAudioSampleRate] = useState<string>("auto");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const activeTheme = themes.find(t => t.id === activeThemeId) || themes[0];
   const t = activeTheme.strings;
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: any) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      triggerFeedback('click', isMuted);
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null);
+      }
+    }
+  };
 
   useEffect(() => {
     // Astro Layout handles the initial CSS var injection. 
@@ -301,12 +332,24 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
 
       const start = performance.now();
       
-      const resultBlob = await OmniCompressor.process(file, {
+      const options: any = {
         type,
         format: selectedFormat,
-        quality: 0.8,
-        onProgress: (p) => setProgress(Math.round(p))
-      });
+        quality: quality / 100,
+        onProgress: (p: number) => setProgress(Math.round(p))
+      };
+
+      if (isImage) {
+        if (maxWidth) options.maxWidth = parseInt(maxWidth, 10);
+        if (maxHeight) options.maxHeight = parseInt(maxHeight, 10);
+        options.preserveMetadata = preserveMetadata;
+      } else {
+        options.bitrate = audioBitrate;
+        if (audioChannels !== "auto") options.channels = parseInt(audioChannels, 10);
+        if (audioSampleRate !== "auto") options.sampleRate = parseInt(audioSampleRate, 10);
+      }
+
+      const resultBlob = await OmniCompressor.process(file, options);
 
       const time = Math.round(performance.now() - start);
 
@@ -347,10 +390,24 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   };
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 font-sans transition-colors duration-500 flex items-center justify-center selection:bg-[var(--theme-accent)] selection:text-[var(--theme-accent-text)]">
+    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 pb-20 font-sans transition-colors duration-500 flex items-center justify-center selection:bg-[var(--theme-accent)] selection:text-[var(--theme-accent-text)]">
       
       {/* Top Controls */}
       <div className="fixed top-6 right-6 z-[200] flex items-center gap-4">
+        
+        {/* PWA Install Button */}
+        {deferredPrompt && (
+          <button 
+            onClick={handleInstallClick}
+            className="hidden sm:flex items-center gap-2 font-bold text-sm uppercase px-4 py-2 border-2 bg-[var(--theme-accent)] text-[var(--theme-accent-text)] border-[var(--theme-border)] shadow-[4px_4px_0px_0px_var(--theme-shadow)] transition-all hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px]"
+          >
+            <svg viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+              <path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z" />
+            </svg>
+            Install App
+          </button>
+        )}
+
         {/* Mute Toggle */}
         <button 
           onClick={() => {
@@ -450,6 +507,137 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       ]
                     }
                   />
+                </div>
+              )}
+
+              {/* Advanced Controls Toggle */}
+              {file && (
+                <div className="pt-2">
+                  <button
+                    onClick={() => {
+                      setShowAdvanced(!showAdvanced);
+                      triggerFeedback('click', isMuted);
+                    }}
+                    className="flex items-center gap-2 text-sm font-bold uppercase text-[var(--theme-text)] opacity-70 hover:opacity-100 transition-opacity"
+                  >
+                    <svg className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" />
+                    </svg>
+                    Advanced Engineering
+                  </button>
+                  
+                  {/* Advanced Panel */}
+                  {showAdvanced && (
+                    <div className="mt-4 p-4 border-2 border-[var(--theme-border)] bg-[var(--theme-bg)] flex flex-col gap-4">
+                      
+                      {/* Global: Quality Slider */}
+                      <div>
+                        <div className="flex justify-between items-center mb-2">
+                          <label className="text-xs font-bold uppercase text-[var(--theme-text)]">Quality</label>
+                          <span className="text-xs font-black bg-[var(--theme-card-bg)] px-2 py-0.5 border-2 border-[var(--theme-border)]">{quality}%</span>
+                        </div>
+                        <input 
+                          type="range" 
+                          min="1" max="100" 
+                          value={quality}
+                          onChange={(e) => {
+                            setQuality(Number(e.target.value));
+                          }}
+                          onMouseUp={() => triggerFeedback('tick', isMuted)}
+                          onTouchEnd={() => triggerFeedback('tick', isMuted)}
+                          className="w-full accent-[var(--theme-primary)] bg-[var(--theme-card-bg)] border-2 border-[var(--theme-border)] h-3 appearance-none cursor-pointer"
+                        />
+                      </div>
+
+                      {/* Image Specific Controls */}
+                      {file.type.startsWith('image/') && (
+                        <>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="text-xs font-bold uppercase text-[var(--theme-text)] mb-1 block">Max Width (px)</label>
+                              <input 
+                                type="number" 
+                                placeholder="Auto"
+                                value={maxWidth}
+                                onChange={e => setMaxWidth(e.target.value)}
+                                className="w-full border-2 p-2 font-mono text-sm bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-[var(--theme-border)] focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-xs font-bold uppercase text-[var(--theme-text)] mb-1 block">Max Height (px)</label>
+                              <input 
+                                type="number" 
+                                placeholder="Auto"
+                                value={maxHeight}
+                                onChange={e => setMaxHeight(e.target.value)}
+                                className="w-full border-2 p-2 font-mono text-sm bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-[var(--theme-border)] focus:outline-none"
+                              />
+                            </div>
+                          </div>
+                          <label className="flex items-center gap-2 cursor-pointer group">
+                            <div className="relative flex items-center justify-center w-6 h-6 border-2 border-[var(--theme-border)] bg-[var(--theme-card-bg)]">
+                              <input 
+                                type="checkbox" 
+                                className="opacity-0 absolute w-full h-full cursor-pointer"
+                                checked={preserveMetadata}
+                                onChange={(e) => {
+                                  setPreserveMetadata(e.target.checked);
+                                  triggerFeedback('click', isMuted);
+                                }}
+                              />
+                              {preserveMetadata && <div className="w-3 h-3 bg-[var(--theme-accent)]"></div>}
+                            </div>
+                            <span className="text-xs font-bold uppercase text-[var(--theme-text)] group-hover:opacity-100 opacity-80">Preserve EXIF Metadata</span>
+                          </label>
+                        </>
+                      )}
+
+                      {/* Audio Specific Controls */}
+                      {!file.type.startsWith('image/') && (
+                        <>
+                          <div>
+                            <CustomSelect
+                              label="Bitrate"
+                              value={audioBitrate}
+                              onChange={setAudioBitrate}
+                              isMuted={isMuted}
+                              options={[
+                                { value: '64k', label: '64 kbps (Voice/Low)' },
+                                { value: '128k', label: '128 kbps (Standard)' },
+                                { value: '192k', label: '192 kbps (High)' },
+                                { value: '320k', label: '320 kbps (Audiophile)' },
+                              ]}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <CustomSelect
+                              label="Channels"
+                              value={audioChannels}
+                              onChange={setAudioChannels}
+                              isMuted={isMuted}
+                              options={[
+                                { value: 'auto', label: 'Auto (Original)' },
+                                { value: '1', label: 'Mono (1)' },
+                                { value: '2', label: 'Stereo (2)' }
+                              ]}
+                            />
+                            <CustomSelect
+                              label="Sample Rate"
+                              value={audioSampleRate}
+                              onChange={setAudioSampleRate}
+                              isMuted={isMuted}
+                              options={[
+                                { value: 'auto', label: 'Auto' },
+                                { value: '48000', label: '48000 Hz' },
+                                { value: '44100', label: '44100 Hz' },
+                                { value: '22050', label: '22050 Hz' }
+                              ]}
+                            />
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               
@@ -574,6 +762,17 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
           )}
         </div>
       </div>
+
+      {/* Footer / Copyright */}
+      <footer className="fixed bottom-0 left-0 w-full p-2 border-t-2 border-[var(--theme-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text)] z-50 flex justify-center items-center">
+        <div className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
+          <span>&copy; {new Date().getFullYear()} Dharanish V</span>
+          <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
+          <a href="https://github.com/dharanish-v/omni-compress" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--theme-primary)] transition-colors underline decoration-2 underline-offset-4">
+            Open Source
+          </a>
+        </div>
+      </footer>
     </div>
   );
 }
