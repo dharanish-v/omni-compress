@@ -1,0 +1,26 @@
+# Omni-Compress
+
+> Smart-routing media compression for browsers and Node.js.
+
+Omni-Compress automatically routes media compression to the fastest available engine at runtime: native Web APIs (OffscreenCanvas/WebCodecs), FFmpeg WebAssembly, or OS-level ffmpeg binaries. It features zero main-thread blocking and zero-copy memory transfers.
+
+## Core API
+```typescript
+import { OmniCompressor } from '@dharanish/omni-compress';
+
+const compressedBlob = await OmniCompressor.process(file, {
+  type: 'image' | 'audio',
+  format: 'webp' | 'opus' | 'mp3' | 'avif' | 'jpeg' | 'png' | 'flac' | 'wav',
+  quality: 0.8, // optional
+  maxWidth: 1920, // optional (images only)
+  maxHeight: 1080, // optional (images only)
+  preserveMetadata: false, // optional (images only)
+  bitrate: '128k', // optional (audio only)
+  channels: 2, // optional (audio only)
+  sampleRate: 48000 // optional (audio only)
+});
+```
+
+## Full Documentation
+For the complete API reference, architecture details, supported formats, and playground design philosophy, please read the full documentation at:
+[https://dharanish-v.github.io/omni-compress/llms-full.txt](https://dharanish-v.github.io/omni-compress/llms-full.txt)

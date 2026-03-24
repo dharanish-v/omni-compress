@@ -23,13 +23,13 @@
 
 ## Why omni-compress?
 
-| Problem | How omni-compress solves it |
-|---|---|
-| FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` / `WebCodecs` for standard formats (0 KB Wasm) |
-| Media processing freezes the UI | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
-| Browser and Node need different code paths | Single API — environment detection is automatic |
-| Wasm memory leaks crash browser tabs | Explicit WASM FS cleanup and `ffmpeg.terminate()` after every execution |
-| Dynamic imports break some bundlers | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading |
+| Problem                                        | How omni-compress solves it                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` / `WebCodecs` for standard formats (0 KB Wasm)     |
+| Media processing freezes the UI                | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
+| Browser and Node need different code paths     | Single API — environment detection is automatic                                  |
+| Wasm memory leaks crash browser tabs           | Explicit WASM FS cleanup and `ffmpeg.terminate()` after every execution          |
+| Dynamic imports break some bundlers            | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading          |
 
 ## Install
 
@@ -53,19 +53,19 @@ yarn add @dharanish/omni-compress
 ## Quick Start
 
 ```typescript
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from "@dharanish/omni-compress";
 
 // Image compression
 const webp = await OmniCompressor.process(imageFile, {
-  type: 'image',
-  format: 'webp',
+  type: "image",
+  format: "webp",
   quality: 0.8,
 });
 
 // Audio compression
 const mp3 = await OmniCompressor.process(audioFile, {
-  type: 'audio',
-  format: 'mp3',
+  type: "audio",
+  format: "mp3",
   onProgress: (percent) => console.log(`${percent}%`),
 });
 ```
@@ -78,36 +78,36 @@ Compresses a media file using the optimal engine for the current environment.
 
 **Parameters:**
 
-| Name | Type | Description |
-|---|---|---|
-| `file` | `File \| Blob` | The input media file |
+| Name      | Type                | Description                      |
+| --------- | ------------------- | -------------------------------- |
+| `file`    | `File \| Blob`      | The input media file             |
 | `options` | `CompressorOptions` | Configuration object (see below) |
 
 **Returns:** `Promise<Blob>` — the compressed output.
 
 ### `CompressorOptions`
 
-| Property | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `type` | `'image' \| 'audio'` | Yes | — | Media type |
-| `format` | `string` | Yes | — | Target output format |
-| `quality` | `number` | No | `0.8` | Lossy quality, `0.0` – `1.0` |
-| `maxSizeMB` | `number` | No | — | Maximum output size in megabytes |
-| `onProgress` | `(percent: number) => void` | No | — | Progress callback (`0` – `100`) |
-| `originalFileName` | `string` | No | Auto-detected | Helps FFmpeg probe the input format |
-| `maxWidth` | `number` | No | — | Maximum width for images (aspect ratio preserved) |
-| `maxHeight` | `number` | No | — | Maximum height for images (aspect ratio preserved) |
-| `preserveMetadata`| `boolean` | No | `false` | Whether to preserve EXIF data in images |
-| `bitrate` | `string` | No | `128k` | Target audio bitrate (e.g., `'192k'`) |
-| `channels` | `number` | No | Auto | Number of audio channels (1 for Mono, 2 for Stereo) |
-| `sampleRate` | `number` | No | Auto | Target audio sample rate (e.g., `44100`) |
+| Property           | Type                        | Required | Default       | Description                                         |
+| ------------------ | --------------------------- | -------- | ------------- | --------------------------------------------------- |
+| `type`             | `'image' \| 'audio'`        | Yes      | —             | Media type                                          |
+| `format`           | `string`                    | Yes      | —             | Target output format                                |
+| `quality`          | `number`                    | No       | `0.8`         | Lossy quality, `0.0` – `1.0`                        |
+| `maxSizeMB`        | `number`                    | No       | —             | Maximum output size in megabytes                    |
+| `onProgress`       | `(percent: number) => void` | No       | —             | Progress callback (`0` – `100`)                     |
+| `originalFileName` | `string`                    | No       | Auto-detected | Helps FFmpeg probe the input format                 |
+| `maxWidth`         | `number`                    | No       | —             | Maximum width for images (aspect ratio preserved)   |
+| `maxHeight`        | `number`                    | No       | —             | Maximum height for images (aspect ratio preserved)  |
+| `preserveMetadata` | `boolean`                   | No       | `false`       | Whether to preserve EXIF data in images             |
+| `bitrate`          | `string`                    | No       | `128k`        | Target audio bitrate (e.g., `'192k'`)               |
+| `channels`         | `number`                    | No       | Auto          | Number of audio channels (1 for Mono, 2 for Stereo) |
+| `sampleRate`       | `number`                    | No       | Auto          | Target audio sample rate (e.g., `44100`)            |
 
 ### `OmniCompressor.setLogLevel(level)`
 
 Set the minimum log level. Accepts `'debug'`, `'info'`, `'warn'`, or `'error'`.
 
 ```typescript
-OmniCompressor.setLogLevel('debug'); // Verbose logging for development
+OmniCompressor.setLogLevel("debug"); // Verbose logging for development
 ```
 
 ## Supported Formats
@@ -115,23 +115,23 @@ OmniCompressor.setLogLevel('debug'); // Verbose logging for development
 ### Images
 
 | Format | Fast Path (native) | Heavy Path (Wasm) | Node (OS binary) |
-|---|---|---|---|
-| WebP | ✅ OffscreenCanvas | ✅ libwebp | ✅ ffmpeg |
-| AVIF | ✅ OffscreenCanvas | ✅ libaom-av1 | ✅ ffmpeg |
-| JPEG | ✅ OffscreenCanvas | ✅ FFmpeg | ✅ ffmpeg |
-| PNG | ✅ OffscreenCanvas | ✅ FFmpeg | ✅ ffmpeg |
-| HEIC | — | ✅ FFmpeg | ✅ ffmpeg |
-| TIFF | — | ✅ FFmpeg | ✅ ffmpeg |
+| ------ | ------------------ | ----------------- | ---------------- |
+| WebP   | ✅ OffscreenCanvas | ✅ libwebp        | ✅ ffmpeg        |
+| AVIF   | ✅ OffscreenCanvas | ✅ libaom-av1     | ✅ ffmpeg        |
+| JPEG   | ✅ OffscreenCanvas | ✅ FFmpeg         | ✅ ffmpeg        |
+| PNG    | ✅ OffscreenCanvas | ✅ FFmpeg         | ✅ ffmpeg        |
+| HEIC   | —                  | ✅ FFmpeg         | ✅ ffmpeg        |
+| TIFF   | —                  | ✅ FFmpeg         | ✅ ffmpeg        |
 
 ### Audio
 
-| Format | Heavy Path (Wasm) | Node (OS binary) |
-|---|---|---|
-| MP3 | ✅ libmp3lame | ✅ ffmpeg |
-| Opus/OGG | ✅ libopus | ✅ ffmpeg |
-| FLAC | ✅ flac | ✅ ffmpeg |
-| WAV | ✅ FFmpeg | ✅ ffmpeg |
-| AAC | ✅ FFmpeg | ✅ ffmpeg |
+| Format   | Heavy Path (Wasm) | Node (OS binary) |
+| -------- | ----------------- | ---------------- |
+| MP3      | ✅ libmp3lame     | ✅ ffmpeg        |
+| Opus/OGG | ✅ libopus        | ✅ ffmpeg        |
+| FLAC     | ✅ flac           | ✅ ffmpeg        |
+| WAV      | ✅ FFmpeg         | ✅ ffmpeg        |
+| AAC      | ✅ FFmpeg         | ✅ ffmpeg        |
 
 ## Architecture
 
@@ -140,22 +140,22 @@ OmniCompressor.process(file, options)
         │
         ▼
    ┌─────────┐
-   │  Router  │  ← Evaluates runtime + format
+   │  Router │  ← Evaluates runtime + format
    └────┬────┘
         │
-   ┌────┴──────────────────────┐
-   │          │                │
-   ▼          ▼                ▼
- Fast Path  Heavy Path    Node Adapter
- (Native)   (FFmpeg Wasm)  (child_process)
-   │          │                │
-   │  OffscreenCanvas    @ffmpeg/ffmpeg    OS ffmpeg binary
-   │  WebCodecs API      Lazy-loaded       Via ffmpeg-static
-   │          │                │
-   └──────────┴────────────────┘
-              │
-        Web Workers          ← Zero main-thread blocking
-        Transferable Objects ← Zero-copy memory
+   ┌────┴────────────────────────────┐
+   │                │                │
+   ▼                ▼                ▼
+ Fast Path      Heavy Path       Node Adapter
+ (Native)     (FFmpeg Wasm)    (child_process)
+   │                │                │
+OffscreenCanvas    @ffmpeg/ffmpeg    OS ffmpeg binary
+WebCodecs API      Lazy-loaded       Via ffmpeg-static
+   │                │                │
+   └────────────────┴────────────────┘
+                    │
+              Web Workers          ← Zero main-thread blocking
+              Transferable Objects ← Zero-copy memory
 ```
 
 ### Processing Paths
@@ -171,7 +171,7 @@ OmniCompressor.process(file, options)
 ### React
 
 ```tsx
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from "@dharanish/omni-compress";
 
 function ImageUploader() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,8 +179,8 @@ function ImageUploader() {
     if (!file) return;
 
     const compressed = await OmniCompressor.process(file, {
-      type: 'image',
-      format: 'webp',
+      type: "image",
+      format: "webp",
       quality: 0.75,
     });
 
@@ -196,15 +196,15 @@ function ImageUploader() {
 
 ```vue
 <script setup lang="ts">
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from "@dharanish/omni-compress";
 
 async function onFileChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
 
   const compressed = await OmniCompressor.process(file, {
-    type: 'audio',
-    format: 'mp3',
+    type: "audio",
+    format: "mp3",
     quality: 0.8,
   });
   // Upload or play the compressed blob
@@ -215,15 +215,15 @@ async function onFileChange(event: Event) {
 ### Node.js / Express
 
 ```typescript
-import { OmniCompressor } from '@dharanish/omni-compress';
-import { readFile } from 'fs/promises';
+import { OmniCompressor } from "@dharanish/omni-compress";
+import { readFile } from "fs/promises";
 
-const buffer = await readFile('photo.png');
-const blob = new Blob([buffer], { type: 'image/png' });
+const buffer = await readFile("photo.png");
+const blob = new Blob([buffer], { type: "image/png" });
 
 const webp = await OmniCompressor.process(blob, {
-  type: 'image',
-  format: 'webp',
+  type: "image",
+  format: "webp",
   quality: 0.8,
 });
 ```
@@ -250,7 +250,7 @@ module.exports = {
     rules: [
       {
         test: /\.worker\.js$/,
-        type: 'asset/resource',
+        type: "asset/resource",
       },
     ],
   },
@@ -259,22 +259,22 @@ module.exports = {
 
 ## Troubleshooting
 
-| Issue | Solution |
-|---|---|
-| `SharedArrayBuffer is not defined` | Enable cross-origin isolation headers (see Bundler Configuration above) |
-| `FFmpeg Wasm failed to load` | Ensure CORS headers are set and your CSP allows `wasm-unsafe-eval` |
-| `ffmpeg: command not found` (Node) | Install `ffmpeg-static` or add `ffmpeg` to your system `PATH` |
-| Worker files 404 | Verify `dist/workers/*.js` are served by your dev server or CDN |
-| Memory issues with large files | The library uses 2-pass encoding for Opus to avoid Wasm OOM; for very large files, consider chunking on the application side |
+| Issue                              | Solution                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `SharedArrayBuffer is not defined` | Enable cross-origin isolation headers (see Bundler Configuration above)                                                      |
+| `FFmpeg Wasm failed to load`       | Ensure CORS headers are set and your CSP allows `wasm-unsafe-eval`                                                           |
+| `ffmpeg: command not found` (Node) | Install `ffmpeg-static` or add `ffmpeg` to your system `PATH`                                                                |
+| Worker files 404                   | Verify `dist/workers/*.js` are served by your dev server or CDN                                                              |
+| Memory issues with large files     | The library uses 2-pass encoding for Opus to avoid Wasm OOM; for very large files, consider chunking on the application side |
 
 ## Browser Compatibility
 
-| Feature | Chrome | Firefox | Safari | Edge |
-|---|---|---|---|---|
-| Fast Path (OffscreenCanvas) | 69+ | 105+ | 16.4+ | 79+ |
-| Heavy Path (FFmpeg Wasm) | 57+ | 52+ | 16.4+ | 79+ |
-| Web Workers | ✅ All modern | ✅ All modern | ✅ All modern | ✅ All modern |
-| WebCodecs (Audio Fast Path) | 94+ | ❌ | ❌ | 94+ |
+| Feature                     | Chrome        | Firefox       | Safari        | Edge          |
+| --------------------------- | ------------- | ------------- | ------------- | ------------- |
+| Fast Path (OffscreenCanvas) | 69+           | 105+          | 16.4+         | 79+           |
+| Heavy Path (FFmpeg Wasm)    | 57+           | 52+           | 16.4+         | 79+           |
+| Web Workers                 | ✅ All modern | ✅ All modern | ✅ All modern | ✅ All modern |
+| WebCodecs (Audio Fast Path) | 94+           | ❌            | ❌            | 94+           |
 
 ## Contributing
 

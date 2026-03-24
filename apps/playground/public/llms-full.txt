@@ -1,0 +1,537 @@
+# Omni-Compress - Full Documentation Context
+
+This file contains the concatenated documentation for the Omni-Compress project, designed for consumption by LLMs and AI agents.
+
+
+
+---
+
+# Root README
+
+# Omni Compress
+
+<p align="center">
+  <img src="https://img.shields.io/npm/v/@dharanish/omni-compress?style=flat-square&color=0f4c81" alt="NPM Version" />
+  <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
+  <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
+  <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
+</p>
+
+<p align="center">
+  <b>Smart-routing media compression for browsers and Node.js.</b><br/>
+  One API. Three engines. Zero main-thread blocking.
+</p>
+
+---
+
+`omni-compress` accepts an image or audio file and automatically routes compression to the fastest engine available at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries.
+
+```typescript
+import { OmniCompressor } from '@dharanish/omni-compress';
+
+const compressed = await OmniCompressor.process(file, {
+  type: 'image',
+  format: 'webp',
+  quality: 0.8,
+  onProgress: (p) => console.log(`${p}%`),
+});
+```
+
+## Highlights
+
+- **Zero main-thread blocking** — All browser processing runs in Web Workers
+- **Zero-copy memory** — `Transferable` ArrayBuffer transfers, no RAM duplication
+- **Smart routing** — Native `OffscreenCanvas` for standard formats, lazy-loaded FFmpeg Wasm for the rest
+- **Isomorphic** — Same API for browser, Node.js, and Electron
+- **Tree-shakeable** — ESM + CJS dual build, no side effects
+- **Wasm memory safe** — Explicit cleanup after every execution
+
+## Monorepo Structure
+
+```
+├── packages/omni-compress/   → Core library (published to npm)
+└── apps/playground/          → Interactive demo (React + Vite + Tailwind)
+```
+
+## 🎨 The Neo-Brutalist Playground
+
+The project includes an interactive playground built with a **Neo-Brutalist** design system. This isn't just a compression tool—it's a cultural and visual exploration of **brevity**.
+
+- **26 Historical Personas:** Switch between themes ranging from *Leonardo da Vinci* to *Aryabhata*, each with unique cultural quotes and color palettes.
+- **Mechanical UI:** Custom-built components (Mechanical Audio Player, Brutalist Selects) that prioritize raw functionality.
+- **Sensory Feedback:** Experience the app through synthesized mechanical sounds (Web Audio API) and tactile haptic vibrations synced with UI interactions.
+- **View Transitions:** Experience seamless theme morphing using modern browser APIs.
+- **Live Preview:** Real-time side-by-side comparison of original media vs. compressed "masterpieces."
+
+[**Explore the Playground 🚀**](https://dharanish-v.github.io/omni-compress/)
+
+| Package | Description | Links |
+|---|---|---|
+| `@dharanish/omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/@dharanish/omni-compress) |
+| `playground` | Live demo UI | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/) |
+
+## Quick Start
+
+```bash
+npm install @dharanish/omni-compress
+```
+
+For full API reference, supported formats, architecture details, and framework examples, see the **[package README](packages/omni-compress/README.md)**.
+
+## Development
+
+```bash
+# Prerequisites: Bun (https://bun.sh)
+bun install
+
+# Run the playground locally
+bun run dev
+
+# Build everything
+bun run build
+```
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup instructions and guidelines.
+
+## Security
+
+See [SECURITY.md](SECURITY.md) for our vulnerability reporting policy.
+
+## License
+
+[MIT](LICENSE) &copy; Dharanish V
+
+
+---
+
+# Core Library API
+
+# Omni Compress
+
+<p align="center">
+  <img src="https://img.shields.io/npm/v/@dharanish/omni-compress?style=flat-square&color=0f4c81" alt="NPM Version" />
+  <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
+  <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
+  <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
+  <img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square" alt="TypeScript" />
+</p>
+
+<p align="center">
+  <b>Smart-routing media compression for browsers and Node.js.</b><br/>
+  One API. Three engines. Zero main-thread blocking.
+</p>
+
+<p align="center">
+  <a href="https://dharanish-v.github.io/omni-compress/"><b>Live Neo-Brutalist Demo 🚀</b></a>
+</p>
+
+---
+
+`omni-compress` accepts an image or audio file and automatically routes the compression to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries — without you writing a single line of platform-specific code.
+
+## Why omni-compress?
+
+| Problem | How omni-compress solves it |
+|---|---|
+| FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` / `WebCodecs` for standard formats (0 KB Wasm) |
+| Media processing freezes the UI | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
+| Browser and Node need different code paths | Single API — environment detection is automatic |
+| Wasm memory leaks crash browser tabs | Explicit WASM FS cleanup and `ffmpeg.terminate()` after every execution |
+| Dynamic imports break some bundlers | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading |
+
+## Install
+
+```bash
+npm install @dharanish/omni-compress
+```
+
+```bash
+# bun
+bun add @dharanish/omni-compress
+
+# pnpm
+pnpm add @dharanish/omni-compress
+
+# yarn
+yarn add @dharanish/omni-compress
+```
+
+> **Node.js users:** For the Node adapter to work, install `ffmpeg-static` (bundled as an optional dependency) or ensure `ffmpeg` is available on your system `PATH`.
+
+## Quick Start
+
+```typescript
+import { OmniCompressor } from '@dharanish/omni-compress';
+
+// Image compression
+const webp = await OmniCompressor.process(imageFile, {
+  type: 'image',
+  format: 'webp',
+  quality: 0.8,
+});
+
+// Audio compression
+const mp3 = await OmniCompressor.process(audioFile, {
+  type: 'audio',
+  format: 'mp3',
+  onProgress: (percent) => console.log(`${percent}%`),
+});
+```
+
+## API Reference
+
+### `OmniCompressor.process(file, options)`
+
+Compresses a media file using the optimal engine for the current environment.
+
+**Parameters:**
+
+| Name | Type | Description |
+|---|---|---|
+| `file` | `File \| Blob` | The input media file |
+| `options` | `CompressorOptions` | Configuration object (see below) |
+
+**Returns:** `Promise<Blob>` — the compressed output.
+
+### `CompressorOptions`
+
+| Property | Type | Required | Default | Description |
+|---|---|---|---|---|
+| `type` | `'image' \| 'audio'` | Yes | — | Media type |
+| `format` | `string` | Yes | — | Target output format |
+| `quality` | `number` | No | `0.8` | Lossy quality, `0.0` – `1.0` |
+| `maxSizeMB` | `number` | No | — | Maximum output size in megabytes |
+| `onProgress` | `(percent: number) => void` | No | — | Progress callback (`0` – `100`) |
+| `originalFileName` | `string` | No | Auto-detected | Helps FFmpeg probe the input format |
+
+### `OmniCompressor.setLogLevel(level)`
+
+Set the minimum log level. Accepts `'debug'`, `'info'`, `'warn'`, or `'error'`.
+
+```typescript
+OmniCompressor.setLogLevel('debug'); // Verbose logging for development
+```
+
+## Supported Formats
+
+### Images
+
+| Format | Fast Path (native) | Heavy Path (Wasm) | Node (OS binary) |
+|---|---|---|---|
+| WebP | ✅ OffscreenCanvas | ✅ libwebp | ✅ ffmpeg |
+| AVIF | ✅ OffscreenCanvas | ✅ libaom-av1 | ✅ ffmpeg |
+| JPEG | ✅ OffscreenCanvas | ✅ FFmpeg | ✅ ffmpeg |
+| PNG | ✅ OffscreenCanvas | ✅ FFmpeg | ✅ ffmpeg |
+| HEIC | — | ✅ FFmpeg | ✅ ffmpeg |
+| TIFF | — | ✅ FFmpeg | ✅ ffmpeg |
+
+### Audio
+
+| Format | Heavy Path (Wasm) | Node (OS binary) |
+|---|---|---|
+| MP3 | ✅ libmp3lame | ✅ ffmpeg |
+| Opus/OGG | ✅ libopus | ✅ ffmpeg |
+| FLAC | ✅ flac | ✅ ffmpeg |
+| WAV | ✅ FFmpeg | ✅ ffmpeg |
+| AAC | ✅ FFmpeg | ✅ ffmpeg |
+
+## Architecture
+
+```
+OmniCompressor.process(file, options)
+        │
+        ▼
+   ┌─────────┐
+   │  Router │  ← Evaluates runtime + format
+   └────┬────┘
+        │
+   ┌────┴────────────────────────────┐
+   │                │                │
+   ▼                ▼                ▼
+ Fast Path      Heavy Path       Node Adapter
+ (Native)     (FFmpeg Wasm)    (child_process)
+   │                │                │
+OffscreenCanvas    @ffmpeg/ffmpeg    OS ffmpeg binary
+WebCodecs API      Lazy-loaded       Via ffmpeg-static
+   │                │                │
+   └────────────────┴────────────────┘
+                    │
+              Web Workers          ← Zero main-thread blocking
+              Transferable Objects ← Zero-copy memory
+```
+
+### Processing Paths
+
+1. **Fast Path** — Standard web formats (WebP, AVIF, JPEG, PNG) in browsers. Uses `OffscreenCanvas` for hardware-accelerated encoding inside a Web Worker. **Zero Wasm overhead.**
+
+2. **Heavy Path** — Complex or obscure formats (HEIC, TIFF, FLAC, Opus) in browsers. Dynamically lazy-loads `@ffmpeg/ffmpeg` WebAssembly inside a Web Worker. Memory is explicitly cleaned up after every run.
+
+3. **Node Adapter** — Any format on Node.js or Electron. Spawns a native `child_process` using `ffmpeg-static` or a system-wide `ffmpeg` binary. Maximum performance, no Wasm.
+
+## Framework Integration
+
+### React
+
+```tsx
+import { OmniCompressor } from '@dharanish/omni-compress';
+
+function ImageUploader() {
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const compressed = await OmniCompressor.process(file, {
+      type: 'image',
+      format: 'webp',
+      quality: 0.75,
+    });
+
+    const url = URL.createObjectURL(compressed);
+    // Use the URL for preview or upload
+  };
+
+  return <input type="file" accept="image/*" onChange={handleFile} />;
+}
+```
+
+### Vue 3
+
+```vue
+<script setup lang="ts">
+import { OmniCompressor } from '@dharanish/omni-compress';
+
+async function onFileChange(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+
+  const compressed = await OmniCompressor.process(file, {
+    type: 'audio',
+    format: 'mp3',
+    quality: 0.8,
+  });
+  // Upload or play the compressed blob
+}
+</script>
+```
+
+### Node.js / Express
+
+```typescript
+import { OmniCompressor } from '@dharanish/omni-compress';
+import { readFile } from 'fs/promises';
+
+const buffer = await readFile('photo.png');
+const blob = new Blob([buffer], { type: 'image/png' });
+
+const webp = await OmniCompressor.process(blob, {
+  type: 'image',
+  format: 'webp',
+  quality: 0.8,
+});
+```
+
+## Bundler Configuration
+
+### Vite
+
+Web Workers require `Cross-Origin-Isolation` headers. Add [`coi-serviceworker`](https://github.com/nicolo-ribaudo/coi-serviceworker) to your `public/` directory, or configure your server to send the required headers:
+
+```
+Cross-Origin-Opener-Policy: same-origin
+Cross-Origin-Embedder-Policy: require-corp
+```
+
+### Webpack 5
+
+Ensure the worker files are served correctly:
+
+```javascript
+// webpack.config.js
+module.exports = {
+  module: {
+    rules: [
+      {
+        test: /\.worker\.js$/,
+        type: 'asset/resource',
+      },
+    ],
+  },
+};
+```
+
+## Troubleshooting
+
+| Issue | Solution |
+|---|---|
+| `SharedArrayBuffer is not defined` | Enable cross-origin isolation headers (see Bundler Configuration above) |
+| `FFmpeg Wasm failed to load` | Ensure CORS headers are set and your CSP allows `wasm-unsafe-eval` |
+| `ffmpeg: command not found` (Node) | Install `ffmpeg-static` or add `ffmpeg` to your system `PATH` |
+| Worker files 404 | Verify `dist/workers/*.js` are served by your dev server or CDN |
+| Memory issues with large files | The library uses 2-pass encoding for Opus to avoid Wasm OOM; for very large files, consider chunking on the application side |
+
+## Browser Compatibility
+
+| Feature | Chrome | Firefox | Safari | Edge |
+|---|---|---|---|---|
+| Fast Path (OffscreenCanvas) | 69+ | 105+ | 16.4+ | 79+ |
+| Heavy Path (FFmpeg Wasm) | 57+ | 52+ | 16.4+ | 79+ |
+| Web Workers | ✅ All modern | ✅ All modern | ✅ All modern | ✅ All modern |
+| WebCodecs (Audio Fast Path) | 94+ | ❌ | ❌ | 94+ |
+
+## Contributing
+
+We welcome contributions! Please see the [Contributing Guide](https://github.com/dharanish-v/omni-compress/blob/master/CONTRIBUTING.md) for setup instructions and guidelines.
+
+## License
+
+[MIT](LICENSE) &copy; Dharanish V
+
+
+---
+
+# Playground Design Thinking
+
+# Omni-Compress Playground 🎨
+
+> "Brevity is the soul of wit." — William Shakespeare
+
+The **Omni-Compress Playground** is an interactive, high-performance web application designed to demonstrate the power of the `@dharanish/omni-compress` library. It combines cutting-edge WebAssembly technology with a bold, **Neo-Brutalist** design system.
+
+---
+
+## 🏛️ Design Thinking: Neo-Brutalism
+
+The playground is built on a **Neo-Brutalist** (or *New Brutalist*) design philosophy. This approach rejects the "softness" and over-polishing of modern SaaS interfaces in favor of something more raw, honest, and mechanical.
+
+### Key Pillars:
+- **Raw Functionality:** High-contrast `4px` and `2px` borders define every element. There are no gradients or subtle blurs—only solid colors and sharp lines.
+- **Mechanical UI:** Every component is designed to feel like a physical machine. 
+    - The **Audio Player** features a "digital readout" for duration and a tactile "mechanical knob" for seeking.
+    - **Select Dropdowns** use heavy shadows and sharp corners instead of floating native menus.
+- **Haptic Feedback:** To simulate physical interaction, elements use a consistent `6px` or `4px` offset shadow. On hover/active states, the element translates `1:1` into its shadow, creating a satisfying "press" effect. This is paired with actual **Haptic Vibrations** (`navigator.vibrate`) for a truly tactile experience.
+- **Mechanical Sound Synthesis:** Utilizing the **Web Audio API**, the playground synthesizes "engine-like" click, shift, and success sounds in real-time. No sound files are downloaded; the audio is generated on-the-fly to ensure zero latency and a mechanical feel.
+- **Intentional Chaos:** Diagonal background patterns, oversized typography, and overlapping decorative shapes create a sense of raw energy and "construction."
+
+### 🎭 Persona-Driven Themes
+The playground features **26 unique themes**, each tied to a historical persona (from *Leonardo da Vinci* to *Aryabhata*). 
+- **Cultural Color Theory:** Each theme uses a palette inspired by the persona's era or art style (e.g., Monet's soft saturations vs. Picasso's bold blues).
+- **Localized Context:** Themes include localized strings and quotes that reflect the persona's philosophy on "brevity" and "simplicity."
+- **Seamless Transitions:** Leveraging the modern **View Transitions API**, switching personas morphs the entire UI—from background patterns to button shapes—seamlessly.
+
+---
+
+## 🛠️ Technical Highlights
+
+- **Isomorphic Compression:** Automatically routes between native browser APIs (`OffscreenCanvas`, `WebCodecs`) and heavy-duty FFmpeg WebAssembly.
+- **Zero-Copy Memory:** Uses `Transferable Objects` to pass large media buffers between the main thread and Web Workers without RAM duplication.
+- **Responsive "Transformation Flow":** The UI clearly visualizes the "Original" vs. the "Masterpiece," including a desktop-only conversion indicator and real-time performance stats.
+- **Performance Optimized:** Despite the heavy visual style, the app maintains 60fps animations and ultra-fast theme switching.
+
+---
+
+## 🚀 Development
+
+```bash
+# From the project root:
+bun run dev
+```
+
+The playground is built with **React**, **TypeScript**, and **Tailwind CSS**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.
+
+
+---
+
+# Contributing & Architecture Rules
+
+# Contributing to Omni Compress
+
+Thank you for your interest in contributing! We welcome bug reports, feature requests, and pull requests.
+
+## Development Setup
+
+This project uses [Bun](https://bun.sh/) workspaces. Ensure you have Bun installed before proceeding.
+
+### Prerequisites
+
+- [Bun](https://bun.sh/docs/installation) (latest)
+- [ffmpeg](https://ffmpeg.org/) (optional — only needed for Node adapter testing)
+
+### Getting Started
+
+```bash
+git clone https://github.com/dharanish-v/omni-compress.git
+cd omni-compress
+bun install
+```
+
+### Commands
+
+```bash
+# Run the playground locally (Vite dev server)
+bun run dev
+
+# Build the library and playground
+bun run build
+
+# Type-check the library
+cd packages/omni-compress && bun run typecheck
+
+# Clean all build artifacts and node_modules
+bun run clean
+```
+
+## Project Structure
+
+```
+├── packages/omni-compress/   → Core library (published to npm)
+│   ├── src/
+│   │   ├── adapters/         → Environment-specific adapters (browser / node)
+│   │   ├── core/             → Router, utils, logger
+│   │   ├── workers/          → Web Worker entry points
+│   │   └── index.ts          → Public API
+│   └── tsup.config.ts        → Build config
+│
+└── apps/playground/          → Vite + React interactive demo
+```
+
+## Architecture Rules
+
+When contributing code, please maintain these design invariants:
+
+### Core Library (`packages/omni-compress/`):
+1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
+2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` and `ffmpeg.terminate()` in a `finally` block.
+3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
+4. **No main-thread work** — All media processing in browsers must run inside Web Workers.
+
+### Playground (`apps/playground/`):
+1. **Neo-Brutalist Aesthetic** — Maintain high-contrast `4px`/`2px` borders and sharp `6px`/`4px` offset shadows.
+2. **Haptic Feedback** — Standardize `active:translate` behavior to match the 1:1 shadow translation pattern.
+3. **Persona-First** — New UI components should adapt to the theme's `primary`, `secondary`, and `accent` color variables.
+4. **Mechanical Components** — Prioritize raw, physical-feeling UI elements over polished or "soft" components.
+
+## Commit Guidelines
+
+We use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+feat: add HEIC support via Heavy Path
+fix: prevent Wasm OOM on large audio files
+docs: update supported formats table
+refactor: extract shared FFmpeg args builder
+```
+
+## Pull Request Process
+
+1. Fork the repository.
+2. Create a feature branch from `master` (`git checkout -b feature/amazing-feature`).
+3. Make your changes, ensuring `bun run typecheck` passes.
+4. Test your changes in the playground (`bun run dev`).
+5. Commit using conventional commit messages.
+6. Push to your fork and open a Pull Request targeting `master`.
+
+## Code of Conduct
+
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md). By participating, you agree to uphold this code.
