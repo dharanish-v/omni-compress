@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { OmniCompressor, WorkerConfig } from "@dharanish/omni-compress";
 import { themes } from "./themes";
 import { triggerFeedback } from "./utils/feedback";
+// @ts-ignore - Astro virtual module
 import { navigate } from "astro:transitions/client";
 
 // Vite bundles these workers into self-contained assets and returns their URLs.
@@ -208,7 +209,7 @@ function CustomSelect({
 }
 
 function App({ initialTheme = 'en' }: { initialTheme?: string }) {
-  const [activeThemeId, setActiveThemeId] = useState<string>(initialTheme);
+  const [activeThemeId] = useState<string>(initialTheme);
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
