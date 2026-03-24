@@ -48,10 +48,11 @@ const compressed = await OmniCompressor.process(file, {
 The project includes an interactive playground built with a **Neo-Brutalist** design system. This isn't just a compression tool—it's a cultural and visual exploration of **brevity**.
 
 - **26 Historical Personas:** Switch between themes ranging from *Leonardo da Vinci* to *Aryabhata*, each with unique cultural quotes and color palettes.
+- **Advanced Engineering:** Exposes granular compression controls (Bitrate, Sample Rate, Dimensions, Metadata stripping) inside a tactile UI.
 - **Mechanical UI:** Custom-built components (Mechanical Audio Player, Brutalist Selects) that prioritize raw functionality.
 - **Sensory Feedback:** Experience the app through synthesized mechanical sounds (Web Audio API) and tactile haptic vibrations synced with UI interactions.
-- **View Transitions:** Experience seamless theme morphing using modern browser APIs.
-- **Live Preview:** Real-time side-by-side comparison of original media vs. compressed "masterpieces."
+- **View Transitions:** Experience seamless theme morphing using modern browser APIs (built on Astro SSG).
+- **LLM Discoverability:** Implements the `llms.txt` standard. AI agents can natively ingest the library context at `https://dharanish-v.github.io/omni-compress/llms.txt`.
 
 [**Explore the Playground 🚀**](https://dharanish-v.github.io/omni-compress/)
 

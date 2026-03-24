@@ -95,6 +95,12 @@ Compresses a media file using the optimal engine for the current environment.
 | `maxSizeMB` | `number` | No | — | Maximum output size in megabytes |
 | `onProgress` | `(percent: number) => void` | No | — | Progress callback (`0` – `100`) |
 | `originalFileName` | `string` | No | Auto-detected | Helps FFmpeg probe the input format |
+| `maxWidth` | `number` | No | — | Maximum width for images (aspect ratio preserved) |
+| `maxHeight` | `number` | No | — | Maximum height for images (aspect ratio preserved) |
+| `preserveMetadata`| `boolean` | No | `false` | Whether to preserve EXIF data in images |
+| `bitrate` | `string` | No | `128k` | Target audio bitrate (e.g., `'192k'`) |
+| `channels` | `number` | No | Auto | Number of audio channels (1 for Mono, 2 for Stereo) |
+| `sampleRate` | `number` | No | Auto | Target audio sample rate (e.g., `44100`) |
 
 ### `OmniCompressor.setLogLevel(level)`
 

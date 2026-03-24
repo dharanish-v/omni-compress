@@ -4,6 +4,19 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-03-24
+
+### Added
+- **SSG Migration for SEO (Issue #2):** Migrated the Playground from a Vite SPA to Astro. Implemented `getStaticPaths` to pre-render all 26 persona themes into distinct, indexable HTML pages with dynamic SEO `<meta>` tags and an auto-generated `sitemap-index.xml`.
+- **Advanced Output Controls (Issue #17):** 
+  - *Core Library:* Expanded `CompressorOptions` API to accept `maxWidth`, `maxHeight`, `preserveMetadata`, `bitrate`, `channels`, and `sampleRate`. Implemented these flags across both Fast (OffscreenCanvas) and Heavy (FFmpeg Wasm) routing paths.
+  - *Playground UI:* Added a Neo-Brutalist "Advanced Engineering" collapsible panel to expose granular controls (Quality slider, resizing, audio bitrates/channels) to the end user.
+- **LLM Discoverability Standard (Issue #19):** Implemented an automated build script to generate `llms.txt` (concise API summary) and `llms-full.txt` (concatenated project documentation) to the root of the static site, optimizing the repository for AI agents and coding assistants.
+
+### Changed
+- Preserved the seamless View Transitions during the Astro SSG migration by utilizing Astro's `<ClientRouter />` and `navigate()` API instead of standard `<a>` tag routing.
+- Added Neo-Brutalist sticky footer to the playground featuring author copyright and Open Source links.
+
 ## [1.2.0] - 2026-03-22
 
 ### Added

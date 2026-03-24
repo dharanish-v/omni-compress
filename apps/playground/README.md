@@ -29,10 +29,11 @@ The playground features **26 unique themes**, each tied to a historical persona 
 
 ## 🛠️ Technical Highlights
 
+- **Static Site Generation (SSG):** Built with **Astro**. The playground uses `getStaticPaths` to pre-render all 26 persona themes into distinct, indexable HTML pages at build time, ensuring perfect SEO and instant Time-To-Interactive (TTI).
+- **View Transitions:** Leverages Astro's `<ClientRouter />` for seamless, morphing CSS animations when switching between statically generated persona pages.
+- **LLM Discoverability:** Includes an automated build script that generates `llms.txt` and `llms-full.txt` context files, making the entire repository and API surface easily digestible by AI coding assistants.
 - **Isomorphic Compression:** Automatically routes between native browser APIs (`OffscreenCanvas`, `WebCodecs`) and heavy-duty FFmpeg WebAssembly.
 - **Zero-Copy Memory:** Uses `Transferable Objects` to pass large media buffers between the main thread and Web Workers without RAM duplication.
-- **Responsive "Transformation Flow":** The UI clearly visualizes the "Original" vs. the "Masterpiece," including a desktop-only conversion indicator and real-time performance stats.
-- **Performance Optimized:** Despite the heavy visual style, the app maintains 60fps animations and ultra-fast theme switching.
 
 ---
 
@@ -43,4 +44,4 @@ The playground features **26 unique themes**, each tied to a historical persona 
 bun run dev
 ```
 
-The playground is built with **React**, **TypeScript**, and **Tailwind CSS**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.
+The playground is built with **Astro**, **React**, and **Tailwind CSS v4**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.
