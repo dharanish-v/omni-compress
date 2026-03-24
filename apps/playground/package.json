@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "node scripts/generate-llms-txt.js && astro dev",
-    "prebuild": "node scripts/generate-llms-txt.js",
+    "prebuild": "node scripts/generate-llms-txt.js && node scripts/generate-coverage-badge.js",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",

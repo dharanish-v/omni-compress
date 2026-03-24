@@ -42,7 +42,7 @@ jobs:
 
       - name: Run Tests
         working-directory: packages/omni-compress
-        run: bun run test
+        run: bun run test --coverage
         
       - name: Build Library
         run: cd packages/omni-compress && bun run build
