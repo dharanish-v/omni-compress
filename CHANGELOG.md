@@ -7,6 +7,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ## [1.3.0] - 2026-03-24
 
 ### Added
+- **Automated Test Suite (Issue #3):** Implemented a robust, isomorphic test suite using Vitest workspaces. Evaluates the `child_process` adapter in a Node environment and the `OffscreenCanvas`/Web Worker Wasm engines in a real headless Chromium browser powered by Playwright. Integrated into the GitHub Actions CI pipeline.
 - **SSG Migration for SEO (Issue #2):** Migrated the Playground from a Vite SPA to Astro. Implemented `getStaticPaths` to pre-render all 26 persona themes into distinct, indexable HTML pages with dynamic SEO `<meta>` tags and an auto-generated `sitemap-index.xml`.
 - **Advanced Output Controls (Issue #17):** 
   - *Core Library:* Expanded `CompressorOptions` API to accept `maxWidth`, `maxHeight`, `preserveMetadata`, `bitrate`, `channels`, and `sampleRate`. Implemented these flags across both Fast (OffscreenCanvas) and Heavy (FFmpeg Wasm) routing paths.

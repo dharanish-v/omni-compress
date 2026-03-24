@@ -5,6 +5,7 @@
   <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
   <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
   <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
+  <img src="https://img.shields.io/badge/Tested_with-Vitest-729B1B?style=flat-square&logo=vitest" alt="Tested with Vitest" />
 </p>
 
 <p align="center">
@@ -33,6 +34,7 @@ const compressed = await OmniCompressor.process(file, {
 - **Zero-copy memory** — `Transferable` ArrayBuffer transfers, no RAM duplication
 - **Smart routing** — Native `OffscreenCanvas` for standard formats, lazy-loaded FFmpeg Wasm for the rest
 - **Isomorphic** — Same API for browser, Node.js, and Electron
+- **Isomorphic Testing** — Comprehensive test suite using Vitest and Playwright across all execution environments
 - **Tree-shakeable** — ESM + CJS dual build, no side effects
 - **Wasm memory safe** — Explicit cleanup after every execution
 

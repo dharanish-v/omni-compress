@@ -22,14 +22,19 @@ bun install
 ### Commands
 
 ```bash
-# Run the playground locally (Vite dev server)
+# Run the playground locally
 bun run dev
 
 # Build the library and playground
 bun run build
 
+# Run the automated test suite
+cd packages/omni-compress
+bunx playwright install --with-deps chromium # Run once to install browser
+bun run test
+
 # Type-check the library
-cd packages/omni-compress && bun run typecheck
+bun run typecheck
 
 # Clean all build artifacts and node_modules
 bun run clean
@@ -81,9 +86,10 @@ refactor: extract shared FFmpeg args builder
 1. Fork the repository.
 2. Create a feature branch from `master` (`git checkout -b feature/amazing-feature`).
 3. Make your changes, ensuring `bun run typecheck` passes.
-4. Test your changes in the playground (`bun run dev`).
-5. Commit using conventional commit messages.
-6. Push to your fork and open a Pull Request targeting `master`.
+4. Run the automated test suite (`cd packages/omni-compress && bun run test`) to ensure no regressions.
+5. Test your changes visually in the playground (`bun run dev`).
+6. Commit using conventional commit messages.
+7. Push to your fork and open a Pull Request targeting `master`.
 
 ## Code of Conduct
 
