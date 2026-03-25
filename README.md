@@ -34,16 +34,18 @@ const compressed = await OmniCompressor.process(file, {
 - **Zero main-thread blocking** — All browser processing runs in Web Workers
 - **Zero-copy memory** — `Transferable` ArrayBuffer transfers, no RAM duplication
 - **Smart routing** — Native `OffscreenCanvas` for standard formats, lazy-loaded FFmpeg Wasm for the rest
+- **Resilient fallback** — Fast Path failures automatically fall back to Heavy Path
+- **OOM prevention** — Typed `FileTooLargeError` thrown before Wasm memory exhaustion (250 MB guard)
+- **FFmpeg singleton caching** — Wasm instance reused across compressions with idle-timeout cleanup
 - **Isomorphic** — Same API for browser, Node.js, and Electron
 - **Isomorphic Testing** — Comprehensive test suite using Vitest and Playwright across all execution environments
-- **Tree-shakeable** — ESM + CJS dual build, no side effects
-- **Wasm memory safe** — Explicit cleanup after every execution
+- **Tree-shakeable** — ESM + CJS dual build, no side effects, ~84 KB unpacked
 
 ## Monorepo Structure
 
 ```
 ├── packages/omni-compress/   → Core library (published to npm)
-└── apps/playground/          → Interactive demo (React + Vite + Tailwind)
+└── apps/playground/          → Interactive demo (Astro + React + Tailwind CSS v4)
 ```
 
 ## 🎨 The Neo-Brutalist Playground

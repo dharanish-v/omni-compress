@@ -4,6 +4,21 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.4.0] - 2026-03-25
+
+### Added
+- **Fast Path Fallback (Issue #9):** Fast Path failures (e.g., missing `OffscreenCanvas` or `WebCodecs` support) now automatically fall back to the Heavy Path (FFmpeg Wasm) instead of throwing an unrecoverable error. This ensures maximum resilience across browser environments.
+- **File Size Guard (Issue #7):** Core library now throws a typed `FileTooLargeError` before loading files exceeding 250 MB into WebAssembly, preventing opaque OOM crashes. The Node.js adapter is unaffected (no Wasm memory limit). Defense-in-depth checks are also enforced at the Wasm boundary inside the Heavy Path.
+- **Typed Error Hierarchy:** Introduced `OmniCompressError` base class and `FileTooLargeError` subclass with machine-readable `code` fields and contextual metadata (`fileSize`, `maxSize`). All error classes are exported from the public API.
+- **Playground File Size Limit (Issue #15):** Playground UI enforces a 250 MB hard limit with a Neo-Brutalist error banner. Oversized files are rejected before loading into `<img>` or `<audio>` tags.
+
+### Changed
+- **FFmpeg Singleton Caching (Issue #1):** FFmpeg Wasm instance is now cached and reused across compressions within the same Web Worker. The Virtual File System is cleaned per-operation; the instance self-terminates after 30 seconds of idle. Workers themselves are cached with a 60-second idle timeout. This eliminates redundant Wasm cold-starts for sequential operations.
+- **Production Source Maps Disabled (Issue #1):** Source maps are no longer emitted in production builds (`NODE_ENV=production`), reducing unpacked package size from ~200 KB to ~84 KB.
+- **Vite Dev Compatibility:** Excluded `@ffmpeg/ffmpeg` and `@ffmpeg/util` from Vite's dependency optimizer to prevent stale pre-bundling of FFmpeg's internal worker.
+- **Structured Logging:** Replaced all raw `console.*` statements in workers, worker pool, and Node adapter with the structured `logger` for consistent, level-aware logging across the entire codebase.
+- **Publish Workflow Hardened:** Added Playwright install and test run to the npm publish workflow to prevent publishing untested code.
+
 ## [1.3.0] - 2026-03-24
 
 ### Added

@@ -1,5 +1,7 @@
 import { defineConfig } from 'tsup';
 
+const isProd = process.env.NODE_ENV === 'production';
+
 export default defineConfig([
   // Main library entry — tree-shakeable with code splitting
   {
@@ -7,7 +9,7 @@ export default defineConfig([
     format: ['cjs', 'esm'],
     dts: true,
     splitting: true,
-    sourcemap: true,
+    sourcemap: !isProd,
     clean: true,
     treeshake: true,
     minify: true,
@@ -24,7 +26,7 @@ export default defineConfig([
     format: ['cjs', 'esm'],
     dts: true,
     splitting: false,
-    sourcemap: true,
+    sourcemap: !isProd,
     clean: false, // Don't wipe dist — main build already ran
     treeshake: true,
     minify: true,
@@ -32,4 +34,3 @@ export default defineConfig([
     noExternal: [/.*/], // Bundle all deps into the worker files
   },
 ]);
-

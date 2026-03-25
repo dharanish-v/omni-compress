@@ -26,9 +26,15 @@ jobs:
           bun-version: latest
       - name: Install dependencies
         run: bun install
+      - name: Install Playwright Browsers
+        working-directory: packages/omni-compress
+        run: bunx playwright install --with-deps chromium
       - name: Type Check
         working-directory: packages/omni-compress
         run: bun run typecheck
+      - name: Run Tests
+        working-directory: packages/omni-compress
+        run: bun run test
       - name: Build Library
         working-directory: packages/omni-compress
         run: bun run build

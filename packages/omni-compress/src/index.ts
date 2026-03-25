@@ -1,5 +1,5 @@
 import { Router, CompressorOptions } from './core/router.js';
-import { fileToArrayBuffer, arrayBufferToBlob, getMimeType } from './core/utils.js';
+import { fileToArrayBuffer, arrayBufferToBlob, getMimeType, assertFileSizeWithinLimit } from './core/utils.js';
 import { processWithBrowserWorker } from './adapters/browser/workerPool.js';
 import { logger } from './core/logger.js';
 import type { processWithNode as ProcessWithNodeFn } from './adapters/node/childProcess.js';
@@ -62,6 +62,11 @@ export class OmniCompressor {
     logger.info('Starting compression process', { type: options.type, format: options.format });
     const route = Router.evaluate(options);
     logger.debug('Route evaluated', route);
+
+    // Guard against files that would exhaust Wasm memory
+    const fileSize = 'size' in file ? (file as File | Blob).size : 0;
+    assertFileSizeWithinLimit(fileSize, route.env);
+
     const mimeType = getMimeType(options.type, options.format);
     
     // Set the original filename if it's a File object, to help FFmpeg probe formats correctly
@@ -121,5 +126,6 @@ export class OmniCompressor {
 export * from './core/router.js';
 export * from './core/utils.js';
 export * from './core/logger.js';
+export * from './core/errors.js';
 export { WorkerConfig } from './adapters/browser/workerPool.js';
 

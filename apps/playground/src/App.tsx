@@ -14,6 +14,9 @@ import AudioWorkerUrl from '../../../packages/omni-compress/src/workers/audio.wo
 WorkerConfig.imageWorkerUrl = ImageWorkerUrl;
 WorkerConfig.audioWorkerUrl = AudioWorkerUrl;
 
+const MAX_FILE_SIZE_MB = 250;
+const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
+
 function CustomAudioPlayer({ src, isCompressed = false, isMuted = false }: { src: string; isCompressed?: boolean; isMuted?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -219,6 +222,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [selectedFormat, setSelectedFormat] = useState<string>("");
   const [isMuted, setIsMuted] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [fileSizeError, setFileSizeError] = useState<string | null>(null);
 
   // Advanced Controls State
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -313,6 +317,22 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     if (e.target.files && e.target.files.length > 0) {
       triggerFeedback('click', isMuted);
       const selectedFile = e.target.files[0];
+
+      if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+        setFileSizeError(
+          `File is ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB \u2014 exceeds the ${MAX_FILE_SIZE_MB} MB limit. ` +
+            `Large files can exhaust WebAssembly memory and crash your browser tab.`,
+        );
+        setFile(null);
+        setOriginalUrl(null);
+        setCompressedUrl(null);
+        setStats(null);
+        setProgress(0);
+        e.target.value = '';
+        return;
+      }
+
+      setFileSizeError(null);
       setFile(selectedFile);
       setOriginalUrl(URL.createObjectURL(selectedFile));
       setCompressedUrl(null);
@@ -446,6 +466,31 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
         <div style={{ viewTransitionName: 'shape-1' }} className="absolute -top-10 -left-10 w-48 h-48 rounded-full mix-blend-multiply opacity-50 blur-xl transition-colors duration-700 bg-[var(--theme-shape1)]"></div>
         <div style={{ viewTransitionName: 'shape-2' }} className="absolute -bottom-10 -right-10 w-72 h-72 mix-blend-multiply opacity-30 blur-2xl transform rotate-12 transition-colors duration-700 bg-[var(--theme-shape2)]"></div>
         <div style={{ viewTransitionName: 'shape-3' }} className="absolute top-1/2 left-1/4 w-64 h-64 mix-blend-multiply opacity-40 blur-2xl transform -translate-y-1/2 transition-colors duration-700 bg-[var(--theme-shape3)]"></div>
+
+        {/* File Size Error Banner */}
+        {fileSizeError && (
+          <div className="col-span-1 md:col-span-12 mb-2 border-4 border-[var(--theme-border)] bg-red-100 text-red-900 p-6 shadow-[8px_8px_0px_0px_var(--theme-shadow)] relative z-10">
+            <button
+              onClick={() => {
+                setFileSizeError(null);
+                triggerFeedback('click', isMuted);
+              }}
+              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center border-2 border-current font-black text-lg hover:bg-red-900 hover:text-red-100 transition-colors cursor-pointer"
+              aria-label="Dismiss error"
+            >
+              X
+            </button>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-red-900 text-red-100 flex items-center justify-center border-2 border-current font-black text-2xl shadow-[4px_4px_0px_0px_var(--theme-shadow)]">
+                !
+              </div>
+              <div>
+                <h3 className="font-black text-lg uppercase tracking-wide mb-1">File Too Large</h3>
+                <p className="font-bold text-sm">{fileSizeError}</p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Header / Intro Section (Spans 5 cols) */}
         <div className="md:col-span-5 flex flex-col justify-center relative z-10" style={{ viewTransitionName: 'intro-section' }}>

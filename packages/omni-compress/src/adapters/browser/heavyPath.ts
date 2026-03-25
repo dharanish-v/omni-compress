@@ -1,32 +1,85 @@
 import type { CompressorOptions } from "../../core/router.js";
 import { logger } from "../../core/logger.js";
 
-async function createFFmpeg() {
-  logger.debug("Initializing FFmpeg Wasm...");
-  const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+// --- FFmpeg Singleton ---
+// Reuses a single FFmpeg Wasm instance across compressions within the same
+// Web Worker, cleaning only the Virtual File System between calls.
+// The instance self-terminates after an idle timeout to free Wasm memory.
 
-  const ffmpeg = new FFmpeg();
+let singletonFFmpeg: any = null;
+let singletonPromise: Promise<any> | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-  ffmpeg.on("log", ({ message }: { message: string }) => {
-    logger.debug(`[FFmpeg] ${message}`);
-  });
+const IDLE_TIMEOUT_MS = 30_000; // 30 seconds
 
-  try {
-    await ffmpeg.load();
-    logger.debug("FFmpeg Wasm loaded successfully.");
-    return ffmpeg;
-  } catch (err) {
-    logger.error("Failed to load FFmpeg Wasm:", err);
-    throw err;
+function resetIdleTimer() {
+  if (idleTimer !== null) {
+    clearTimeout(idleTimer);
   }
+  idleTimer = setTimeout(() => {
+    if (singletonFFmpeg) {
+      logger.debug("FFmpeg idle timeout reached. Terminating singleton.");
+      try {
+        singletonFFmpeg.terminate();
+      } catch (_e) {
+        // Already terminated or never fully loaded
+      }
+      singletonFFmpeg = null;
+      singletonPromise = null;
+    }
+  }, IDLE_TIMEOUT_MS);
 }
+
+async function getFFmpeg() {
+  if (singletonFFmpeg) {
+    resetIdleTimer();
+    return singletonFFmpeg;
+  }
+
+  if (singletonPromise) {
+    return singletonPromise;
+  }
+
+  singletonPromise = (async () => {
+    logger.debug("Initializing FFmpeg Wasm singleton...");
+    const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+    const ffmpeg = new FFmpeg();
+
+    ffmpeg.on("log", ({ message }: { message: string }) => {
+      logger.debug(`[FFmpeg] ${message}`);
+    });
+
+    try {
+      await ffmpeg.load();
+      logger.debug("FFmpeg Wasm singleton loaded successfully.");
+      singletonFFmpeg = ffmpeg;
+      resetIdleTimer();
+      return ffmpeg;
+    } catch (err) {
+      logger.error("Failed to load FFmpeg Wasm:", err);
+      singletonPromise = null;
+      throw err;
+    }
+  })();
+
+  return singletonPromise;
+}
+
+const WASM_SAFE_LIMIT = 250 * 1024 * 1024; // 250 MB
 
 export async function processImageHeavyPath(
   buffer: ArrayBuffer,
   options: CompressorOptions,
   onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
-  const ffmpeg = await createFFmpeg();
+  if (buffer.byteLength > WASM_SAFE_LIMIT) {
+    throw new Error(
+      `Buffer size (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB) exceeds safe Wasm limit (250 MB). ` +
+        `Refusing to load into FFmpeg to prevent memory exhaustion.`,
+    );
+  }
+
+  const ffmpeg = await getFFmpeg();
 
   const ext =
     options.originalFileName?.split(".").pop()?.toLowerCase() || "img";
@@ -77,9 +130,11 @@ export async function processImageHeavyPath(
     ffmpeg.off("progress", progressHandler);
     try {
       await ffmpeg.deleteFile(inputFileName);
+    } catch (_e) {}
+    try {
       await ffmpeg.deleteFile(outputFileName);
-    } catch (e) {}
-    ffmpeg.terminate();
+    } catch (_e) {}
+    resetIdleTimer();
   }
 }
 
@@ -88,7 +143,14 @@ export async function processAudioHeavyPath(
   options: CompressorOptions,
   onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
-  const ffmpeg = await createFFmpeg();
+  if (buffer.byteLength > WASM_SAFE_LIMIT) {
+    throw new Error(
+      `Buffer size (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB) exceeds safe Wasm limit (250 MB). ` +
+        `Refusing to load into FFmpeg to prevent memory exhaustion.`,
+    );
+  }
+
+  const ffmpeg = await getFFmpeg();
 
   const ext =
     options.originalFileName?.split(".").pop()?.toLowerCase() || "audio";
@@ -144,7 +206,7 @@ export async function processAudioHeavyPath(
       // Free input from WASM FS before encoding to reduce WASM heap pressure
       try {
         await ffmpeg.deleteFile(inputFileName);
-      } catch (e) {}
+      } catch (_e) {}
 
       // Pass 2: Encode resampled audio to Opus via OGG muxer
       const encodeArgs = [
@@ -165,7 +227,7 @@ export async function processAudioHeavyPath(
         "-application",
         "audio",
       ];
-      
+
       if (options.channels) encodeArgs.push("-ac", options.channels.toString());
       encodeArgs.push(opusOutputFile);
 
@@ -175,12 +237,12 @@ export async function processAudioHeavyPath(
 
       try {
         await ffmpeg.deleteFile(intermediateFile);
-      } catch (e) {}
+      } catch (_e) {}
 
       const resultData = (await ffmpeg.readFile(opusOutputFile)) as Uint8Array;
       try {
         await ffmpeg.deleteFile(opusOutputFile);
-      } catch (e) {}
+      } catch (_e) {}
       return resultData.slice().buffer;
     } else {
       // ROBUST ARGUMENTS:
@@ -225,8 +287,10 @@ export async function processAudioHeavyPath(
     ffmpeg.off("progress", progressHandler);
     try {
       await ffmpeg.deleteFile(inputFileName);
+    } catch (_e) {}
+    try {
       await ffmpeg.deleteFile(outputFileName);
-    } catch (e) {}
-    ffmpeg.terminate();
+    } catch (_e) {}
+    resetIdleTimer();
   }
 }

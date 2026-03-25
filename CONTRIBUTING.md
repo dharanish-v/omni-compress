@@ -46,12 +46,13 @@ bun run clean
 ├── packages/omni-compress/   → Core library (published to npm)
 │   ├── src/
 │   │   ├── adapters/         → Environment-specific adapters (browser / node)
-│   │   ├── core/             → Router, utils, logger
-│   │   ├── workers/          → Web Worker entry points
+│   │   ├── core/             → Router, utils, logger, errors
+│   │   ├── workers/          → Web Worker entry points (with Fast→Heavy fallback)
 │   │   └── index.ts          → Public API
-│   └── tsup.config.ts        → Build config
+│   ├── tests/                → Vitest test suites (node + browser)
+│   └── tsup.config.ts        → Build config (source maps disabled in production)
 │
-└── apps/playground/          → Vite + React interactive demo
+└── apps/playground/          → Astro + React interactive demo
 ```
 
 ## Architecture Rules
@@ -60,9 +61,11 @@ When contributing code, please maintain these design invariants:
 
 ### Core Library (`packages/omni-compress/`):
 1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
-2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` and `ffmpeg.terminate()` in a `finally` block.
+2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` in a `finally` block to clean the Virtual File System. The FFmpeg singleton self-terminates after an idle timeout — do not call `ffmpeg.terminate()` manually after each operation. Workers are cached and self-terminate when idle.
 3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
 4. **No main-thread work** — All media processing in browsers must run inside Web Workers.
+5. **Graceful fallback** — Fast Path operations must be wrapped in try/catch within workers. On failure, fall back to the Heavy Path rather than surfacing the error to the user.
+6. **Size guards** — Always validate file size against `SAFE_SIZE_LIMITS` before passing data to Wasm. Throw `FileTooLargeError` for oversized inputs.
 
 ### Playground (`apps/playground/`):
 1. **Neo-Brutalist Aesthetic** — Maintain high-contrast `4px`/`2px` borders and sharp `6px`/`4px` offset shadows.

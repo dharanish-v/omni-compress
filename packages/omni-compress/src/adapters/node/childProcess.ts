@@ -125,7 +125,7 @@ export async function processWithNode(
       await fs.unlink(inputPath).catch(() => {});
       await fs.unlink(outputPath).catch(() => {});
     } catch (cleanupError) {
-      console.warn('Failed to clean up Node.js temporary files:', cleanupError);
+      logger.warn('Failed to clean up Node.js temporary files:', cleanupError);
     }
   }
 }

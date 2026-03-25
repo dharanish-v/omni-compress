@@ -30,7 +30,9 @@
 | FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` / `WebCodecs` for standard formats (0 KB Wasm)     |
 | Media processing freezes the UI                | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
 | Browser and Node need different code paths     | Single API — environment detection is automatic                                  |
-| Wasm memory leaks crash browser tabs           | Explicit WASM FS cleanup and `ffmpeg.terminate()` after every execution          |
+| Wasm memory leaks crash browser tabs           | FFmpeg singleton with idle-timeout auto-termination; VFS cleanup per-operation   |
+| Large files crash the browser silently         | `FileTooLargeError` thrown before loading files > 250 MB into Wasm               |
+| Fast Path fails on unsupported browsers        | Automatic fallback from Fast Path to Heavy Path on any runtime error             |
 | Dynamic imports break some bundlers            | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading          |
 
 ## Install
@@ -112,6 +114,35 @@ Set the minimum log level. Accepts `'debug'`, `'info'`, `'warn'`, or `'error'`.
 OmniCompressor.setLogLevel("debug"); // Verbose logging for development
 ```
 
+### Error Classes
+
+The library exports typed error classes for programmatic error handling:
+
+```typescript
+import { FileTooLargeError } from '@dharanish/omni-compress';
+
+try {
+  await OmniCompressor.process(largeFile, { type: 'image', format: 'webp' });
+} catch (err) {
+  if (err instanceof FileTooLargeError) {
+    console.log(`File: ${err.fileSize} bytes, limit: ${err.maxSize} bytes`);
+    console.log(`Error code: ${err.code}`); // 'FILE_TOO_LARGE'
+  }
+}
+```
+
+| Error Class | Code | When Thrown |
+|---|---|---|
+| `OmniCompressError` | — | Base class for all library errors |
+| `FileTooLargeError` | `FILE_TOO_LARGE` | Input file exceeds 250 MB (browser) — prevents Wasm OOM |
+
+### Size Limits
+
+| Environment | Max Input Size | Reason |
+|---|---|---|
+| Browser (Wasm) | 250 MB | WebAssembly linear memory limit (~2–4 GB shared with encoding overhead) |
+| Node.js | Unlimited | Native ffmpeg manages its own memory |
+
 ## Supported Formats
 
 ### Images
@@ -162,9 +193,9 @@ WebCodecs API      Lazy-loaded       Via ffmpeg-static
 
 ### Processing Paths
 
-1. **Fast Path** — Standard web formats (WebP, AVIF, JPEG, PNG) in browsers. Uses `OffscreenCanvas` for hardware-accelerated encoding inside a Web Worker. **Zero Wasm overhead.**
+1. **Fast Path** — Standard web formats (WebP, AVIF, JPEG, PNG) in browsers. Uses `OffscreenCanvas` for hardware-accelerated encoding inside a Web Worker. **Zero Wasm overhead.** If the Fast Path fails at runtime (e.g., unsupported codec on Safari), the library automatically falls back to the Heavy Path.
 
-2. **Heavy Path** — Complex or obscure formats (HEIC, TIFF, FLAC, Opus) in browsers. Dynamically lazy-loads `@ffmpeg/ffmpeg` WebAssembly inside a Web Worker. Memory is explicitly cleaned up after every run.
+2. **Heavy Path** — Complex or obscure formats (HEIC, TIFF, FLAC, Opus) in browsers. Dynamically lazy-loads `@ffmpeg/ffmpeg` WebAssembly inside a Web Worker. The FFmpeg instance is cached as a singleton within each worker and reuses across compressions — only the Virtual File System is cleaned per-operation. The instance self-terminates after 30 seconds of idle to free Wasm memory.
 
 3. **Node Adapter** — Any format on Node.js or Electron. Spawns a native `child_process` using `ffmpeg-static` or a system-wide `ffmpeg` binary. Maximum performance, no Wasm.
 
@@ -268,6 +299,8 @@ module.exports = {
 | `ffmpeg: command not found` (Node) | Install `ffmpeg-static` or add `ffmpeg` to your system `PATH`                                                                |
 | Worker files 404                   | Verify `dist/workers/*.js` are served by your dev server or CDN                                                              |
 | Memory issues with large files     | The library uses 2-pass encoding for Opus to avoid Wasm OOM; for very large files, consider chunking on the application side |
+| `FileTooLargeError` thrown         | File exceeds the 250 MB browser safety limit. Reduce the file size before compression, or process on Node.js where no Wasm memory limit applies |
+| Fast Path fails on specific format | The library automatically falls back to the Heavy Path. Check console for `[OmniCompress:Worker] Fast Path failed` warning |
 
 ## Browser Compatibility
 

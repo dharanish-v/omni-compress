@@ -1,4 +1,5 @@
 import type { CompressorOptions } from '../../core/router.js';
+import { logger } from '../../core/logger.js';
 
 let workerIdCounter = 0;
 
@@ -13,53 +14,99 @@ const pendingJobs = new Map<number, WorkerJob>();
 
 export const WorkerConfig = {
   imageWorkerUrl: '',
-  audioWorkerUrl: ''
+  audioWorkerUrl: '',
 };
 
+// --- Worker Cache ---
+// Workers are cached per type and reused across compression calls.
+// Each worker self-terminates after an idle timeout to free memory.
+
+const workerCache = new Map<'image' | 'audio', Worker>();
+const workerIdleTimers = new Map<'image' | 'audio', ReturnType<typeof setTimeout>>();
+
+const WORKER_IDLE_TIMEOUT_MS = 60_000; // 60 seconds
+
+function resetWorkerIdleTimer(type: 'image' | 'audio') {
+  const existing = workerIdleTimers.get(type);
+  if (existing) clearTimeout(existing);
+
+  const timer = setTimeout(() => {
+    const worker = workerCache.get(type);
+    if (worker) {
+      const hasPendingJobs = Array.from(pendingJobs.values()).some(
+        (job) => job.options.type === type,
+      );
+      if (!hasPendingJobs) {
+        worker.terminate();
+        workerCache.delete(type);
+        workerIdleTimers.delete(type);
+      } else {
+        resetWorkerIdleTimer(type);
+      }
+    }
+  }, WORKER_IDLE_TIMEOUT_MS);
+
+  workerIdleTimers.set(type, timer);
+}
+
 function getWorker(type: 'image' | 'audio'): Worker {
+  const cached = workerCache.get(type);
+  if (cached) {
+    resetWorkerIdleTimer(type);
+    return cached;
+  }
+
   let workerUrl = '';
-  
+
   if (type === 'image') {
-    workerUrl = WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
+    workerUrl =
+      WorkerConfig.imageWorkerUrl ||
+      new URL('./workers/image.worker.js', import.meta.url).href;
   } else {
-    workerUrl = WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
+    workerUrl =
+      WorkerConfig.audioWorkerUrl ||
+      new URL('./workers/audio.worker.js', import.meta.url).href;
   }
 
   const worker = new Worker(workerUrl, { type: 'module' });
 
   worker.onmessage = (event: MessageEvent) => {
-    const { id, type, buffer, error, progress } = event.data;
+    const { id, type: msgType, buffer, error, progress } = event.data;
     const job = pendingJobs.get(id);
-    
+
     if (job) {
-      if (type === 'progress') {
+      if (msgType === 'progress') {
         job.options.onProgress?.(progress);
         return;
       }
 
-      if (type === 'error') {
+      if (msgType === 'error') {
         job.reject(new Error(error));
-      } else if (type === 'success') {
+      } else if (msgType === 'success') {
         job.resolve(buffer);
       }
-      
+
       pendingJobs.delete(id);
-      worker.terminate(); // Kill worker after job to free memory
+      resetWorkerIdleTimer(type);
     }
   };
 
   worker.onerror = (error) => {
-    console.error('OmniCompress Worker error:', error);
+    logger.error('Worker error:', error);
+    workerCache.delete(type);
+    workerIdleTimers.delete(type);
     worker.terminate();
   };
 
+  workerCache.set(type, worker);
+  resetWorkerIdleTimer(type);
   return worker;
 }
 
 export function processWithBrowserWorker(
   buffer: ArrayBuffer,
   options: CompressorOptions,
-  isFastPath: boolean
+  isFastPath: boolean,
 ): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
     const id = ++workerIdCounter;
@@ -77,9 +124,9 @@ export function processWithBrowserWorker(
         id,
         buffer,
         options: safeOptions,
-        isFastPath
+        isFastPath,
       },
-      [buffer] // Transferable object
+      [buffer], // Transferable object
     );
   });
 }
