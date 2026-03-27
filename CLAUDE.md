@@ -197,24 +197,37 @@ Full research documented in issue #43 with sources. Summary:
 - AVIF encoding in single-threaded Wasm is extremely slow (5s-4min). Multi-threading (#34) is critical.
 - Opus at 96 kbps outperforms MP3 at 128 kbps (IETF listening tests).
 
-### Competitive landscape
-- **browser-image-compression** (778K/wk): has AbortSignal + maxSizeMB enforcement. We lack both (#21, #39).
-- **sharp** (36.5M/wk): Node-only, grew because Next.js adopted it. Framework integration = #1 growth lever.
+### Competitive positioning — replace 7 libraries with one
+omni-compress targets the ENTIRE media compression ecosystem (~4.7M addressable weekly downloads):
+
+| Library | DL/wk | What omni-compress replaces |
+|---|---|---|
+| sharp | 36.5M | Node.js path (+ browser, which sharp can't do) |
+| jimp | 2.25M | Faster, more formats, Web Workers |
+| browser-image-compression | 778K | Same + FFmpeg fallback + audio + Node.js. **They have AbortSignal — we must match (#21)** |
+| heic2any | 544K | HEIC input with any output format |
+| @ffmpeg/ffmpeg | 377K | User-friendly layer with lifecycle management |
+| compressorjs | 296K | Promises, Workers, AVIF, audio, Node.js |
+| pica | 111K | Quality resize + compression in one API |
+| lamejs | 61K | MP3 + every other audio format, MIT not LGPL |
+
 - **fflate** (4.7M/wk): Ideal dependency for archive feature — tiny, fast, zero-dep, streaming ZIP.
-- Both compressorjs AND browser-image-compression last published 3+ years ago.
+- Both browser-image-compression AND compressorjs last published **3+ years ago**.
+- Framework integration = #1 growth lever (Sharp grew via Next.js, Zod via tRPC).
 
 ### npm discoverability (CRITICAL)
 npm switched to OpenSearch (Dec 2024). **Scoped packages (`@dharanish/`) are invisible** in search results. Must publish unscoped `omni-compress` (#44).
 
 ### Codec legal status
-All codecs safe (MIT-compatible) except AAC (active Via Licensing patents, but zero open-source enforcement). H.265/HEVC should be avoided for video — use AV1. Full analysis in #43.
+All codecs safe (MIT-compatible) except AAC (low risk — active Via Licensing patents, but zero open-source enforcement). H.265/HEVC must be avoided for video — use AV1. Full analysis in #43.
 
 ### Market gaps omni-compress uniquely fills
 1. No isomorphic compression library exists (browser + Node)
 2. No browser audio compression library exists on npm
 3. No library combines image + audio + video
-4. Both top competitors stale for 3+ years
+4. Both top browser competitors stale for 3+ years
 5. "audio compression javascript browser" returns zero relevant npm results
+6. No client-side library offers `format: 'auto'` (Cloudinary-level intelligence)
 
 ---
 
