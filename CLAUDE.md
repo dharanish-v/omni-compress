@@ -179,27 +179,42 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 ## Key research findings (March 2026)
 
-### AVIF fast path bug
-`FAST_PATH_IMAGE_FORMATS` in `router.ts` includes `'avif'`, but `OffscreenCanvas.convertToBlob()` does NOT support AVIF encoding in any browser. AVIF must always route to Heavy Path (FFmpeg libaom-av1). Tracked as #35.
+Full research documented in issue #43 with sources. Summary:
 
-### WebCodecs is now universal
-- **AudioEncoder**: AAC and Opus available in Chrome, Firefox, Safari. MP3 encoding will NEVER be available via WebCodecs. FLAC is Chrome-only.
-- **VideoEncoder**: H.264 and AV1 available in all browsers. 10-50x faster than FFmpeg Wasm with hardware acceleration.
-- **Impact**: Audio fast path (#20) can handle AAC + Opus without FFmpeg. Video (#31, #42) can use WebCodecs + mp4box.js instead of FFmpeg.
+### Critical bugs
+- **#35**: `FAST_PATH_IMAGE_FORMATS` includes `'avif'`, but OffscreenCanvas cannot encode AVIF. Silent wrong output.
 
-### OffscreenCanvas format limitations
-- Supports: JPEG, PNG, WebP
-- Does NOT support: AVIF, JPEG XL (these must go through FFmpeg Heavy Path)
-- JPEG XL: Chrome removed support entirely. Only Safari supports it. Do not invest.
+### Browser APIs
+- **WebCodecs AudioEncoder**: AAC + Opus universal in all browsers. MP3 will NEVER be available. FLAC Chrome-only.
+- **WebCodecs VideoEncoder**: H.264 + AV1 universal. 10-50x faster than FFmpeg Wasm with HW acceleration.
+- **OffscreenCanvas**: JPEG, PNG, WebP only. NO AVIF, NO JPEG XL.
+- **JPEG XL**: Chrome removed it. Only Safari supports it. Do not invest.
+- **Compression Streams**: `CompressionStream('deflate-raw')` universal. Use `fflate` (11.5 KB) for archive (#33).
 
-### FFmpeg Wasm caching (#4)
-Extend `coi-serviceworker.js` with Cache API (~20-30 lines). Cache key: `ffmpeg-wasm-v{version}`. First visit downloads; every subsequent visit is instant from Cache API.
+### Quality benchmarks (with sources)
+- Canvas JPEG (compressorjs) uses libjpeg-turbo. FFmpeg MozJPEG is **5-16% smaller** at same visual quality. (Cloudflare, Mozilla Research)
+- AVIF is **40-54% smaller** than JPEG, **20-33% smaller** than WebP. (Google, Cloudflare, Meta)
+- AVIF encoding in single-threaded Wasm is extremely slow (5s-4min). Multi-threading (#34) is critical.
+- Opus at 96 kbps outperforms MP3 at 128 kbps (IETF listening tests).
 
-### Compression Streams API
-`CompressionStream('deflate-raw')` is universal. ZIP archive support (#33) needs zero Wasm — use `fflate` (14 KB) or native `CompressionStream`.
+### Competitive landscape
+- **browser-image-compression** (778K/wk): has AbortSignal + maxSizeMB enforcement. We lack both (#21, #39).
+- **sharp** (36.5M/wk): Node-only, grew because Next.js adopted it. Framework integration = #1 growth lever.
+- **fflate** (4.7M/wk): Ideal dependency for archive feature — tiny, fast, zero-dep, streaming ZIP.
+- Both compressorjs AND browser-image-compression last published 3+ years ago.
 
-### Primary competitor: compressorjs
-293K weekly downloads, 5.7K stars. **Stale since Feb 2023.** Browser-only, main-thread blocking, image-only, no AVIF, no HEIC, callback API. Canvas output varies by browser. Full analysis in #43.
+### npm discoverability (CRITICAL)
+npm switched to OpenSearch (Dec 2024). **Scoped packages (`@dharanish/`) are invisible** in search results. Must publish unscoped `omni-compress` (#44).
+
+### Codec legal status
+All codecs safe (MIT-compatible) except AAC (active Via Licensing patents, but zero open-source enforcement). H.265/HEVC should be avoided for video — use AV1. Full analysis in #43.
+
+### Market gaps omni-compress uniquely fills
+1. No isomorphic compression library exists (browser + Node)
+2. No browser audio compression library exists on npm
+3. No library combines image + audio + video
+4. Both top competitors stale for 3+ years
+5. "audio compression javascript browser" returns zero relevant npm results
 
 ---
 
