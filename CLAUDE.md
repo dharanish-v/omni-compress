@@ -233,7 +233,8 @@ All codecs safe (MIT-compatible) except AAC (low risk — active Via Licensing p
 
 ## Playground-specific rules
 
-- `App.tsx` is one large component — intentional, not a bug to "fix"
+- `App.tsx` is one large component (~900 lines) — intentional at this size, not a bug to "fix"
+- **When to split**: if App.tsx exceeds ~1200 lines (likely when building #41 benchmark or #6 drag & drop), extract `AudioPlayer`, `CompressionControls`, `ResultDisplay`, `BenchmarkPanel` into `src/components/`. Do it as part of feature work, not as a standalone refactor.
 - Theme navigation uses `navigate()` from `astro:transitions/client`, not `<a>` links — Astro prefetch does NOT apply
 - `coi-serviceworker.js` in Layout.astro is wrapped in `{import.meta.env.PROD && ...}` — never loads in dev
 - Do NOT add `vite.server.headers` for COOP/COEP in `astro.config.mjs` — causes Vite dep-optimization reload loop
