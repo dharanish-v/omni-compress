@@ -5,3 +5,4 @@ target/
 .env
 pkg/
 coverage/
+.envrc
