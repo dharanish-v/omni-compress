@@ -114,6 +114,7 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 | # | Area | Summary | Why first |
 |---|------|---------|-----------|
+| 35 | Bug | AVIF incorrectly routed to Fast Path — OffscreenCanvas cannot encode AVIF | Silent wrong output. Fix before any other work. |
 | 33 | Core | v2.0 API — named exports, CompressResult, AbortSignal, archive support | All new features should target v2.0. Building against current API creates debt. |
 | 23 | Core | Typed error hierarchy | Part of v2.0 API surface. Needs to ship with #33. |
 
@@ -121,18 +122,25 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 | # | Area | Summary | Why high |
 |---|------|---------|---------|
-| 4  | Perf | Service Worker caching for FFmpeg Wasm (~30 MB, re-downloaded every cold start) | Biggest perceived-performance win. 30 MB download on every cold start is terrible UX. |
+| 4  | Perf | Service Worker caching for FFmpeg Wasm (~30 MB, re-downloaded every cold start) | Biggest perceived-performance win. Eliminates only UX advantage of compressorjs. |
 | 21 | Core | AbortController / cancellation | Users navigate away mid-compression. Orphaned Wasm jobs leak memory silently. |
 | 22 | Core | Magic byte format detection | Silent failures when file extension ≠ content. Safety/correctness issue. |
+| 40 | Docs | compressorjs migration guide + compatibility shim | Fastest adoption path for 293K weekly downloads. |
+| 41 | UX | Interactive benchmark comparison page in playground | Proof > claims. Visual compression comparison. |
 
 ### P2: Medium — features, do after P1
 
 | # | Area | Summary |
 |---|------|---------|
-| 34 | Perf | FFmpeg multi-threading via `@ffmpeg/core-mt` (prereqs already met — coi-serviceworker live) |
-| 20 | Core | WebCodecs audio fast path (stub exists in `fastPath.ts`; eliminates Wasm for audio in Chrome) |
+| 34 | Perf | FFmpeg multi-threading via `@ffmpeg/core-mt` (all prerequisites met) |
+| 20 | Core | WebCodecs audio fast path (AAC + Opus now universal in all browsers, 3-10x faster than Wasm) |
 | 6  | UX | Drag & Drop zone + batch file processing |
 | 31 | Core | Video compression support |
+| 42 | Core | Video via WebCodecs — H.264/AV1, no FFmpeg needed, 10-50x faster with HW accel |
+| 36 | Core | `strict` mode — return original if compressed is larger |
+| 37 | Core | Image resize modes (`contain`/`cover`/`none`) + `minWidth`/`minHeight` |
+| 38 | Core | Smart format auto-selection (`format: 'auto'`) + PNG→WebP auto-convert |
+| 39 | Core | Target file size with iterative quality search (enforce `maxSizeMB`) |
 | 16 | UX | File reading latency + progress feedback for large files |
 
 ### P3: Low — DX / quality
@@ -154,8 +162,9 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | 13 | UX | Mobile layout |
 | 29 | UX | Accessibility audit |
 | 30 | UX | Clipboard paste + URL import |
-| 14 | Core | Streaming/chunking for files >250 MB |
+| 14 | Core | Streaming/chunking for files >250 MB (OPFS + JSPI long-term) |
 | 18 | UX | PWA / offline capabilities |
+| 43 | Docs | Competitive landscape analysis & strategic positioning reference |
 
 ### Recently resolved (v1.5.0)
 
@@ -165,6 +174,32 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | 10 | UX | Audio player exclusivity — custom event bus pauses other players when one starts |
 | 11 | UX | Mute state persistence — sessionStorage read/write with `hasMuteRestoredRef` race-condition guard |
 | 12 | UX | SAB/COOP-COEP warning banner — prod-only guard; coi-serviceworker added to Layout.astro |
+
+---
+
+## Key research findings (March 2026)
+
+### AVIF fast path bug
+`FAST_PATH_IMAGE_FORMATS` in `router.ts` includes `'avif'`, but `OffscreenCanvas.convertToBlob()` does NOT support AVIF encoding in any browser. AVIF must always route to Heavy Path (FFmpeg libaom-av1). Tracked as #35.
+
+### WebCodecs is now universal
+- **AudioEncoder**: AAC and Opus available in Chrome, Firefox, Safari. MP3 encoding will NEVER be available via WebCodecs. FLAC is Chrome-only.
+- **VideoEncoder**: H.264 and AV1 available in all browsers. 10-50x faster than FFmpeg Wasm with hardware acceleration.
+- **Impact**: Audio fast path (#20) can handle AAC + Opus without FFmpeg. Video (#31, #42) can use WebCodecs + mp4box.js instead of FFmpeg.
+
+### OffscreenCanvas format limitations
+- Supports: JPEG, PNG, WebP
+- Does NOT support: AVIF, JPEG XL (these must go through FFmpeg Heavy Path)
+- JPEG XL: Chrome removed support entirely. Only Safari supports it. Do not invest.
+
+### FFmpeg Wasm caching (#4)
+Extend `coi-serviceworker.js` with Cache API (~20-30 lines). Cache key: `ffmpeg-wasm-v{version}`. First visit downloads; every subsequent visit is instant from Cache API.
+
+### Compression Streams API
+`CompressionStream('deflate-raw')` is universal. ZIP archive support (#33) needs zero Wasm — use `fflate` (14 KB) or native `CompressionStream`.
+
+### Primary competitor: compressorjs
+293K weekly downloads, 5.7K stars. **Stale since Feb 2023.** Browser-only, main-thread blocking, image-only, no AVIF, no HEIC, callback API. Canvas output varies by browser. Full analysis in #43.
 
 ---
 
