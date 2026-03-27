@@ -108,30 +108,54 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 ---
 
-## Open issues — what's planned
+## Open issues — prioritized
+
+### P0: Critical — foundational, do first (everything else builds on these)
+
+| # | Area | Summary | Why first |
+|---|------|---------|-----------|
+| 33 | Core | v2.0 API — named exports, CompressResult, AbortSignal, archive support | All new features should target v2.0. Building against current API creates debt. |
+| 23 | Core | Typed error hierarchy | Part of v2.0 API surface. Needs to ship with #33. |
+
+### P1: High — high user impact, do next
+
+| # | Area | Summary | Why high |
+|---|------|---------|---------|
+| 4  | Perf | Service Worker caching for FFmpeg Wasm (~30 MB, re-downloaded every cold start) | Biggest perceived-performance win. 30 MB download on every cold start is terrible UX. |
+| 21 | Core | AbortController / cancellation | Users navigate away mid-compression. Orphaned Wasm jobs leak memory silently. |
+| 22 | Core | Magic byte format detection | Silent failures when file extension ≠ content. Safety/correctness issue. |
+
+### P2: Medium — features, do after P1
 
 | # | Area | Summary |
 |---|------|---------|
-| 33 | Core | v2.0 API — named exports, CompressResult, AbortSignal, archive support |
-| 34 | Performance | FFmpeg multi-threading via `@ffmpeg/core-mt` (prereqs already met via coi-serviceworker) |
+| 34 | Perf | FFmpeg multi-threading via `@ffmpeg/core-mt` (prereqs already met — coi-serviceworker live) |
+| 20 | Core | WebCodecs audio fast path (stub exists in `fastPath.ts`; eliminates Wasm for audio in Chrome) |
+| 6  | UX | Drag & Drop zone + batch file processing |
 | 31 | Core | Video compression support |
-| 21 | Core | AbortController / cancellation |
-| 23 | Core | Typed error hierarchy |
-| 22 | Core | Magic byte format detection |
-| 20 | Core | WebCodecs audio fast path (stub exists in fastPath.ts, rejects with "pending") |
-| 14 | Core | Streaming/chunking for large files |
-| 4  | Perf | Service Worker caching for FFmpeg Wasm (~30 MB, currently re-downloaded) |
-| 28 | DX | Bundle size tracking in CI |
+| 16 | UX | File reading latency + progress feedback for large files |
+
+### P3: Low — DX / quality
+
+| # | Area | Summary |
+|---|------|---------|
 | 27 | DX | ESLint + Prettier for core package |
 | 32 | DX | Husky + lint-staged pre-commit hooks |
-| 26 | Testing | E2E tests for playground |
+| 28 | DX | Bundle size tracking and regression prevention in CI |
+| 24 | Testing | Increase test coverage to 80%+ |
 | 25 | Testing | Cross-browser matrix (Firefox + WebKit) |
-| 24 | Testing | 80%+ test coverage |
-| 18 | UX | PWA / offline capabilities |
-| 16 | UX | File reading latency + progress for large files |
+| 26 | Testing | E2E tests for playground |
+| 5  | DX | Automated release management (Changesets / Release-It) |
+
+### P4: Backlog — nice to have, no timeline
+
+| # | Area | Summary |
+|---|------|---------|
 | 13 | UX | Mobile layout |
-| 30 | UX | Clipboard paste + URL import |
 | 29 | UX | Accessibility audit |
+| 30 | UX | Clipboard paste + URL import |
+| 14 | Core | Streaming/chunking for files >250 MB |
+| 18 | UX | PWA / offline capabilities |
 
 ### Recently resolved (v1.5.0)
 
