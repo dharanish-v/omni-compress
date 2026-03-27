@@ -17,15 +17,34 @@ WorkerConfig.audioWorkerUrl = AudioWorkerUrl;
 const MAX_FILE_SIZE_MB = 250;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
+// Custom event name used to coordinate exclusive audio playback (#10)
+const AUDIO_PLAY_EVENT = 'omni-compress:audio-play';
+
 function CustomAudioPlayer({ src, isCompressed = false, isMuted = false }: { src: string; isCompressed?: boolean; isMuted?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const instanceId = useRef(Math.random().toString(36).slice(2));
+
+  // Pause this player when another player starts (#10)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail;
+      if (detail !== instanceId.current && audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    };
+    window.addEventListener(AUDIO_PLAY_EVENT, handler);
+    return () => window.removeEventListener(AUDIO_PLAY_EVENT, handler);
+  }, []);
 
   const togglePlay = () => {
     triggerFeedback('click', isMuted);
     if (audioRef.current?.paused) {
+      // Broadcast so other players pause first
+      window.dispatchEvent(new CustomEvent(AUDIO_PLAY_EVENT, { detail: instanceId.current }));
       audioRef.current.play();
       setIsPlaying(true);
     } else {
@@ -213,6 +232,7 @@ function CustomSelect({
 
 function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [activeThemeId] = useState<string>(initialTheme);
+  const [sabMissing, setSabMissing] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
@@ -247,6 +267,38 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
   }, []);
+
+  // Client-only: restore mute from sessionStorage after hydration (#11)
+  useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem('omni-compress:muted');
+      if (stored === 'true') setIsMuted(true);
+    } catch {}
+  }, []);
+
+  // Client-only: detect missing SharedArrayBuffer after hydration (#12)
+  // Skipped in dev — banner is for production users only. In production the
+  // coi-serviceworker reloads the page (~300ms) before this 1500ms timer
+  // fires, so crossOriginIsolated is true and sabMissing stays false.
+  useEffect(() => {
+    if (import.meta.env.DEV) return;
+    const timer = setTimeout(() => {
+      if (typeof SharedArrayBuffer === 'undefined') setSabMissing(true);
+    }, 1500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Persist mute preference across Astro view-transition navigations (#11)
+  // hasMuteRestoredRef guards against the first render overwriting the stored
+  // value before the restore effect above has had a chance to apply it.
+  const hasMuteRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!hasMuteRestoredRef.current) {
+      hasMuteRestoredRef.current = true;
+      return;
+    }
+    try { sessionStorage.setItem('omni-compress:muted', String(isMuted)); } catch {}
+  }, [isMuted]);
 
   const handleInstallClick = async () => {
     if (deferredPrompt) {
@@ -487,6 +539,25 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               <div>
                 <h3 className="font-black text-lg uppercase tracking-wide mb-1">File Too Large</h3>
                 <p className="font-bold text-sm">{fileSizeError}</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* SharedArrayBuffer / COOP-COEP Warning (#12) */}
+        {sabMissing && (
+          <div className="col-span-1 md:col-span-12 mb-2 border-4 border-[var(--theme-border)] bg-amber-100 text-amber-900 p-6 shadow-[8px_8px_0px_0px_var(--theme-shadow)] relative z-10">
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-amber-900 text-amber-100 flex items-center justify-center border-2 border-current font-black text-2xl shadow-[4px_4px_0px_0px_var(--theme-shadow)]">
+                ⚠
+              </div>
+              <div>
+                <h3 className="font-black text-lg uppercase tracking-wide mb-1">Cross-Origin Isolation Missing</h3>
+                <p className="font-bold text-sm">
+                  <code>SharedArrayBuffer</code> is unavailable — your browser is missing the required
+                  {' '}<code>Cross-Origin-Opener-Policy</code> / <code>Cross-Origin-Embedder-Policy</code> headers.
+                  Heavy-path formats (Opus, FLAC, MP3 via FFmpeg) will fail. Standard web formats still work.
+                </p>
               </div>
             </div>
           </div>

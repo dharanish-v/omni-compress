@@ -15,6 +15,8 @@ This file contains the concatenated documentation for the Omni-Compress project,
   <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
   <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
   <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
+  <img src="https://img.shields.io/endpoint?url=https://dharanish-v.github.io/omni-compress/coverage.json&style=flat-square" alt="Coverage" />
+  <img src="https://img.shields.io/badge/Tested_with-Vitest-729B1B?style=flat-square&logo=vitest" alt="Tested with Vitest" />
 </p>
 
 <p align="center">
@@ -42,15 +44,18 @@ const compressed = await OmniCompressor.process(file, {
 - **Zero main-thread blocking** — All browser processing runs in Web Workers
 - **Zero-copy memory** — `Transferable` ArrayBuffer transfers, no RAM duplication
 - **Smart routing** — Native `OffscreenCanvas` for standard formats, lazy-loaded FFmpeg Wasm for the rest
+- **Resilient fallback** — Fast Path failures automatically fall back to Heavy Path
+- **OOM prevention** — Typed `FileTooLargeError` thrown before Wasm memory exhaustion (250 MB guard)
+- **FFmpeg singleton caching** — Wasm instance reused across compressions with idle-timeout cleanup
 - **Isomorphic** — Same API for browser, Node.js, and Electron
-- **Tree-shakeable** — ESM + CJS dual build, no side effects
-- **Wasm memory safe** — Explicit cleanup after every execution
+- **Isomorphic Testing** — Comprehensive test suite using Vitest and Playwright across all execution environments
+- **Tree-shakeable** — ESM + CJS dual build, no side effects, ~84 KB unpacked
 
 ## Monorepo Structure
 
 ```
 ├── packages/omni-compress/   → Core library (published to npm)
-└── apps/playground/          → Interactive demo (React + Vite + Tailwind)
+└── apps/playground/          → Interactive demo (Astro + React + Tailwind CSS v4)
 ```
 
 ## 🎨 The Neo-Brutalist Playground
@@ -58,10 +63,11 @@ const compressed = await OmniCompressor.process(file, {
 The project includes an interactive playground built with a **Neo-Brutalist** design system. This isn't just a compression tool—it's a cultural and visual exploration of **brevity**.
 
 - **26 Historical Personas:** Switch between themes ranging from *Leonardo da Vinci* to *Aryabhata*, each with unique cultural quotes and color palettes.
+- **Advanced Engineering:** Exposes granular compression controls (Bitrate, Sample Rate, Dimensions, Metadata stripping) inside a tactile UI.
 - **Mechanical UI:** Custom-built components (Mechanical Audio Player, Brutalist Selects) that prioritize raw functionality.
 - **Sensory Feedback:** Experience the app through synthesized mechanical sounds (Web Audio API) and tactile haptic vibrations synced with UI interactions.
-- **View Transitions:** Experience seamless theme morphing using modern browser APIs.
-- **Live Preview:** Real-time side-by-side comparison of original media vs. compressed "masterpieces."
+- **View Transitions:** Experience seamless theme morphing using modern browser APIs (built on Astro SSG).
+- **LLM Discoverability:** Implements the `llms.txt` standard. AI agents can natively ingest the library context at `https://dharanish-v.github.io/omni-compress/llms.txt`.
 
 [**Explore the Playground 🚀**](https://dharanish-v.github.io/omni-compress/)
 
@@ -115,6 +121,8 @@ See [SECURITY.md](SECURITY.md) for our vulnerability reporting policy.
   <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
   <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
   <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
+  <img src="https://img.shields.io/endpoint?url=https://dharanish-v.github.io/omni-compress/coverage.json&style=flat-square" alt="Coverage" />
+  <img src="https://img.shields.io/badge/Tested_with-Vitest-729B1B?style=flat-square&logo=vitest" alt="Tested with Vitest" />
   <img src="https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square" alt="TypeScript" />
 </p>
 
@@ -133,13 +141,15 @@ See [SECURITY.md](SECURITY.md) for our vulnerability reporting policy.
 
 ## Why omni-compress?
 
-| Problem | How omni-compress solves it |
-|---|---|
-| FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` / `WebCodecs` for standard formats (0 KB Wasm) |
-| Media processing freezes the UI | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
-| Browser and Node need different code paths | Single API — environment detection is automatic |
-| Wasm memory leaks crash browser tabs | Explicit WASM FS cleanup and `ffmpeg.terminate()` after every execution |
-| Dynamic imports break some bundlers | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading |
+| Problem                                        | How omni-compress solves it                                                      |
+| ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` / `WebCodecs` for standard formats (0 KB Wasm)     |
+| Media processing freezes the UI                | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
+| Browser and Node need different code paths     | Single API — environment detection is automatic                                  |
+| Wasm memory leaks crash browser tabs           | FFmpeg singleton with idle-timeout auto-termination; VFS cleanup per-operation   |
+| Large files crash the browser silently         | `FileTooLargeError` thrown before loading files > 250 MB into Wasm               |
+| Fast Path fails on unsupported browsers        | Automatic fallback from Fast Path to Heavy Path on any runtime error             |
+| Dynamic imports break some bundlers            | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading          |
 
 ## Install
 
@@ -163,19 +173,19 @@ yarn add @dharanish/omni-compress
 ## Quick Start
 
 ```typescript
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from "@dharanish/omni-compress";
 
 // Image compression
 const webp = await OmniCompressor.process(imageFile, {
-  type: 'image',
-  format: 'webp',
+  type: "image",
+  format: "webp",
   quality: 0.8,
 });
 
 // Audio compression
 const mp3 = await OmniCompressor.process(audioFile, {
-  type: 'audio',
-  format: 'mp3',
+  type: "audio",
+  format: "mp3",
   onProgress: (percent) => console.log(`${percent}%`),
 });
 ```
@@ -188,54 +198,89 @@ Compresses a media file using the optimal engine for the current environment.
 
 **Parameters:**
 
-| Name | Type | Description |
-|---|---|---|
-| `file` | `File \| Blob` | The input media file |
+| Name      | Type                | Description                      |
+| --------- | ------------------- | -------------------------------- |
+| `file`    | `File \| Blob`      | The input media file             |
 | `options` | `CompressorOptions` | Configuration object (see below) |
 
 **Returns:** `Promise<Blob>` — the compressed output.
 
 ### `CompressorOptions`
 
-| Property | Type | Required | Default | Description |
-|---|---|---|---|---|
-| `type` | `'image' \| 'audio'` | Yes | — | Media type |
-| `format` | `string` | Yes | — | Target output format |
-| `quality` | `number` | No | `0.8` | Lossy quality, `0.0` – `1.0` |
-| `maxSizeMB` | `number` | No | — | Maximum output size in megabytes |
-| `onProgress` | `(percent: number) => void` | No | — | Progress callback (`0` – `100`) |
-| `originalFileName` | `string` | No | Auto-detected | Helps FFmpeg probe the input format |
+| Property           | Type                        | Required | Default       | Description                                         |
+| ------------------ | --------------------------- | -------- | ------------- | --------------------------------------------------- |
+| `type`             | `'image' \| 'audio'`        | Yes      | —             | Media type                                          |
+| `format`           | `string`                    | Yes      | —             | Target output format                                |
+| `quality`          | `number`                    | No       | `0.8`         | Lossy quality, `0.0` – `1.0`                        |
+| `maxSizeMB`        | `number`                    | No       | —             | Maximum output size in megabytes                    |
+| `onProgress`       | `(percent: number) => void` | No       | —             | Progress callback (`0` – `100`)                     |
+| `originalFileName` | `string`                    | No       | Auto-detected | Helps FFmpeg probe the input format                 |
+| `maxWidth`         | `number`                    | No       | —             | Maximum width for images (aspect ratio preserved)   |
+| `maxHeight`        | `number`                    | No       | —             | Maximum height for images (aspect ratio preserved)  |
+| `preserveMetadata` | `boolean`                   | No       | `false`       | Whether to preserve EXIF data in images             |
+| `bitrate`          | `string`                    | No       | `128k`        | Target audio bitrate (e.g., `'192k'`)               |
+| `channels`         | `number`                    | No       | Auto          | Number of audio channels (1 for Mono, 2 for Stereo) |
+| `sampleRate`       | `number`                    | No       | Auto          | Target audio sample rate (e.g., `44100`)            |
 
 ### `OmniCompressor.setLogLevel(level)`
 
 Set the minimum log level. Accepts `'debug'`, `'info'`, `'warn'`, or `'error'`.
 
 ```typescript
-OmniCompressor.setLogLevel('debug'); // Verbose logging for development
+OmniCompressor.setLogLevel("debug"); // Verbose logging for development
 ```
+
+### Error Classes
+
+The library exports typed error classes for programmatic error handling:
+
+```typescript
+import { FileTooLargeError } from '@dharanish/omni-compress';
+
+try {
+  await OmniCompressor.process(largeFile, { type: 'image', format: 'webp' });
+} catch (err) {
+  if (err instanceof FileTooLargeError) {
+    console.log(`File: ${err.fileSize} bytes, limit: ${err.maxSize} bytes`);
+    console.log(`Error code: ${err.code}`); // 'FILE_TOO_LARGE'
+  }
+}
+```
+
+| Error Class | Code | When Thrown |
+|---|---|---|
+| `OmniCompressError` | — | Base class for all library errors |
+| `FileTooLargeError` | `FILE_TOO_LARGE` | Input file exceeds 250 MB (browser) — prevents Wasm OOM |
+
+### Size Limits
+
+| Environment | Max Input Size | Reason |
+|---|---|---|
+| Browser (Wasm) | 250 MB | WebAssembly linear memory limit (~2–4 GB shared with encoding overhead) |
+| Node.js | Unlimited | Native ffmpeg manages its own memory |
 
 ## Supported Formats
 
 ### Images
 
 | Format | Fast Path (native) | Heavy Path (Wasm) | Node (OS binary) |
-|---|---|---|---|
-| WebP | ✅ OffscreenCanvas | ✅ libwebp | ✅ ffmpeg |
-| AVIF | ✅ OffscreenCanvas | ✅ libaom-av1 | ✅ ffmpeg |
-| JPEG | ✅ OffscreenCanvas | ✅ FFmpeg | ✅ ffmpeg |
-| PNG | ✅ OffscreenCanvas | ✅ FFmpeg | ✅ ffmpeg |
-| HEIC | — | ✅ FFmpeg | ✅ ffmpeg |
-| TIFF | — | ✅ FFmpeg | ✅ ffmpeg |
+| ------ | ------------------ | ----------------- | ---------------- |
+| WebP   | ✅ OffscreenCanvas | ✅ libwebp        | ✅ ffmpeg        |
+| AVIF   | ✅ OffscreenCanvas | ✅ libaom-av1     | ✅ ffmpeg        |
+| JPEG   | ✅ OffscreenCanvas | ✅ FFmpeg         | ✅ ffmpeg        |
+| PNG    | ✅ OffscreenCanvas | ✅ FFmpeg         | ✅ ffmpeg        |
+| HEIC   | —                  | ✅ FFmpeg         | ✅ ffmpeg        |
+| TIFF   | —                  | ✅ FFmpeg         | ✅ ffmpeg        |
 
 ### Audio
 
-| Format | Heavy Path (Wasm) | Node (OS binary) |
-|---|---|---|
-| MP3 | ✅ libmp3lame | ✅ ffmpeg |
-| Opus/OGG | ✅ libopus | ✅ ffmpeg |
-| FLAC | ✅ flac | ✅ ffmpeg |
-| WAV | ✅ FFmpeg | ✅ ffmpeg |
-| AAC | ✅ FFmpeg | ✅ ffmpeg |
+| Format   | Heavy Path (Wasm) | Node (OS binary) |
+| -------- | ----------------- | ---------------- |
+| MP3      | ✅ libmp3lame     | ✅ ffmpeg        |
+| Opus/OGG | ✅ libopus        | ✅ ffmpeg        |
+| FLAC     | ✅ flac           | ✅ ffmpeg        |
+| WAV      | ✅ FFmpeg         | ✅ ffmpeg        |
+| AAC      | ✅ FFmpeg         | ✅ ffmpeg        |
 
 ## Architecture
 
@@ -264,18 +309,34 @@ WebCodecs API      Lazy-loaded       Via ffmpeg-static
 
 ### Processing Paths
 
-1. **Fast Path** — Standard web formats (WebP, AVIF, JPEG, PNG) in browsers. Uses `OffscreenCanvas` for hardware-accelerated encoding inside a Web Worker. **Zero Wasm overhead.**
+1. **Fast Path** — Standard web formats (WebP, AVIF, JPEG, PNG) in browsers. Uses `OffscreenCanvas` for hardware-accelerated encoding inside a Web Worker. **Zero Wasm overhead.** If the Fast Path fails at runtime (e.g., unsupported codec on Safari), the library automatically falls back to the Heavy Path.
 
-2. **Heavy Path** — Complex or obscure formats (HEIC, TIFF, FLAC, Opus) in browsers. Dynamically lazy-loads `@ffmpeg/ffmpeg` WebAssembly inside a Web Worker. Memory is explicitly cleaned up after every run.
+2. **Heavy Path** — Complex or obscure formats (HEIC, TIFF, FLAC, Opus) in browsers. Dynamically lazy-loads `@ffmpeg/ffmpeg` WebAssembly inside a Web Worker. The FFmpeg instance is cached as a singleton within each worker and reuses across compressions — only the Virtual File System is cleaned per-operation. The instance self-terminates after 30 seconds of idle to free Wasm memory.
 
 3. **Node Adapter** — Any format on Node.js or Electron. Spawns a native `child_process` using `ffmpeg-static` or a system-wide `ffmpeg` binary. Maximum performance, no Wasm.
+
+### Concurrency & Worker Lifecycle
+
+Each worker type (`image`, `audio`) processes **one job at a time**. The FFmpeg Wasm singleton inside each worker uses fixed VFS filenames — concurrent dispatch would cause filename collisions and memory spikes. A per-type queue serializes dispatch; jobs drain automatically when the active job completes.
+
+- Workers are cached and reused across calls, terminating after **60 seconds idle**.
+- The FFmpeg singleton inside each worker terminates after **30 seconds idle** to free Wasm heap.
+- New jobs restart both timers automatically.
+
+### Cross-Origin Isolation (SharedArrayBuffer)
+
+`@ffmpeg/core` is **single-threaded** — it does NOT require `SharedArrayBuffer`. Cross-origin isolation is already in place for the playground (via `coi-serviceworker.js`) to enable future multi-threading (`@ffmpeg/core-mt`, tracked as issue #34).
+
+- **Dev**: No COOP/COEP headers. `SharedArrayBuffer` may be unavailable. FFmpeg still works.
+- **Production**: `coi-serviceworker.js` adds COOP/COEP headers via Service Worker. One bootstrap reload on first visit; `crossOriginIsolated = true` after that.
+- The SAB warning banner in the playground is production-only (guarded by `import.meta.env.DEV`).
 
 ## Framework Integration
 
 ### React
 
 ```tsx
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from "@dharanish/omni-compress";
 
 function ImageUploader() {
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -283,8 +344,8 @@ function ImageUploader() {
     if (!file) return;
 
     const compressed = await OmniCompressor.process(file, {
-      type: 'image',
-      format: 'webp',
+      type: "image",
+      format: "webp",
       quality: 0.75,
     });
 
@@ -300,15 +361,15 @@ function ImageUploader() {
 
 ```vue
 <script setup lang="ts">
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from "@dharanish/omni-compress";
 
 async function onFileChange(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (!file) return;
 
   const compressed = await OmniCompressor.process(file, {
-    type: 'audio',
-    format: 'mp3',
+    type: "audio",
+    format: "mp3",
     quality: 0.8,
   });
   // Upload or play the compressed blob
@@ -319,15 +380,15 @@ async function onFileChange(event: Event) {
 ### Node.js / Express
 
 ```typescript
-import { OmniCompressor } from '@dharanish/omni-compress';
-import { readFile } from 'fs/promises';
+import { OmniCompressor } from "@dharanish/omni-compress";
+import { readFile } from "fs/promises";
 
-const buffer = await readFile('photo.png');
-const blob = new Blob([buffer], { type: 'image/png' });
+const buffer = await readFile("photo.png");
+const blob = new Blob([buffer], { type: "image/png" });
 
 const webp = await OmniCompressor.process(blob, {
-  type: 'image',
-  format: 'webp',
+  type: "image",
+  format: "webp",
   quality: 0.8,
 });
 ```
@@ -354,7 +415,7 @@ module.exports = {
     rules: [
       {
         test: /\.worker\.js$/,
-        type: 'asset/resource',
+        type: "asset/resource",
       },
     ],
   },
@@ -363,22 +424,24 @@ module.exports = {
 
 ## Troubleshooting
 
-| Issue | Solution |
-|---|---|
-| `SharedArrayBuffer is not defined` | Enable cross-origin isolation headers (see Bundler Configuration above) |
-| `FFmpeg Wasm failed to load` | Ensure CORS headers are set and your CSP allows `wasm-unsafe-eval` |
-| `ffmpeg: command not found` (Node) | Install `ffmpeg-static` or add `ffmpeg` to your system `PATH` |
-| Worker files 404 | Verify `dist/workers/*.js` are served by your dev server or CDN |
-| Memory issues with large files | The library uses 2-pass encoding for Opus to avoid Wasm OOM; for very large files, consider chunking on the application side |
+| Issue                              | Solution                                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `SharedArrayBuffer is not defined` | Enable cross-origin isolation headers (see Bundler Configuration above)                                                      |
+| `FFmpeg Wasm failed to load`       | Ensure CORS headers are set and your CSP allows `wasm-unsafe-eval`                                                           |
+| `ffmpeg: command not found` (Node) | Install `ffmpeg-static` or add `ffmpeg` to your system `PATH`                                                                |
+| Worker files 404                   | Verify `dist/workers/*.js` are served by your dev server or CDN                                                              |
+| Memory issues with large files     | The library uses 2-pass encoding for Opus to avoid Wasm OOM; for very large files, consider chunking on the application side |
+| `FileTooLargeError` thrown         | File exceeds the 250 MB browser safety limit. Reduce the file size before compression, or process on Node.js where no Wasm memory limit applies |
+| Fast Path fails on specific format | The library automatically falls back to the Heavy Path. Check console for `[OmniCompress:Worker] Fast Path failed` warning |
 
 ## Browser Compatibility
 
-| Feature | Chrome | Firefox | Safari | Edge |
-|---|---|---|---|---|
-| Fast Path (OffscreenCanvas) | 69+ | 105+ | 16.4+ | 79+ |
-| Heavy Path (FFmpeg Wasm) | 57+ | 52+ | 16.4+ | 79+ |
-| Web Workers | ✅ All modern | ✅ All modern | ✅ All modern | ✅ All modern |
-| WebCodecs (Audio Fast Path) | 94+ | ❌ | ❌ | 94+ |
+| Feature                     | Chrome        | Firefox       | Safari        | Edge          |
+| --------------------------- | ------------- | ------------- | ------------- | ------------- |
+| Fast Path (OffscreenCanvas) | 69+           | 105+          | 16.4+         | 79+           |
+| Heavy Path (FFmpeg Wasm)    | 57+           | 52+           | 16.4+         | 79+           |
+| Web Workers                 | ✅ All modern | ✅ All modern | ✅ All modern | ✅ All modern |
+| WebCodecs (Audio Fast Path) | 94+           | ❌            | ❌            | 94+           |
 
 ## Contributing
 
@@ -424,10 +487,11 @@ The playground features **26 unique themes**, each tied to a historical persona 
 
 ## 🛠️ Technical Highlights
 
+- **Static Site Generation (SSG):** Built with **Astro**. The playground uses `getStaticPaths` to pre-render all 26 persona themes into distinct, indexable HTML pages at build time, ensuring perfect SEO and instant Time-To-Interactive (TTI).
+- **View Transitions:** Leverages Astro's `<ClientRouter />` for seamless, morphing CSS animations when switching between statically generated persona pages.
+- **LLM Discoverability:** Includes an automated build script that generates `llms.txt` and `llms-full.txt` context files, making the entire repository and API surface easily digestible by AI coding assistants.
 - **Isomorphic Compression:** Automatically routes between native browser APIs (`OffscreenCanvas`, `WebCodecs`) and heavy-duty FFmpeg WebAssembly.
 - **Zero-Copy Memory:** Uses `Transferable Objects` to pass large media buffers between the main thread and Web Workers without RAM duplication.
-- **Responsive "Transformation Flow":** The UI clearly visualizes the "Original" vs. the "Masterpiece," including a desktop-only conversion indicator and real-time performance stats.
-- **Performance Optimized:** Despite the heavy visual style, the app maintains 60fps animations and ultra-fast theme switching.
 
 ---
 
@@ -438,7 +502,7 @@ The playground features **26 unique themes**, each tied to a historical persona 
 bun run dev
 ```
 
-The playground is built with **React**, **TypeScript**, and **Tailwind CSS**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.
+The playground is built with **Astro**, **React**, and **Tailwind CSS v4**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.
 
 
 ---
@@ -469,14 +533,19 @@ bun install
 ### Commands
 
 ```bash
-# Run the playground locally (Vite dev server)
+# Run the playground locally
 bun run dev
 
 # Build the library and playground
 bun run build
 
+# Run the automated test suite
+cd packages/omni-compress
+bunx playwright install --with-deps chromium # Run once to install browser
+bun run test
+
 # Type-check the library
-cd packages/omni-compress && bun run typecheck
+bun run typecheck
 
 # Clean all build artifacts and node_modules
 bun run clean
@@ -488,12 +557,13 @@ bun run clean
 ├── packages/omni-compress/   → Core library (published to npm)
 │   ├── src/
 │   │   ├── adapters/         → Environment-specific adapters (browser / node)
-│   │   ├── core/             → Router, utils, logger
-│   │   ├── workers/          → Web Worker entry points
+│   │   ├── core/             → Router, utils, logger, errors
+│   │   ├── workers/          → Web Worker entry points (with Fast→Heavy fallback)
 │   │   └── index.ts          → Public API
-│   └── tsup.config.ts        → Build config
+│   ├── tests/                → Vitest test suites (node + browser)
+│   └── tsup.config.ts        → Build config (source maps disabled in production)
 │
-└── apps/playground/          → Vite + React interactive demo
+└── apps/playground/          → Astro + React interactive demo
 ```
 
 ## Architecture Rules
@@ -502,9 +572,11 @@ When contributing code, please maintain these design invariants:
 
 ### Core Library (`packages/omni-compress/`):
 1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
-2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` and `ffmpeg.terminate()` in a `finally` block.
+2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` in a `finally` block to clean the Virtual File System. The FFmpeg singleton self-terminates after an idle timeout — do not call `ffmpeg.terminate()` manually after each operation. Workers are cached and self-terminate when idle.
 3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
 4. **No main-thread work** — All media processing in browsers must run inside Web Workers.
+5. **Graceful fallback** — Fast Path operations must be wrapped in try/catch within workers. On failure, fall back to the Heavy Path rather than surfacing the error to the user.
+6. **Size guards** — Always validate file size against `SAFE_SIZE_LIMITS` before passing data to Wasm. Throw `FileTooLargeError` for oversized inputs.
 
 ### Playground (`apps/playground/`):
 1. **Neo-Brutalist Aesthetic** — Maintain high-contrast `4px`/`2px` borders and sharp `6px`/`4px` offset shadows.
@@ -528,9 +600,10 @@ refactor: extract shared FFmpeg args builder
 1. Fork the repository.
 2. Create a feature branch from `master` (`git checkout -b feature/amazing-feature`).
 3. Make your changes, ensuring `bun run typecheck` passes.
-4. Test your changes in the playground (`bun run dev`).
-5. Commit using conventional commit messages.
-6. Push to your fork and open a Pull Request targeting `master`.
+4. Run the automated test suite (`cd packages/omni-compress && bun run test`) to ensure no regressions.
+5. Test your changes visually in the playground (`bun run dev`).
+6. Commit using conventional commit messages.
+7. Push to your fork and open a Pull Request targeting `master`.
 
 ## Code of Conduct
 

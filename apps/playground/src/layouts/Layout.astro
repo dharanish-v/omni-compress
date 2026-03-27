@@ -24,6 +24,21 @@ const description = activeTheme.strings.desc;
     <title>{title}</title>
     <ClientRouter />
 
+    {/* Production-only: coi-serviceworker adds COOP/COEP headers via SW so
+        SharedArrayBuffer is available for FFmpeg Wasm. Excluded from dev to
+        avoid racing with Vite's HMR dep-optimization reload loop. */}
+    {import.meta.env.PROD && (
+      <>
+        <script is:inline>
+          window.coi = {
+            shouldRegister: function () { return !window.crossOriginIsolated; },
+            quiet: true,
+          };
+        </script>
+        <script src="/omni-compress/coi-serviceworker.js" is:inline></script>
+      </>
+    )}
+
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
