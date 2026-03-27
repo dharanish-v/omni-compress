@@ -161,6 +161,12 @@ bun run dev          # start playground dev server (from apps/playground/)
 bun run build        # build playground
 bun run test         # run vitest suite (from packages/omni-compress/)
 bunx astro check     # type check .astro files
+
+# Publish to npm (via GitHub Actions — do NOT run npm publish locally)
+git tag v<version>   # e.g. git tag v1.5.0
+git push origin v<version>
+# Workflow: .github/workflows/publish.yml — triggers on v* tags
+# Steps: typecheck → test → build → npm publish --provenance
 ```
 
 ---
