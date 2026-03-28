@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { compressImage, compressAudio, WorkerConfig, AbortError } from "@dharanish/omni-compress";
+import { compressImage, compressAudio, archive, WorkerConfig, AbortError } from "@dharanish/omni-compress";
 import { themes } from "./themes";
 import { triggerFeedback } from "./utils/feedback";
 // @ts-ignore - Astro virtual module
@@ -233,7 +233,7 @@ function CustomSelect({
 function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [activeThemeId] = useState<string>(initialTheme);
   const [sabMissing, setSabMissing] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -260,6 +260,8 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const activeTheme = themes.find(t => t.id === activeThemeId) || themes[0];
   const t = activeTheme.strings;
 
+  const isBatch = files.length > 1;
+
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
       e.preventDefault();
@@ -278,9 +280,6 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   }, []);
 
   // Client-only: detect missing SharedArrayBuffer after hydration (#12)
-  // Skipped in dev — banner is for production users only. In production the
-  // coi-serviceworker reloads the page (~300ms) before this 1500ms timer
-  // fires, so crossOriginIsolated is true and sabMissing stays false.
   useEffect(() => {
     if (import.meta.env.DEV) return;
     const timer = setTimeout(() => {
@@ -290,8 +289,6 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   }, []);
 
   // Persist mute preference across Astro view-transition navigations (#11)
-  // hasMuteRestoredRef guards against the first render overwriting the stored
-  // value before the restore effect above has had a chance to apply it.
   const hasMuteRestoredRef = useRef(false);
   useEffect(() => {
     if (!hasMuteRestoredRef.current) {
@@ -313,8 +310,6 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   };
 
   useEffect(() => {
-    // Astro Layout handles the initial CSS var injection. 
-    // This effect is kept to handle potential client-side fallback/hydration edge cases.
     const root = document.documentElement;
     Object.entries(activeTheme.colors).forEach(([key, value]) => {
       if (key !== 'filter' && key !== 'pattern') {
@@ -323,14 +318,12 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
       }
     });
 
-    // Remove old pattern classes
     document.body.classList.forEach(className => {
       if (className.startsWith('pattern-')) {
         document.body.classList.remove(className);
       }
     });
     
-    // Add new pattern class
     // @ts-ignore - pattern is dynamically added to colors object
     const pattern = activeTheme.colors.pattern || 'grid';
     document.body.classList.add(`pattern-${pattern}`);
@@ -338,17 +331,18 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   }, [activeTheme]);
 
   useEffect(() => {
-    if (file) {
-      const isImage = file.type.startsWith('image/');
+    if (files.length > 0) {
+      const firstFile = files[0];
+      const isImage = isImageFile(firstFile);
       if (isImage) {
-        if (file.type === 'image/webp') setSelectedFormat('avif');
+        if (firstFile.type === 'image/webp') setSelectedFormat('avif');
         else setSelectedFormat('webp');
       } else {
-        if (file.type === 'audio/mpeg' || file.type === 'audio/mp3') setSelectedFormat('opus');
+        if (firstFile.type === 'audio/mpeg' || firstFile.type === 'audio/mp3') setSelectedFormat('opus');
         else setSelectedFormat('mp3');
       }
     }
-  }, [file]);
+  }, [files]);
 
   useEffect(() => {
     return () => {
@@ -369,25 +363,32 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       triggerFeedback('click', isMuted);
-      const selectedFile = e.target.files[0];
-
-      if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
-        setFileSizeError(
-          `File is ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB \u2014 exceeds the ${MAX_FILE_SIZE_MB} MB limit. ` +
-            `Large files can exhaust WebAssembly memory and crash your browser tab.`,
-        );
-        setFile(null);
-        setOriginalUrl(null);
-        setCompressedUrl(null);
-        setStats(null);
-        setProgress(0);
-        e.target.value = '';
-        return;
+      
+      const selectedFiles = Array.from(e.target.files);
+      
+      for (const selectedFile of selectedFiles) {
+        if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+          setFileSizeError(
+            `File "${selectedFile.name}" is ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB \u2014 exceeds the ${MAX_FILE_SIZE_MB} MB limit. ` +
+              `Large files can exhaust WebAssembly memory and crash your browser tab.`,
+          );
+          setFiles([]);
+          setOriginalUrl(null);
+          setCompressedUrl(null);
+          setStats(null);
+          setProgress(0);
+          e.target.value = '';
+          return;
+        }
       }
 
       setFileSizeError(null);
-      setFile(selectedFile);
-      setOriginalUrl(URL.createObjectURL(selectedFile));
+      setFiles(selectedFiles);
+      if (selectedFiles.length === 1) {
+        setOriginalUrl(URL.createObjectURL(selectedFiles[0]));
+      } else {
+        setOriginalUrl(null); // No preview for batch
+      }
       setCompressedUrl(null);
       setStats(null);
       setProgress(0);
@@ -399,7 +400,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   };
 
   const handleCompress = async () => {
-    if (!file || !selectedFormat) return;
+    if (files.length === 0 || !selectedFormat) return;
     triggerFeedback('click', isMuted);
     setIsProcessing(true);
     setProgress(0);
@@ -408,72 +409,151 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     abortControllerRef.current = controller;
 
     try {
-      const isImage = file.type.startsWith('image/');
       const start = performance.now();
 
-      let result;
-      if (isImage) {
-        result = await compressImage(file, {
-          format: selectedFormat as 'webp' | 'avif' | 'jpeg' | 'png',
-          quality: quality / 100,
-          maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
-          maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
-          preserveMetadata,
-          onProgress: (p: number) => setProgress(Math.round(p)),
+      if (isBatch) {
+        // --- BATCH ARCHIVE MODE ---
+        const archiveEntries = [];
+        let totalOriginalSize = 0;
+        
+        for (let i = 0; i < files.length; i++) {
+          const currentFile = files[i];
+          const isImage = currentFile.type.startsWith('image/');
+          totalOriginalSize += currentFile.size;
+          
+          // Progress roughly updates based on how many files we've compressed + 50% for archiving
+          const updateProgress = (p: number) => {
+            const baseProgress = (i / files.length) * 50;
+            const itemProgress = (p / 100) * (50 / files.length);
+            setProgress(Math.round(baseProgress + itemProgress));
+          };
+
+          // Handle mixed batch where selectedFormat might be incompatible with currentFile
+          let itemFormat = selectedFormat;
+          if (isImage && !['webp', 'avif', 'jpeg', 'png'].includes(itemFormat)) {
+             itemFormat = currentFile.type === 'image/webp' ? 'avif' : 'webp';
+          } else if (!isImage && !['opus', 'mp3', 'flac', 'wav', 'aac'].includes(itemFormat)) {
+             itemFormat = (currentFile.type === 'audio/mpeg' || currentFile.type === 'audio/mp3') ? 'opus' : 'mp3';
+          }
+
+          let result;
+          if (isImage) {
+            result = await compressImage(currentFile, {
+              format: itemFormat as any,
+              quality: quality / 100,
+              maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
+              maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
+              preserveMetadata,
+              onProgress: updateProgress,
+              signal: controller.signal,
+            });
+          } else {
+            result = await compressAudio(currentFile, {
+              format: itemFormat as any,
+              bitrate: audioBitrate,
+              channels: audioChannels !== "auto" ? (parseInt(audioChannels, 10) as 1 | 2) : undefined,
+              sampleRate: audioSampleRate !== "auto" ? parseInt(audioSampleRate, 10) : undefined,
+              onProgress: updateProgress,
+              signal: controller.signal,
+            });
+          }
+          
+          const newName = currentFile.name.split('.').slice(0, -1).join('.') + '.' + result.format;
+          archiveEntries.push({ name: newName, data: result.blob });
+        }
+        
+        // Now archive them
+        const zipResult = await archive(archiveEntries, {
+          level: 6,
           signal: controller.signal,
+          onProgress: (p) => setProgress(50 + Math.round(p / 2))
         });
+        
+        const time = Math.round(performance.now() - start);
+        const url = URL.createObjectURL(zipResult.blob);
+        setCompressedUrl(url);
+        setStats({
+          origSize: totalOriginalSize,
+          newSize: zipResult.compressedSize,
+          ratio: totalOriginalSize > 0 ? zipResult.compressedSize / totalOriginalSize : 1,
+          time,
+          format: 'zip',
+        });
+
       } else {
-        result = await compressAudio(file, {
-          format: selectedFormat as 'opus' | 'mp3' | 'flac' | 'wav' | 'aac',
-          bitrate: audioBitrate,
-          channels: audioChannels !== "auto" ? (parseInt(audioChannels, 10) as 1 | 2) : undefined,
-          sampleRate: audioSampleRate !== "auto" ? parseInt(audioSampleRate, 10) : undefined,
-          onProgress: (p: number) => setProgress(Math.round(p)),
-          signal: controller.signal,
+        // --- SINGLE FILE MODE ---
+        const singleFile = files[0];
+        const isImage = singleFile.type.startsWith('image/');
+
+        let result;
+        if (isImage) {
+          result = await compressImage(singleFile, {
+            format: selectedFormat as 'webp' | 'avif' | 'jpeg' | 'png',
+            quality: quality / 100,
+            maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
+            maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
+            preserveMetadata,
+            onProgress: (p: number) => setProgress(Math.round(p)),
+            signal: controller.signal,
+          });
+        } else {
+          result = await compressAudio(singleFile, {
+            format: selectedFormat as 'opus' | 'mp3' | 'flac' | 'wav' | 'aac',
+            bitrate: audioBitrate,
+            channels: audioChannels !== "auto" ? (parseInt(audioChannels, 10) as 1 | 2) : undefined,
+            sampleRate: audioSampleRate !== "auto" ? parseInt(audioSampleRate, 10) : undefined,
+            onProgress: (p: number) => setProgress(Math.round(p)),
+            signal: controller.signal,
+          });
+        }
+
+        const time = Math.round(performance.now() - start);
+        const url = URL.createObjectURL(result.blob);
+        setCompressedUrl(url);
+        setStats({
+          origSize: result.originalSize,
+          newSize: result.compressedSize,
+          ratio: result.ratio,
+          time,
+          format: result.format,
         });
       }
-
-      const time = Math.round(performance.now() - start);
-      const url = URL.createObjectURL(result.blob);
-      setCompressedUrl(url);
-      setStats({
-        origSize: result.originalSize,
-        newSize: result.compressedSize,
-        ratio: result.ratio,
-        time,
-        format: result.format,
-      });
       triggerFeedback('success', isMuted);
     } catch (err: unknown) {
       if (err instanceof AbortError) {
-        // User cancelled — reset to ready state silently
         setProgress(0);
         return;
       }
       console.error(err);
-      alert("Failed to compress file");
+      alert("Failed to process files");
     } finally {
       abortControllerRef.current = null;
       setIsProcessing(false);
     }
   };
 
-  const isLossy = (file: File | null) => {
-    if (!file) return false;
+  const isImageFile = (f: File | null) => {
+    if (!f) return false;
+    if (f.type) return f.type.startsWith('image/');
+    const ext = f.name.split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'heic', 'tiff'].includes(ext || '');
+  };
+
+  const isLossy = (f: File | null) => {
+    if (!f) return false;
     const lossyMimes = [
       'image/jpeg', 'image/jpg', 'audio/mpeg', 'audio/mp3', 'audio/opus', 'audio/ogg', 'audio/webm', 'video/webm'
     ];
     const lossyExts = ['.jpg', '.jpeg', '.mp3', '.ogg', '.opus', '.webm'];
-    const fileName = file.name.toLowerCase();
+    const fileName = f.name.toLowerCase();
     
-    return lossyMimes.includes(file.type) || lossyExts.some(ext => fileName.endsWith(ext));
+    return lossyMimes.includes(f.type) || lossyExts.some(ext => fileName.endsWith(ext));
   };
 
   const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(2) + " MB";
 
   const handleThemeChange = (nextTheme: string) => {
     triggerFeedback('shift', isMuted);
-    // Navigate via Astro router to preserve View Transitions
     navigate(`/omni-compress/${nextTheme === 'en' ? '' : nextTheme}`);
   };
 
@@ -501,7 +581,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
           onClick={() => {
             const nextMuted = !isMuted;
             setIsMuted(nextMuted);
-            triggerFeedback('click', false); // Feedback for the toggle itself
+            triggerFeedback('click', false);
           }}
           className={`p-2 border-2 border-[var(--theme-border)] shadow-[4px_4px_0px_0px_var(--theme-shadow)] transition-all hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] ${isMuted ? 'bg-stone-200 text-stone-500' : 'bg-[var(--theme-card-bg)] text-[var(--theme-text)]'}`}
           title={isMuted ? "Unmute feedback" : "Mute feedback"}
@@ -563,7 +643,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
         {sabMissing && (
           <div className="col-span-1 md:col-span-12 mb-2 border-4 border-[var(--theme-border)] bg-amber-100 text-amber-900 p-6 shadow-[8px_8px_0px_0px_var(--theme-shadow)] relative z-10">
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-amber-900 text-amber-100 flex items-center justify-center border-2 border-current font-black text-2xl shadow-[4px_4px_0px_0px_var(--theme-shadow)]">
+              <div className="flex-shrink-0 w-12 h-12 bg-amber-900 text-amber-100 flex items-center justify-center border-2 border-current font-black text-2xl shadow-[4px_4px_0px_var(--theme-shadow)]">
                 ⚠
               </div>
               <div>
@@ -596,23 +676,24 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                 onClick={() => fileInputRef.current?.click()}
                 className="w-full font-bold py-4 px-6 border-2 shadow-[6px_6px_0px_0px_var(--theme-shadow)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px] transition-all bg-[var(--theme-primary)] text-[var(--theme-primary-text)] border-[var(--theme-border)] hover:bg-[var(--theme-text)] hover:text-[var(--theme-bg)]"
               >
-                {file ? file.name : t.selectFile}
+                {files.length === 0 ? t.selectFile : (isBatch ? `${files.length} files selected` : files[0].name)}
               </button>
               <input 
                 type="file" 
+                multiple
                 ref={fileInputRef} 
                 onChange={handleFileChange} 
                 accept="image/*,audio/*" 
                 className="hidden" 
               />
 
-              {file && (
+              {files.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
                     <label className="text-sm font-bold uppercase text-[var(--theme-text)]">
-                      {t.outputFormat}
+                      {t.outputFormat} {isBatch && "(Batch)"}
                     </label>
-                    {isLossy(file) && (
+                    {isLossy(files[0]) && (
                       <span className="text-[10px] px-2 py-0.5 font-bold rounded bg-[var(--theme-accent)] text-[var(--theme-accent-text)]">
                         {t.lossySource}
                       </span>
@@ -624,17 +705,17 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                     onChange={(val) => setSelectedFormat(val)}
                     isMuted={isMuted}
                     options={
-                      file.type.startsWith('image/') ? [
-                        ...(file.type !== 'image/webp' ? [{ value: 'webp', label: 'WebP (Optimized)' }] : []),
-                        ...(file.type !== 'image/avif' ? [{ value: 'avif', label: 'AVIF (High Quality)' }] : []),
-                        ...(!(file.type === 'image/jpeg' || file.type === 'image/jpg') ? [{ value: 'jpeg', label: 'JPEG (Standard)' }] : []),
-                        ...(!isLossy(file) && file.type !== 'image/png' ? [{ value: 'png', label: 'PNG (Lossless)' }] : [])
+                      files[0].type.startsWith('image/') ? [
+                        ...(files[0].type !== 'image/webp' ? [{ value: 'webp', label: 'WebP (Optimized)' }] : []),
+                        ...(files[0].type !== 'image/avif' ? [{ value: 'avif', label: 'AVIF (High Quality)' }] : []),
+                        ...(!(files[0].type === 'image/jpeg' || files[0].type === 'image/jpg') ? [{ value: 'jpeg', label: 'JPEG (Standard)' }] : []),
+                        ...(!isLossy(files[0]) && files[0].type !== 'image/png' ? [{ value: 'png', label: 'PNG (Lossless)' }] : [])
                       ] : [
-                        ...(file.type !== 'audio/mpeg' && file.type !== 'audio/mp3' ? [{ value: 'mp3', label: 'MP3 (Compressed)' }] : []),
-                        ...(file.type !== 'audio/opus' ? [{ value: 'opus', label: 'Opus (Web-ready)' }] : []),
-                        ...(!isLossy(file) ? [
-                          ...(file.type !== 'audio/flac' ? [{ value: 'flac', label: 'FLAC (Lossless)' }] : []),
-                          ...(file.type !== 'audio/wav' && file.type !== 'audio/x-wav' ? [{ value: 'wav', label: 'WAV (Uncompressed)' }] : [])
+                        ...(files[0].type !== 'audio/mpeg' && files[0].type !== 'audio/mp3' ? [{ value: 'mp3', label: 'MP3 (Compressed)' }] : []),
+                        ...(files[0].type !== 'audio/opus' ? [{ value: 'opus', label: 'Opus (Web-ready)' }] : []),
+                        ...(!isLossy(files[0]) ? [
+                          ...(files[0].type !== 'audio/flac' ? [{ value: 'flac', label: 'FLAC (Lossless)' }] : []),
+                          ...(files[0].type !== 'audio/wav' && files[0].type !== 'audio/x-wav' ? [{ value: 'wav', label: 'WAV (Uncompressed)' }] : [])
                         ] : [])
                       ]
                     }
@@ -643,7 +724,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               )}
 
               {/* Advanced Controls Toggle */}
-              {file && (
+              {files.length > 0 && (
                 <div className="pt-2">
                   <button
                     onClick={() => {
@@ -682,7 +763,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       </div>
 
                       {/* Image Specific Controls */}
-                      {file.type.startsWith('image/') && (
+                      {files[0].type.startsWith('image/') && (
                         <>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
@@ -725,7 +806,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       )}
 
                       {/* Audio Specific Controls */}
-                      {!file.type.startsWith('image/') && (
+                      {!files[0].type.startsWith('image/') && (
                         <>
                           <div>
                             <CustomSelect
@@ -775,9 +856,9 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               
               <button
                 onClick={isProcessing ? handleCancel : handleCompress}
-                disabled={!file && !isProcessing}
+                disabled={files.length === 0 && !isProcessing}
                 className={`group relative w-full font-bold py-4 px-6 border-2 shadow-[6px_6px_0px_0px_var(--theme-shadow)] transition-all overflow-hidden
-                  ${(!file && !isProcessing)
+                  ${(files.length === 0 && !isProcessing)
                     ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none translate-x-[2px] translate-y-[2px] border-[var(--theme-border)]"
                     : isProcessing
                       ? "bg-red-600 text-white border-[var(--theme-border)] hover:bg-red-700 hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px] cursor-pointer"
@@ -800,7 +881,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       </svg>
                       {t.processing} {progress}% — Click to Cancel
                     </>
-                  ) : t.startCompress}
+                  ) : (isBatch ? "Compress & Archive" : t.startCompress)}
                 </div>
               </button>
             </div>
@@ -809,7 +890,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
 
         {/* Results / Preview Section (Spans 7 cols) */}
         <div className="md:col-span-7 relative z-10 flex flex-col justify-center" style={{ viewTransitionName: 'preview-section' }}>
-          {(!file && !compressedUrl) && (
+          {(files.length === 0 && !compressedUrl) && (
             <div style={{ viewTransitionName: 'empty-state-quote' }} className="h-full min-h-[400px] border-4 border-dashed flex items-center justify-center transform rotate-1 p-8 text-center transition-all duration-500 border-[var(--theme-secondary)]/50 bg-[var(--theme-card-bg)]/40">
               <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
               <p className="text-2xl font-bold rotate-[-2deg] transition-colors text-[var(--theme-text)] opacity-80 relative z-10">
@@ -819,7 +900,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
             </div>
           )}
 
-          {(file || compressedUrl) && (
+          {(files.length > 0 || compressedUrl) && (
             <div className="relative grid grid-cols-1 sm:grid-cols-2 gap-6 h-full">
               
               {/* Conversion Arrow (Desktop Only) */}
@@ -834,18 +915,27 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               )}
 
               {/* Original Card */}
-              {originalUrl && (
+              {(originalUrl || isBatch) && (
                 <div style={{ viewTransitionName: 'original-card' }} className="border-4 p-4 flex flex-col transition-all duration-500 bg-[var(--theme-card-bg)] border-[var(--theme-border)] shadow-[8px_8px_0px_0px_var(--theme-shadow)]">
                   <div className="font-bold uppercase tracking-wider py-1 px-3 inline-block self-start mb-4 border-2 bg-[var(--theme-secondary)] text-[var(--theme-text)] border-[var(--theme-border)]">
-                    {t.original}
+                    {isBatch ? "BATCH UPLOAD" : t.original}
                   </div>
                   <div className="flex-grow flex items-center justify-center border-2 overflow-hidden relative group transition-colors bg-[var(--theme-bg)] border-[var(--theme-border)]">
-                    {file?.type.startsWith('image/') ? (
-                      <img src={originalUrl} alt="Original" className={`max-h-64 object-contain group-hover:scale-105 transition-transform ${activeTheme.colors.filter}`} />
-                    ) : (
-                      <div className="w-full h-full flex flex-col justify-center items-center p-4">
-                        <CustomAudioPlayer src={originalUrl} isMuted={isMuted} />
+                    {isBatch ? (
+                      <div className="w-full h-full flex flex-col justify-center items-center p-4 text-center">
+                        <svg className="w-16 h-16 opacity-50 mb-2 text-[var(--theme-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2" />
+                        </svg>
+                        <span className="font-bold text-[var(--theme-text)] opacity-80">{files.length} Files Selected</span>
                       </div>
+                    ) : (
+                      files[0]?.type.startsWith('image/') && originalUrl ? (
+                        <img src={originalUrl} alt="Original" className={`max-h-64 object-contain group-hover:scale-105 transition-transform ${activeTheme.colors.filter}`} />
+                      ) : originalUrl ? (
+                        <div className="w-full h-full flex flex-col justify-center items-center p-4">
+                          <CustomAudioPlayer src={originalUrl} isMuted={isMuted} />
+                        </div>
+                      ) : null
                     )}
                   </div>
                   {stats && (
@@ -861,15 +951,24 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               {compressedUrl && stats && (
                 <div style={{ viewTransitionName: 'compressed-card' }} className="border-4 p-4 flex flex-col transform md:translate-y-8 transition-all duration-500 bg-[var(--theme-card-alt)] border-[var(--theme-border)] shadow-[8px_8px_0px_0px_var(--theme-shadow)] text-[var(--theme-card-alt-text)]">
                   <div className="font-black uppercase tracking-wider py-1 px-3 inline-block self-start mb-4 border-2 bg-[var(--theme-accent)] text-[var(--theme-accent-text)] border-[var(--theme-card-alt-text)]">
-                    {t.masterpiece}
+                    {isBatch ? "ARCHIVE" : t.masterpiece}
                   </div>
                   <div className="flex-grow flex items-center justify-center border-2 overflow-hidden relative transition-colors bg-[var(--theme-bg)]/10 border-[var(--theme-border)]">
-                    {file?.type.startsWith('image/') ? (
-                      <img src={compressedUrl} alt="Compressed" className={`max-h-64 object-contain ${activeTheme.colors.filter}`} />
+                    {isBatch ? (
+                       <div className="w-full h-full flex flex-col justify-center items-center p-4 text-center">
+                        <svg className="w-16 h-16 opacity-50 mb-2 text-[var(--theme-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        </svg>
+                        <span className="font-bold text-[var(--theme-accent)] opacity-80">omni-compress.zip</span>
+                       </div>
                     ) : (
-                      <div className="w-full h-full flex flex-col justify-center items-center p-4">
-                        <CustomAudioPlayer src={compressedUrl} isCompressed isMuted={isMuted} />
-                      </div>
+                      files[0]?.type.startsWith('image/') ? (
+                        <img src={compressedUrl} alt="Compressed" className={`max-h-64 object-contain ${activeTheme.colors.filter}`} />
+                      ) : (
+                        <div className="w-full h-full flex flex-col justify-center items-center p-4">
+                          <CustomAudioPlayer src={compressedUrl} isCompressed isMuted={isMuted} />
+                        </div>
+                      )
                     )}
                   </div>
                   <div className="mt-4 grid grid-cols-2 gap-4 border-t-2 border-dashed pt-4 border-[var(--theme-border)] opacity-80">
@@ -887,7 +986,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                   </div>
                   <a 
                     href={compressedUrl} 
-                    download={`compressed-${file?.name.split('.').slice(0, -1).join('.') || 'file'}.${stats.format}`}
+                    download={isBatch ? "omni-compress.zip" : `compressed-${files[0]?.name.split('.').slice(0, -1).join('.') || 'file'}.${stats.format}`}
                     onClick={() => triggerFeedback('click', isMuted)}
                     className="mt-4 w-full text-center font-bold py-3 px-4 border-2 transition-all uppercase tracking-widest bg-[var(--theme-primary)] text-[var(--theme-primary-text)] border-[var(--theme-border)] shadow-[6px_6px_0px_0px_var(--theme-shadow)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px]"
                   >
