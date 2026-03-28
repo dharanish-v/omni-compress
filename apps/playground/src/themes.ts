@@ -25,7 +25,7 @@ export const themes = [
     "strings": {
       "titleSuffix": "Compress",
       "desc": "Brevity is the soul of wit. Upload your media and let WebAssembly sculpt it down to its essence.",
-      "selectFile": "Select Media File",
+      "selectFile": "Select File(s)",
       "outputFormat": "Output Format",
       "lossySource": "LOSSY SOURCE",
       "startCompress": "Start Compression",

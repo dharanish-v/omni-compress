@@ -292,6 +292,9 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const t = activeTheme.strings;
 
   const isBatch = files.length > 1;
+  const isAllImages = files.length > 0 && files.every(f => isImageFile(f));
+  const isAllAudio = files.length > 0 && files.every(f => isAudioFile(f));
+  const isMixedOrGeneric = files.length > 0 && !isAllImages && !isAllAudio;
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -363,25 +366,19 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
 
   useEffect(() => {
     if (files.length > 0) {
-      if (isBatch) {
+      if (isMixedOrGeneric) {
         setSelectedFormat('zip');
-      } else {
+      } else if (isAllImages) {
         const firstFile = files[0];
-        const isImage = isImageFile(firstFile);
-        const isAudio = isAudioFile(firstFile);
-        
-        if (isImage) {
-          if (firstFile.type === 'image/webp') setSelectedFormat('avif');
-          else setSelectedFormat('webp');
-        } else if (isAudio) {
-          if (firstFile.type === 'audio/mpeg' || firstFile.type === 'audio/mp3') setSelectedFormat('opus');
-          else setSelectedFormat('mp3');
-        } else {
-          setSelectedFormat('zip');
-        }
+        if (firstFile.type === 'image/webp') setSelectedFormat('avif');
+        else setSelectedFormat('webp');
+      } else if (isAllAudio) {
+        const firstFile = files[0];
+        if (firstFile.type === 'audio/mpeg' || firstFile.type === 'audio/mp3') setSelectedFormat('opus');
+        else setSelectedFormat('mp3');
       }
     }
-  }, [files, isBatch]);
+  }, [files, isAllImages, isAllAudio, isMixedOrGeneric]);
 
   useEffect(() => {
     return () => {
@@ -450,7 +447,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     try {
       const start = performance.now();
 
-      if (isBatch || selectedFormat === 'zip') {
+      if (selectedFormat === 'zip') {
         // --- ARCHIVE MODE (Batch or Single Generic) ---
         const archiveEntries = [];
         let totalOriginalSize = 0;
@@ -468,7 +465,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
             setProgress(Math.round(baseProgress + itemProgress));
           };
 
-          if (smartOptimize && (isImage || isAudio)) {
+          if (isBatch && smartOptimize && (isImage || isAudio)) {
             // Compress media first
             let result;
             if (isImage) {
@@ -498,6 +495,66 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
         // Now archive them
         const zipResult = await archive(archiveEntries, {
           level: parseInt(archiveLevel, 10) as any,
+          signal: controller.signal,
+          onProgress: (p) => setProgress(50 + Math.round(p / 2))
+        });
+        
+        const time = Math.round(performance.now() - start);
+        const url = URL.createObjectURL(zipResult.blob);
+        setCompressedUrl(url);
+        setStats({
+          origSize: totalOriginalSize,
+          newSize: zipResult.compressedSize,
+          ratio: totalOriginalSize > 0 ? zipResult.compressedSize / totalOriginalSize : 1,
+          time,
+          format: 'zip',
+        });
+
+      } else if (isBatch) {
+        // --- EXPLICIT BULK MEDIA COMPRESSION MODE ---
+        const archiveEntries = [];
+        let totalOriginalSize = 0;
+        
+        for (let i = 0; i < files.length; i++) {
+          const currentFile = files[i];
+          const isImage = isImageFile(currentFile);
+          totalOriginalSize += currentFile.size;
+          
+          const updateProgress = (p: number) => {
+            const baseProgress = (i / files.length) * 50;
+            const itemProgress = (p / 100) * (50 / files.length);
+            setProgress(Math.round(baseProgress + itemProgress));
+          };
+
+          let result;
+          if (isImage) {
+            result = await compressImage(currentFile, {
+              format: selectedFormat as any,
+              quality: quality / 100,
+              maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
+              maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
+              preserveMetadata,
+              onProgress: updateProgress,
+              signal: controller.signal,
+            });
+          } else {
+            result = await compressAudio(currentFile, {
+              format: selectedFormat as any,
+              bitrate: audioBitrate,
+              channels: audioChannels !== "auto" ? (parseInt(audioChannels, 10) as 1 | 2) : undefined,
+              sampleRate: audioSampleRate !== "auto" ? parseInt(audioSampleRate, 10) : undefined,
+              onProgress: updateProgress,
+              signal: controller.signal,
+            });
+          }
+          
+          const newName = currentFile.name.split('.').slice(0, -1).join('.') + '.' + result.format;
+          archiveEntries.push({ name: newName, data: result.blob });
+        }
+        
+        // Archive them without re-compressing the zip significantly since they are already compressed media
+        const zipResult = await archive(archiveEntries, {
+          level: 0,
           signal: controller.signal,
           onProgress: (p) => setProgress(50 + Math.round(p / 2))
         });
@@ -698,6 +755,11 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                 onChange={handleFileChange} 
                 className="hidden" 
               />
+              {files.length === 0 && (
+                <p className="text-center text-xs font-bold uppercase tracking-widest text-[var(--theme-text)] opacity-50 mt-2">
+                  Drop multiple files to batch process
+                </p>
+              )}
 
               {files.length > 0 && (
                 <div className="flex flex-col gap-2">
@@ -717,22 +779,22 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                     onChange={(val) => setSelectedFormat(val)}
                     isMuted={isMuted}
                     options={
-                      isBatch ? [
+                      isMixedOrGeneric ? [
                         { value: 'zip', label: 'ZIP Archive' }
-                      ] : isImageFile(files[0]) ? [
+                      ] : isAllImages ? [
                         ...(files[0].type !== 'image/webp' ? [{ value: 'webp', label: 'WebP (Optimized)' }] : []),
                         ...(files[0].type !== 'image/avif' ? [{ value: 'avif', label: 'AVIF (High Quality)' }] : []),
                         ...(!(files[0].type === 'image/jpeg' || files[0].type === 'image/jpg') ? [{ value: 'jpeg', label: 'JPEG (Standard)' }] : []),
                         ...(!isLossy(files[0]) && files[0].type !== 'image/png' ? [{ value: 'png', label: 'PNG (Lossless)' }] : []),
-                        { value: 'zip', label: 'ZIP Archive' }
-                      ] : isAudioFile(files[0]) ? [
+                        ...(isBatch ? [] : [{ value: 'zip', label: 'ZIP Archive' }])
+                      ] : isAllAudio ? [
                         ...(files[0].type !== 'audio/mpeg' && files[0].type !== 'audio/mp3' ? [{ value: 'mp3', label: 'MP3 (Compressed)' }] : []),
                         ...(files[0].type !== 'audio/opus' ? [{ value: 'opus', label: 'Opus (Web-ready)' }] : []),
                         ...(!isLossy(files[0]) ? [
                           ...(files[0].type !== 'audio/flac' ? [{ value: 'flac', label: 'FLAC (Lossless)' }] : []),
                           ...(files[0].type !== 'audio/wav' && files[0].type !== 'audio/x-wav' ? [{ value: 'wav', label: 'WAV (Uncompressed)' }] : [])
                         ] : []),
-                        { value: 'zip', label: 'ZIP Archive' }
+                        ...(isBatch ? [] : [{ value: 'zip', label: 'ZIP Archive' }])
                       ] : [
                         { value: 'zip', label: 'ZIP Archive' }
                       ]
@@ -754,7 +816,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                     <svg className={`w-4 h-4 transition-transform ${showAdvanced ? 'rotate-90' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M9 5l7 7-7 7" />
                     </svg>
-                    Advanced Engineering
+                    {selectedFormat === 'zip' ? "Archive Options" : isAllImages ? "Advanced Image Options" : isAllAudio ? "Advanced Audio Options" : "Advanced Options"}
                   </button>
                   
                   {/* Advanced Panel */}
@@ -808,7 +870,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       )}
 
                       {/* Image Specific Controls */}
-                      {selectedFormat !== 'zip' && isImageFile(files[0]) && (
+                      {selectedFormat !== 'zip' && isAllImages && (
                         <>
                           <div>
                             <div className="flex justify-between items-center mb-2">
@@ -866,7 +928,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       )}
 
                       {/* Audio Specific Controls */}
-                      {selectedFormat !== 'zip' && isAudioFile(files[0]) && !isBatch && (
+                      {selectedFormat !== 'zip' && isAllAudio && (
                         <>
                           <div>
                             <CustomSelect
@@ -941,7 +1003,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       </svg>
                       {t.processing} {progress}% — Click to Cancel
                     </>
-                  ) : (isBatch || selectedFormat === 'zip' ? "Archive" : t.startCompress)}
+                  ) : (selectedFormat === 'zip' ? "Archive" : isBatch ? "Compress & Zip" : t.startCompress)}
                 </div>
               </button>
             </div>
