@@ -425,7 +425,7 @@ export const themes = [
     "strings": {
       "titleSuffix": "Comprimir",
       "desc": "A simplicidade é a maior das sofisticações. Escolha o seu ficheiro.",
-      "selectFile": "Selecionar Arquivo",
+      "selectFile": "Selecionar Arquivo(s)",
       "outputFormat": "Formato de Saída",
       "lossySource": "FONTE COM PERDA",
       "startCompress": "Iniciar Compressão",
@@ -865,7 +865,7 @@ export const themes = [
     "strings": {
       "titleSuffix": "Sympiesi",
       "desc": "Η απλότητα είναι η υπέρτατη πολυπλοκότητα. Ανέβασε το αρχείο σου.",
-      "selectFile": "Επιλογή Αρχείου",
+      "selectFile": "Επιλογή Αρχείου(ων)",
       "outputFormat": "Μορφή Εξόδου",
       "lossySource": "ΠΗΓΗ ΜΕ ΑΠΩΛΕΙΕΣ",
       "startCompress": "Έναρξη Συμπίεσης",
@@ -1000,3 +1000,8 @@ export const themes = [
     }
   }
 ];
+}
+];
+ }
+];
+
