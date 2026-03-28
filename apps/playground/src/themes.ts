@@ -1000,8 +1000,4 @@ export const themes = [
     }
   }
 ];
-}
-];
- }
-];
 
