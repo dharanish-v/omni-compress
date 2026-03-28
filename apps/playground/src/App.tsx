@@ -20,6 +20,33 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 // Custom event name used to coordinate exclusive audio playback (#10)
 const AUDIO_PLAY_EVENT = 'omni-compress:audio-play';
 
+const isImageFile = (f: File | null) => {
+  if (!f) return false;
+  if (f.type) return f.type.startsWith('image/');
+  const ext = f.name.split('.').pop()?.toLowerCase();
+  return ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'heic', 'tiff'].includes(ext || '');
+};
+
+const isAudioFile = (f: File | null) => {
+  if (!f) return false;
+  if (f.type) return f.type.startsWith('audio/') || f.type === 'video/webm';
+  const ext = f.name.split('.').pop()?.toLowerCase();
+  return ['mp3', 'opus', 'ogg', 'wav', 'flac', 'aac', 'm4a', 'webm'].includes(ext || '');
+};
+
+const isLossy = (f: File | null) => {
+  if (!f) return false;
+  const lossyMimes = [
+    'image/jpeg', 'image/jpg', 'audio/mpeg', 'audio/mp3', 'audio/opus', 'audio/ogg', 'audio/webm', 'video/webm'
+  ];
+  const lossyExts = ['.jpg', '.jpeg', '.mp3', '.ogg', '.opus', '.webm'];
+  const fileName = f.name.toLowerCase();
+  
+  return lossyMimes.includes(f.type) || lossyExts.some(ext => fileName.endsWith(ext));
+};
+
+const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(2) + " MB";
+
 function CustomAudioPlayer({ src, isCompressed = false, isMuted = false }: { src: string; isCompressed?: boolean; isMuted?: boolean }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -254,6 +281,10 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [audioChannels, setAudioChannels] = useState<string>("auto");
   const [audioSampleRate, setAudioSampleRate] = useState<string>("auto");
   
+  // Smart Archive Controls
+  const [smartOptimize, setSmartOptimize] = useState(true);
+  const [archiveLevel, setArchiveLevel] = useState("6");
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -332,17 +363,25 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
 
   useEffect(() => {
     if (files.length > 0) {
-      const firstFile = files[0];
-      const isImage = isImageFile(firstFile);
-      if (isImage) {
-        if (firstFile.type === 'image/webp') setSelectedFormat('avif');
-        else setSelectedFormat('webp');
+      if (isBatch) {
+        setSelectedFormat('zip');
       } else {
-        if (firstFile.type === 'audio/mpeg' || firstFile.type === 'audio/mp3') setSelectedFormat('opus');
-        else setSelectedFormat('mp3');
+        const firstFile = files[0];
+        const isImage = isImageFile(firstFile);
+        const isAudio = isAudioFile(firstFile);
+        
+        if (isImage) {
+          if (firstFile.type === 'image/webp') setSelectedFormat('avif');
+          else setSelectedFormat('webp');
+        } else if (isAudio) {
+          if (firstFile.type === 'audio/mpeg' || firstFile.type === 'audio/mp3') setSelectedFormat('opus');
+          else setSelectedFormat('mp3');
+        } else {
+          setSelectedFormat('zip');
+        }
       }
     }
-  }, [files]);
+  }, [files, isBatch]);
 
   useEffect(() => {
     return () => {
@@ -411,14 +450,15 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     try {
       const start = performance.now();
 
-      if (isBatch) {
-        // --- BATCH ARCHIVE MODE ---
+      if (isBatch || selectedFormat === 'zip') {
+        // --- ARCHIVE MODE (Batch or Single Generic) ---
         const archiveEntries = [];
         let totalOriginalSize = 0;
         
         for (let i = 0; i < files.length; i++) {
           const currentFile = files[i];
-          const isImage = currentFile.type.startsWith('image/');
+          const isImage = isImageFile(currentFile);
+          const isAudio = isAudioFile(currentFile);
           totalOriginalSize += currentFile.size;
           
           // Progress roughly updates based on how many files we've compressed + 50% for archiving
@@ -428,43 +468,36 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
             setProgress(Math.round(baseProgress + itemProgress));
           };
 
-          // Handle mixed batch where selectedFormat might be incompatible with currentFile
-          let itemFormat = selectedFormat;
-          if (isImage && !['webp', 'avif', 'jpeg', 'png'].includes(itemFormat)) {
-             itemFormat = currentFile.type === 'image/webp' ? 'avif' : 'webp';
-          } else if (!isImage && !['opus', 'mp3', 'flac', 'wav', 'aac'].includes(itemFormat)) {
-             itemFormat = (currentFile.type === 'audio/mpeg' || currentFile.type === 'audio/mp3') ? 'opus' : 'mp3';
-          }
-
-          let result;
-          if (isImage) {
-            result = await compressImage(currentFile, {
-              format: itemFormat as any,
-              quality: quality / 100,
-              maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
-              maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
-              preserveMetadata,
-              onProgress: updateProgress,
-              signal: controller.signal,
-            });
+          if (smartOptimize && (isImage || isAudio)) {
+            // Compress media first
+            let result;
+            if (isImage) {
+              result = await compressImage(currentFile, {
+                format: currentFile.type === 'image/webp' ? 'avif' : 'webp',
+                quality: 0.8,
+                onProgress: updateProgress,
+                signal: controller.signal,
+              });
+            } else {
+              result = await compressAudio(currentFile, {
+                format: (currentFile.type === 'audio/mpeg' || currentFile.type === 'audio/mp3') ? 'opus' : 'mp3',
+                bitrate: '128k',
+                onProgress: updateProgress,
+                signal: controller.signal,
+              });
+            }
+            const newName = currentFile.name.split('.').slice(0, -1).join('.') + '.' + result.format;
+            archiveEntries.push({ name: newName, data: result.blob });
           } else {
-            result = await compressAudio(currentFile, {
-              format: itemFormat as any,
-              bitrate: audioBitrate,
-              channels: audioChannels !== "auto" ? (parseInt(audioChannels, 10) as 1 | 2) : undefined,
-              sampleRate: audioSampleRate !== "auto" ? parseInt(audioSampleRate, 10) : undefined,
-              onProgress: updateProgress,
-              signal: controller.signal,
-            });
+            // Raw file pass-through
+            archiveEntries.push({ name: currentFile.name, data: currentFile });
+            updateProgress(100);
           }
-          
-          const newName = currentFile.name.split('.').slice(0, -1).join('.') + '.' + result.format;
-          archiveEntries.push({ name: newName, data: result.blob });
         }
         
         // Now archive them
         const zipResult = await archive(archiveEntries, {
-          level: 6,
+          level: parseInt(archiveLevel, 10) as any,
           signal: controller.signal,
           onProgress: (p) => setProgress(50 + Math.round(p / 2))
         });
@@ -481,9 +514,9 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
         });
 
       } else {
-        // --- SINGLE FILE MODE ---
+        // --- SINGLE MEDIA MODE ---
         const singleFile = files[0];
-        const isImage = singleFile.type.startsWith('image/');
+        const isImage = isImageFile(singleFile);
 
         let result;
         if (isImage) {
@@ -531,26 +564,6 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
       setIsProcessing(false);
     }
   };
-
-  const isImageFile = (f: File | null) => {
-    if (!f) return false;
-    if (f.type) return f.type.startsWith('image/');
-    const ext = f.name.split('.').pop()?.toLowerCase();
-    return ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'heic', 'tiff'].includes(ext || '');
-  };
-
-  const isLossy = (f: File | null) => {
-    if (!f) return false;
-    const lossyMimes = [
-      'image/jpeg', 'image/jpg', 'audio/mpeg', 'audio/mp3', 'audio/opus', 'audio/ogg', 'audio/webm', 'video/webm'
-    ];
-    const lossyExts = ['.jpg', '.jpeg', '.mp3', '.ogg', '.opus', '.webm'];
-    const fileName = f.name.toLowerCase();
-    
-    return lossyMimes.includes(f.type) || lossyExts.some(ext => fileName.endsWith(ext));
-  };
-
-  const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(2) + " MB";
 
   const handleThemeChange = (nextTheme: string) => {
     triggerFeedback('shift', isMuted);
@@ -683,7 +696,6 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                 multiple
                 ref={fileInputRef} 
                 onChange={handleFileChange} 
-                accept="image/*,audio/*" 
                 className="hidden" 
               />
 
@@ -693,7 +705,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                     <label className="text-sm font-bold uppercase text-[var(--theme-text)]">
                       {t.outputFormat} {isBatch && "(Batch)"}
                     </label>
-                    {isLossy(files[0]) && (
+                    {isLossy(files[0]) && !isBatch && selectedFormat !== 'zip' && (
                       <span className="text-[10px] px-2 py-0.5 font-bold rounded bg-[var(--theme-accent)] text-[var(--theme-accent-text)]">
                         {t.lossySource}
                       </span>
@@ -705,18 +717,24 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                     onChange={(val) => setSelectedFormat(val)}
                     isMuted={isMuted}
                     options={
-                      files[0].type.startsWith('image/') ? [
+                      isBatch ? [
+                        { value: 'zip', label: 'ZIP Archive' }
+                      ] : isImageFile(files[0]) ? [
                         ...(files[0].type !== 'image/webp' ? [{ value: 'webp', label: 'WebP (Optimized)' }] : []),
                         ...(files[0].type !== 'image/avif' ? [{ value: 'avif', label: 'AVIF (High Quality)' }] : []),
                         ...(!(files[0].type === 'image/jpeg' || files[0].type === 'image/jpg') ? [{ value: 'jpeg', label: 'JPEG (Standard)' }] : []),
-                        ...(!isLossy(files[0]) && files[0].type !== 'image/png' ? [{ value: 'png', label: 'PNG (Lossless)' }] : [])
-                      ] : [
+                        ...(!isLossy(files[0]) && files[0].type !== 'image/png' ? [{ value: 'png', label: 'PNG (Lossless)' }] : []),
+                        { value: 'zip', label: 'ZIP Archive' }
+                      ] : isAudioFile(files[0]) ? [
                         ...(files[0].type !== 'audio/mpeg' && files[0].type !== 'audio/mp3' ? [{ value: 'mp3', label: 'MP3 (Compressed)' }] : []),
                         ...(files[0].type !== 'audio/opus' ? [{ value: 'opus', label: 'Opus (Web-ready)' }] : []),
                         ...(!isLossy(files[0]) ? [
                           ...(files[0].type !== 'audio/flac' ? [{ value: 'flac', label: 'FLAC (Lossless)' }] : []),
                           ...(files[0].type !== 'audio/wav' && files[0].type !== 'audio/x-wav' ? [{ value: 'wav', label: 'WAV (Uncompressed)' }] : [])
-                        ] : [])
+                        ] : []),
+                        { value: 'zip', label: 'ZIP Archive' }
+                      ] : [
+                        { value: 'zip', label: 'ZIP Archive' }
                       ]
                     }
                   />
@@ -743,28 +761,70 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                   {showAdvanced && (
                     <div className="mt-4 p-4 border-2 border-[var(--theme-border)] bg-[var(--theme-bg)] flex flex-col gap-4">
                       
-                      {/* Global: Quality Slider */}
-                      <div>
-                        <div className="flex justify-between items-center mb-2">
-                          <label className="text-xs font-bold uppercase text-[var(--theme-text)]">Quality</label>
-                          <span className="text-xs font-black bg-[var(--theme-card-bg)] px-2 py-0.5 border-2 border-[var(--theme-border)]">{quality}%</span>
-                        </div>
-                        <input 
-                          type="range" 
-                          min="1" max="100" 
-                          value={quality}
-                          onChange={(e) => {
-                            setQuality(Number(e.target.value));
-                          }}
-                          onMouseUp={() => triggerFeedback('tick', isMuted)}
-                          onTouchEnd={() => triggerFeedback('tick', isMuted)}
-                          className="w-full accent-[var(--theme-primary)] bg-[var(--theme-card-bg)] border-2 border-[var(--theme-border)] h-3 appearance-none cursor-pointer"
-                        />
-                      </div>
+                      {/* Archive specific controls */}
+                      {selectedFormat === 'zip' && (
+                        <>
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                              <label className="text-xs font-bold uppercase text-[var(--theme-text)]">Deflate Level</label>
+                              <span className="text-xs font-black bg-[var(--theme-card-bg)] px-2 py-0.5 border-2 border-[var(--theme-border)]">{archiveLevel}</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="0" max="9" 
+                              value={archiveLevel}
+                              onChange={(e) => setArchiveLevel(e.target.value)}
+                              onMouseUp={() => triggerFeedback('tick', isMuted)}
+                              onTouchEnd={() => triggerFeedback('tick', isMuted)}
+                              className="w-full accent-[var(--theme-primary)] bg-[var(--theme-card-bg)] border-2 border-[var(--theme-border)] h-3 appearance-none cursor-pointer"
+                            />
+                            <div className="flex justify-between text-[10px] uppercase font-bold mt-1 opacity-60">
+                              <span>0 (Store)</span>
+                              <span>9 (Max)</span>
+                            </div>
+                          </div>
+                          
+                          {isBatch && (
+                            <label className="flex items-center gap-2 cursor-pointer group mt-2">
+                              <div className="relative flex items-center justify-center w-6 h-6 border-2 border-[var(--theme-border)] bg-[var(--theme-card-bg)]">
+                                <input 
+                                  type="checkbox" 
+                                  className="opacity-0 absolute w-full h-full cursor-pointer"
+                                  checked={smartOptimize}
+                                  onChange={(e) => {
+                                    setSmartOptimize(e.target.checked);
+                                    triggerFeedback('click', isMuted);
+                                  }}
+                                />
+                                {smartOptimize && <div className="w-3 h-3 bg-[var(--theme-accent)]"></div>}
+                              </div>
+                              <div className="flex flex-col">
+                                <span className="text-xs font-bold uppercase text-[var(--theme-text)] group-hover:opacity-100 opacity-80">Smart Optimize Media</span>
+                                <span className="text-[10px] opacity-60">Pre-compress images/audio before archiving</span>
+                              </div>
+                            </label>
+                          )}
+                        </>
+                      )}
 
                       {/* Image Specific Controls */}
-                      {files[0].type.startsWith('image/') && (
+                      {selectedFormat !== 'zip' && isImageFile(files[0]) && (
                         <>
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                              <label className="text-xs font-bold uppercase text-[var(--theme-text)]">Quality</label>
+                              <span className="text-xs font-black bg-[var(--theme-card-bg)] px-2 py-0.5 border-2 border-[var(--theme-border)]">{quality}%</span>
+                            </div>
+                            <input 
+                              type="range" 
+                              min="1" max="100" 
+                              value={quality}
+                              onChange={(e) => setQuality(Number(e.target.value))}
+                              onMouseUp={() => triggerFeedback('tick', isMuted)}
+                              onTouchEnd={() => triggerFeedback('tick', isMuted)}
+                              className="w-full accent-[var(--theme-primary)] bg-[var(--theme-card-bg)] border-2 border-[var(--theme-border)] h-3 appearance-none cursor-pointer"
+                            />
+                          </div>
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <label className="text-xs font-bold uppercase text-[var(--theme-text)] mb-1 block">Max Width (px)</label>
@@ -806,7 +866,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       )}
 
                       {/* Audio Specific Controls */}
-                      {!files[0].type.startsWith('image/') && (
+                      {selectedFormat !== 'zip' && isAudioFile(files[0]) && !isBatch && (
                         <>
                           <div>
                             <CustomSelect
@@ -881,7 +941,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                       </svg>
                       {t.processing} {progress}% — Click to Cancel
                     </>
-                  ) : (isBatch ? "Compress & Archive" : t.startCompress)}
+                  ) : (isBatch || selectedFormat === 'zip' ? "Archive" : t.startCompress)}
                 </div>
               </button>
             </div>
@@ -915,7 +975,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               )}
 
               {/* Original Card */}
-              {(originalUrl || isBatch) && (
+              {(originalUrl || isBatch || (!isImageFile(files[0]) && !isAudioFile(files[0]))) && (
                 <div style={{ viewTransitionName: 'original-card' }} className="border-4 p-4 flex flex-col transition-all duration-500 bg-[var(--theme-card-bg)] border-[var(--theme-border)] shadow-[8px_8px_0px_0px_var(--theme-shadow)]">
                   <div className="font-bold uppercase tracking-wider py-1 px-3 inline-block self-start mb-4 border-2 bg-[var(--theme-secondary)] text-[var(--theme-text)] border-[var(--theme-border)]">
                     {isBatch ? "BATCH UPLOAD" : t.original}
@@ -929,13 +989,20 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                         <span className="font-bold text-[var(--theme-text)] opacity-80">{files.length} Files Selected</span>
                       </div>
                     ) : (
-                      files[0]?.type.startsWith('image/') && originalUrl ? (
+                      isImageFile(files[0]) && originalUrl ? (
                         <img src={originalUrl} alt="Original" className={`max-h-64 object-contain group-hover:scale-105 transition-transform ${activeTheme.colors.filter}`} />
-                      ) : originalUrl ? (
+                      ) : isAudioFile(files[0]) && originalUrl ? (
                         <div className="w-full h-full flex flex-col justify-center items-center p-4">
                           <CustomAudioPlayer src={originalUrl} isMuted={isMuted} />
                         </div>
-                      ) : null
+                      ) : (
+                        <div className="w-full h-full flex flex-col justify-center items-center p-4 text-center">
+                          <svg className="w-16 h-16 opacity-50 mb-2 text-[var(--theme-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                          <span className="font-bold text-[var(--theme-text)] opacity-80 truncate px-4 max-w-full">{files[0]?.name}</span>
+                        </div>
+                      )
                     )}
                   </div>
                   {stats && (
@@ -951,10 +1018,10 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               {compressedUrl && stats && (
                 <div style={{ viewTransitionName: 'compressed-card' }} className="border-4 p-4 flex flex-col transform md:translate-y-8 transition-all duration-500 bg-[var(--theme-card-alt)] border-[var(--theme-border)] shadow-[8px_8px_0px_0px_var(--theme-shadow)] text-[var(--theme-card-alt-text)]">
                   <div className="font-black uppercase tracking-wider py-1 px-3 inline-block self-start mb-4 border-2 bg-[var(--theme-accent)] text-[var(--theme-accent-text)] border-[var(--theme-card-alt-text)]">
-                    {isBatch ? "ARCHIVE" : t.masterpiece}
+                    {stats.format === 'zip' ? "ARCHIVE" : t.masterpiece}
                   </div>
                   <div className="flex-grow flex items-center justify-center border-2 overflow-hidden relative transition-colors bg-[var(--theme-bg)]/10 border-[var(--theme-border)]">
-                    {isBatch ? (
+                    {stats.format === 'zip' ? (
                        <div className="w-full h-full flex flex-col justify-center items-center p-4 text-center">
                         <svg className="w-16 h-16 opacity-50 mb-2 text-[var(--theme-accent)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
@@ -962,7 +1029,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                         <span className="font-bold text-[var(--theme-accent)] opacity-80">omni-compress.zip</span>
                        </div>
                     ) : (
-                      files[0]?.type.startsWith('image/') ? (
+                      isImageFile(files[0]) ? (
                         <img src={compressedUrl} alt="Compressed" className={`max-h-64 object-contain ${activeTheme.colors.filter}`} />
                       ) : (
                         <div className="w-full h-full flex flex-col justify-center items-center p-4">
@@ -986,7 +1053,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                   </div>
                   <a 
                     href={compressedUrl} 
-                    download={isBatch ? "omni-compress.zip" : `compressed-${files[0]?.name.split('.').slice(0, -1).join('.') || 'file'}.${stats.format}`}
+                    download={stats.format === 'zip' ? "omni-compress.zip" : `compressed-${files[0]?.name.split('.').slice(0, -1).join('.') || 'file'}.${stats.format}`}
                     onClick={() => triggerFeedback('click', isMuted)}
                     className="mt-4 w-full text-center font-bold py-3 px-4 border-2 transition-all uppercase tracking-widest bg-[var(--theme-primary)] text-[var(--theme-primary-text)] border-[var(--theme-border)] shadow-[6px_6px_0px_0px_var(--theme-shadow)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px]"
                   >
