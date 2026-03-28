@@ -12,7 +12,7 @@ export default defineConfig({
         },
     },
     optimizeDeps: {
-        exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+        exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@jsquash/avif']
     },
     build: {
         rollupOptions: {

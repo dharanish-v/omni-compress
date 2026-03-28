@@ -14,7 +14,7 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     optimizeDeps: {
-      exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util']
+      exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@jsquash/avif']
     },
     worker: {
       format: 'es'

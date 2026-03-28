@@ -8,6 +8,7 @@ import ffmpegPath from 'ffmpeg-static';
 
 import type { CompressorOptions } from '../../core/router.js';
 import { fileToArrayBuffer } from '../../core/utils.js';
+import { AbortError } from '../../core/errors.js';
 import { logger } from '../../core/logger.js';
 
 /**
@@ -27,8 +28,10 @@ async function ensureBuffer(input: File | Blob | ArrayBuffer): Promise<Buffer> {
  */
 export async function processWithNode(
   file: File | Blob | ArrayBuffer,
-  options: CompressorOptions
+  options: CompressorOptions,
+  signal?: AbortSignal,
 ): Promise<Blob> {
+  if (signal?.aborted) throw new AbortError('Compression aborted');
   const buffer = await ensureBuffer(file);
   const tempId = randomUUID();
   
@@ -54,7 +57,11 @@ export async function processWithNode(
           args.push('-q:v', Math.floor(options.quality * 100).toString());
         }
       } else if (options.format === 'avif') {
-        args.push('-vcodec', 'libaom-av1', '-crf', '32');
+        // -b:v 0 required for CRF constrained-quality mode; -still-picture 1 for valid AVIF.
+        const crf = options.quality !== undefined
+          ? Math.max(0, Math.min(63, Math.round((1 - options.quality) * 63)))
+          : 32;
+        args.push('-vcodec', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-still-picture', '1');
       }
     } else if (options.type === 'audio') {
       if (options.format === 'mp3') {
@@ -72,22 +79,31 @@ export async function processWithNode(
     await new Promise<void>((resolve, reject) => {
       const child = spawn(binary, args);
 
+      // AbortSignal support (#21): kill the child process on abort
+      const onAbort = () => {
+        child.kill('SIGTERM');
+        reject(new AbortError('Compression aborted'));
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+
       // FFmpeg outputs progress and logs to stderr
       child.stderr.on('data', (data) => {
         const output = data.toString();
         logger.debug(`[OmniCompress:FFmpeg:Node] ${output.trim()}`);
-        
+
         // Simple progress parsing logic (e.g., parsing "time=00:00:05.12")
         // Since we don't always know total duration here, we just emit periodic updates
         // In a more robust version, we'd probe total duration first.
         if (output.includes('time=')) {
-          // For now, we'll just indicate we are working. 
+          // For now, we'll just indicate we are working.
           // Native node is usually so fast for small files that 0 -> 100 is almost instant.
-          options.onProgress?.(50); 
+          options.onProgress?.(50);
         }
       });
 
       child.on('close', (code) => {
+        signal?.removeEventListener('abort', onAbort);
+        if (signal?.aborted) return; // already rejected by onAbort
         if (code === 0) {
           resolve();
         } else {
@@ -96,6 +112,7 @@ export async function processWithNode(
       });
 
       child.on('error', (err) => {
+        signal?.removeEventListener('abort', onAbort);
         reject(new Error(`Failed to start FFmpeg child process: ${err.message}. Ensure ffmpeg is installed or ffmpeg-static is bundled.`));
       });
     });

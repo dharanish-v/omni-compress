@@ -1,7 +1,8 @@
 import type { CompressorOptions } from "../../core/router.js";
+import { SAFE_SIZE_LIMITS } from "../../core/utils.js";
 import { logger } from "../../core/logger.js";
 
-// --- FFmpeg Singleton ---
+// --- FFmpeg Singleton (ST — single-threaded core) ---
 // Reuses a single FFmpeg Wasm instance across compressions within the same
 // Web Worker, cleaning only the Virtual File System between calls.
 // The instance self-terminates after an idle timeout to free Wasm memory.
@@ -65,14 +66,12 @@ async function getFFmpeg() {
   return singletonPromise;
 }
 
-const WASM_SAFE_LIMIT = 250 * 1024 * 1024; // 250 MB
-
 export async function processImageHeavyPath(
   buffer: ArrayBuffer,
   options: CompressorOptions,
   onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
-  if (buffer.byteLength > WASM_SAFE_LIMIT) {
+  if (buffer.byteLength > SAFE_SIZE_LIMITS.browser) {
     throw new Error(
       `Buffer size (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB) exceeds safe Wasm limit (250 MB). ` +
         `Refusing to load into FFmpeg to prevent memory exhaustion.`,
@@ -109,13 +108,12 @@ export async function processImageHeavyPath(
       args.push("-vf", `scale=${w}:${h}:force_original_aspect_ratio=decrease`);
     }
 
+    // AVIF is handled by @jsquash/avif in image.worker.ts — never reaches here.
     if (options.format === "webp") {
       args.push("-c:v", "libwebp");
       if (options.quality !== undefined) {
         args.push("-q:v", Math.floor(options.quality * 100).toString());
       }
-    } else if (options.format === "avif") {
-      args.push("-c:v", "libaom-av1", "-crf", "32");
     }
 
     args.push(outputFileName);
@@ -143,7 +141,7 @@ export async function processAudioHeavyPath(
   options: CompressorOptions,
   onProgress?: (progress: number) => void,
 ): Promise<ArrayBuffer> {
-  if (buffer.byteLength > WASM_SAFE_LIMIT) {
+  if (buffer.byteLength > SAFE_SIZE_LIMITS.browser) {
     throw new Error(
       `Buffer size (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB) exceeds safe Wasm limit (250 MB). ` +
         `Refusing to load into FFmpeg to prevent memory exhaustion.`,

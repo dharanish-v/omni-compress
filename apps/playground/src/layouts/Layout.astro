@@ -25,8 +25,10 @@ const description = activeTheme.strings.desc;
     <ClientRouter />
 
     {/* Production-only: coi-serviceworker adds COOP/COEP headers via SW so
-        SharedArrayBuffer is available for FFmpeg Wasm. Excluded from dev to
-        avoid racing with Vite's HMR dep-optimization reload loop. */}
+        SharedArrayBuffer is available for @ffmpeg/core-mt (AVIF encoding).
+        Dev uses a Vite plugin middleware instead (see astro.config.mjs) because
+        coi-serviceworker's reload-to-register cycle races with Vite's
+        dep-optimization reload, causing an infinite loop. */}
     {import.meta.env.PROD && (
       <>
         <script is:inline>

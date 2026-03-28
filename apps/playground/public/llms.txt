@@ -2,23 +2,44 @@
 
 > Smart-routing media compression for browsers and Node.js.
 
-Omni-Compress automatically routes media compression to the fastest available engine at runtime: native Web APIs (OffscreenCanvas/WebCodecs), FFmpeg WebAssembly, or OS-level ffmpeg binaries. It features zero main-thread blocking and zero-copy memory transfers.
+Omni-Compress automatically routes media compression to the fastest available engine at runtime: native Web APIs (OffscreenCanvas), FFmpeg WebAssembly, or OS-level ffmpeg binaries. It features zero main-thread blocking, zero-copy memory transfers, AbortSignal cancellation, and built-in ZIP archiving.
 
-## Core API
+## v2.0 API (recommended)
 ```typescript
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { compressImage, compressAudio, archive, detectFormat } from '@dharanish/omni-compress';
 
-const compressedBlob = await OmniCompressor.process(file, {
-  type: 'image' | 'audio',
-  format: 'webp' | 'opus' | 'mp3' | 'avif' | 'jpeg' | 'png' | 'flac' | 'wav',
-  quality: 0.8, // optional
-  maxWidth: 1920, // optional (images only)
-  maxHeight: 1080, // optional (images only)
-  preserveMetadata: false, // optional (images only)
-  bitrate: '128k', // optional (audio only)
-  channels: 2, // optional (audio only)
-  sampleRate: 48000 // optional (audio only)
+// Image compression — returns CompressResult { blob, originalSize, compressedSize, ratio, format }
+// Note: AVIF uses @jsquash/avif (standalone libaom-av1 Wasm) — no extra setup needed.
+const { blob, ratio } = await compressImage(file, {
+  format: 'webp',          // 'webp' | 'avif' | 'jpeg' | 'png'
+  quality: 0.8,            // 0.0–1.0
+  maxWidth: 1920,          // optional
+  signal: controller.signal // optional — AbortSignal for cancellation
 });
+
+// Audio compression
+const { blob: audio } = await compressAudio(file, {
+  format: 'opus',          // 'opus' | 'mp3' | 'flac' | 'wav' | 'aac'
+  bitrate: '96k',          // optional
+  signal: controller.signal
+});
+
+// ZIP archive (isomorphic — works in browser and Node.js)
+const { blob: zip } = await archive([
+  { name: 'photo.webp', data: blob },
+  { name: 'audio.opus', data: audio }
+]);
+
+// Magic byte format detection
+const format = detectFormat(await file.arrayBuffer()); // e.g. 'webp', 'flac', null
+```
+
+## Deprecated v1.x API
+```typescript
+// OmniCompressor.process() still works but returns a raw Blob (no size metadata).
+// Migrate to compressImage() / compressAudio() for CompressResult.
+import { OmniCompressor } from '@dharanish/omni-compress';
+const blob = await OmniCompressor.process(file, { type: 'image', format: 'webp' });
 ```
 
 ## Full Documentation

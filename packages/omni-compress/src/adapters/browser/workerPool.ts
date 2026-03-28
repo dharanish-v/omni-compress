@@ -1,4 +1,5 @@
 import type { CompressorOptions } from '../../core/router.js';
+import { AbortError } from '../../core/errors.js';
 import { logger } from '../../core/logger.js';
 
 let workerIdCounter = 0;
@@ -7,7 +8,7 @@ interface WorkerJob {
   id: number;
   options: CompressorOptions;
   resolve: (value: ArrayBuffer) => void;
-  reject: (reason: any) => void;
+  reject: (reason: unknown) => void;
 }
 
 const pendingJobs = new Map<number, WorkerJob>();
@@ -116,8 +117,9 @@ interface QueuedJob {
   buffer: ArrayBuffer;
   options: CompressorOptions;
   isFastPath: boolean;
+  signal?: AbortSignal;
   resolve: (value: ArrayBuffer) => void;
-  reject: (reason: any) => void;
+  reject: (reason: unknown) => void;
 }
 
 const jobQueues = new Map<'image' | 'audio', QueuedJob[]>();
@@ -143,7 +145,28 @@ function drainQueue(type: 'image' | 'audio') {
   if (active >= MAX_CONCURRENT_PER_TYPE || queue.length === 0) return;
 
   const next = queue.shift()!;
-  dispatchToWorker(next.buffer, next.options, next.isFastPath, next.resolve, next.reject);
+
+  // Skip jobs whose signal has already been aborted while they waited in the queue
+  if (next.signal?.aborted) {
+    next.reject(new AbortError('Compression aborted'));
+    drainQueue(type); // Try the next one
+    return;
+  }
+
+  dispatchToWorker(next.buffer, next.options, next.isFastPath, next.resolve, next.reject, next.signal);
+}
+
+function terminateWorker(type: 'image' | 'audio') {
+  const worker = workerCache.get(type);
+  if (worker) {
+    worker.terminate();
+    workerCache.delete(type);
+    const timer = workerIdleTimers.get(type);
+    if (timer) {
+      clearTimeout(timer);
+      workerIdleTimers.delete(type);
+    }
+  }
 }
 
 function dispatchToWorker(
@@ -151,7 +174,8 @@ function dispatchToWorker(
   options: CompressorOptions,
   isFastPath: boolean,
   resolve: (value: ArrayBuffer) => void,
-  reject: (reason: any) => void,
+  reject: (reason: unknown) => void,
+  signal?: AbortSignal,
 ) {
   const id = ++workerIdCounter;
   const worker = getWorker(options.type);
@@ -159,17 +183,34 @@ function dispatchToWorker(
 
   activeJobs.set(type, (activeJobs.get(type) ?? 0) + 1);
 
-  // Wrap resolve/reject to decrement active count
-  const wrappedResolve = (value: ArrayBuffer) => {
-    activeJobs.set(type, (activeJobs.get(type) ?? 1) - 1);
+  let abortCleanup: (() => void) | null = null;
+
+  // Wrap resolve/reject to decrement active count and clean up abort listener
+  const finalResolve = (value: ArrayBuffer) => {
+    abortCleanup?.();
+    activeJobs.set(type, Math.max(0, (activeJobs.get(type) ?? 1) - 1));
     resolve(value);
   };
-  const wrappedReject = (reason: any) => {
-    activeJobs.set(type, (activeJobs.get(type) ?? 1) - 1);
+  const finalReject = (reason: unknown) => {
+    abortCleanup?.();
+    activeJobs.set(type, Math.max(0, (activeJobs.get(type) ?? 1) - 1));
     reject(reason);
   };
 
-  pendingJobs.set(id, { id, options, resolve: wrappedResolve, reject: wrappedReject });
+  pendingJobs.set(id, { id, options, resolve: finalResolve, reject: finalReject });
+
+  // AbortSignal support (#21): terminate the worker on abort (kills FFmpeg Wasm mid-run),
+  // reject the pending promise with AbortError, then drain the queue with a fresh worker.
+  if (signal) {
+    const onAbort = () => {
+      pendingJobs.delete(id);
+      terminateWorker(type);
+      finalReject(new AbortError('Compression aborted'));
+      drainQueue(type);
+    };
+    signal.addEventListener('abort', onAbort, { once: true });
+    abortCleanup = () => signal.removeEventListener('abort', onAbort);
+  }
 
   // Strip functions like `onProgress` because they cannot be cloned via postMessage
   const safeOptions = { ...options };
@@ -193,18 +234,24 @@ export function processWithBrowserWorker(
   buffer: ArrayBuffer,
   options: CompressorOptions,
   isFastPath: boolean,
+  signal?: AbortSignal,
 ): Promise<ArrayBuffer> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new AbortError('Compression aborted'));
+      return;
+    }
+
     const type = options.type;
     const active = activeJobs.get(type) ?? 0;
 
     if (active < MAX_CONCURRENT_PER_TYPE) {
       // Slot available — dispatch immediately
-      dispatchToWorker(buffer, options, isFastPath, resolve, reject);
+      dispatchToWorker(buffer, options, isFastPath, resolve, reject, signal);
     } else {
       // Queue the job — it will be drained when the current job completes
       logger.debug(`Queueing ${type} job (active: ${active}, queued: ${getQueue(type).length})`);
-      getQueue(type).push({ buffer, options, isFastPath, resolve, reject });
+      getQueue(type).push({ buffer, options, isFastPath, signal, resolve, reject });
     }
   });
 }

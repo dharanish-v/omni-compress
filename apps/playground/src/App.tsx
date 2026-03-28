@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { OmniCompressor, WorkerConfig } from "@dharanish/omni-compress";
+import { compressImage, compressAudio, WorkerConfig, AbortError } from "@dharanish/omni-compress";
 import { themes } from "./themes";
 import { triggerFeedback } from "./utils/feedback";
 // @ts-ignore - Astro virtual module
@@ -238,7 +238,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [stats, setStats] = useState<{ origSize: number; newSize: number; time: number; format: string } | null>(null);
+  const [stats, setStats] = useState<{ origSize: number; newSize: number; ratio: number; time: number; format: string } | null>(null);
   const [selectedFormat, setSelectedFormat] = useState<string>("");
   const [isMuted, setIsMuted] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -255,6 +255,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [audioSampleRate, setAudioSampleRate] = useState<string>("auto");
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   const activeTheme = themes.find(t => t.id === activeThemeId) || themes[0];
   const t = activeTheme.strings;
@@ -393,52 +394,66 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     }
   };
 
+  const handleCancel = () => {
+    abortControllerRef.current?.abort();
+  };
+
   const handleCompress = async () => {
     if (!file || !selectedFormat) return;
     triggerFeedback('click', isMuted);
     setIsProcessing(true);
     setProgress(0);
-    
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     try {
       const isImage = file.type.startsWith('image/');
-      const type = isImage ? 'image' : 'audio';
-
       const start = performance.now();
-      
-      const options: any = {
-        type,
-        format: selectedFormat,
-        quality: quality / 100,
-        onProgress: (p: number) => setProgress(Math.round(p))
-      };
 
+      let result;
       if (isImage) {
-        if (maxWidth) options.maxWidth = parseInt(maxWidth, 10);
-        if (maxHeight) options.maxHeight = parseInt(maxHeight, 10);
-        options.preserveMetadata = preserveMetadata;
+        result = await compressImage(file, {
+          format: selectedFormat as 'webp' | 'avif' | 'jpeg' | 'png',
+          quality: quality / 100,
+          maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
+          maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
+          preserveMetadata,
+          onProgress: (p: number) => setProgress(Math.round(p)),
+          signal: controller.signal,
+        });
       } else {
-        options.bitrate = audioBitrate;
-        if (audioChannels !== "auto") options.channels = parseInt(audioChannels, 10);
-        if (audioSampleRate !== "auto") options.sampleRate = parseInt(audioSampleRate, 10);
+        result = await compressAudio(file, {
+          format: selectedFormat as 'opus' | 'mp3' | 'flac' | 'wav' | 'aac',
+          bitrate: audioBitrate,
+          channels: audioChannels !== "auto" ? (parseInt(audioChannels, 10) as 1 | 2) : undefined,
+          sampleRate: audioSampleRate !== "auto" ? parseInt(audioSampleRate, 10) : undefined,
+          onProgress: (p: number) => setProgress(Math.round(p)),
+          signal: controller.signal,
+        });
       }
 
-      const resultBlob = await OmniCompressor.process(file, options);
-
       const time = Math.round(performance.now() - start);
-
-      const url = URL.createObjectURL(resultBlob);
+      const url = URL.createObjectURL(result.blob);
       setCompressedUrl(url);
       setStats({
-        origSize: file.size,
-        newSize: resultBlob.size,
+        origSize: result.originalSize,
+        newSize: result.compressedSize,
+        ratio: result.ratio,
         time,
-        format: selectedFormat
+        format: result.format,
       });
       triggerFeedback('success', isMuted);
-    } catch (err) {
+    } catch (err: unknown) {
+      if (err instanceof AbortError) {
+        // User cancelled — reset to ready state silently
+        setProgress(0);
+        return;
+      }
       console.error(err);
       alert("Failed to compress file");
     } finally {
+      abortControllerRef.current = null;
       setIsProcessing(false);
     }
   };
@@ -758,22 +773,24 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                 </div>
               )}
               
-              <button 
-                onClick={handleCompress} 
-                disabled={!file || isProcessing}
+              <button
+                onClick={isProcessing ? handleCancel : handleCompress}
+                disabled={!file && !isProcessing}
                 className={`group relative w-full font-bold py-4 px-6 border-2 shadow-[6px_6px_0px_0px_var(--theme-shadow)] transition-all overflow-hidden
-                  ${(!file || isProcessing) 
-                    ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none translate-x-[2px] translate-y-[2px] border-[var(--theme-border)]" 
-                    : "bg-[var(--theme-secondary)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-accent)] hover:text-[var(--theme-accent-text)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px]"}`}
+                  ${(!file && !isProcessing)
+                    ? "bg-stone-200 text-stone-500 cursor-not-allowed shadow-none translate-x-[2px] translate-y-[2px] border-[var(--theme-border)]"
+                    : isProcessing
+                      ? "bg-red-600 text-white border-[var(--theme-border)] hover:bg-red-700 hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px] cursor-pointer"
+                      : "bg-[var(--theme-secondary)] text-[var(--theme-text)] border-[var(--theme-border)] hover:bg-[var(--theme-accent)] hover:text-[var(--theme-accent-text)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px]"}`}
               >
                 {/* Progress Fill Layer */}
                 {isProcessing && (
-                  <div 
-                    className="absolute top-0 left-0 h-full bg-[var(--theme-accent)] transition-all duration-300 ease-out opacity-20"
+                  <div
+                    className="absolute top-0 left-0 h-full bg-white/20 transition-all duration-300 ease-out"
                     style={{ width: `${progress}%` }}
                   ></div>
                 )}
-                
+
                 <div className="relative flex justify-center items-center gap-2">
                   {isProcessing ? (
                     <>
@@ -781,7 +798,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                       </svg>
-                      {t.processing} {progress}%
+                      {t.processing} {progress}% — Click to Cancel
                     </>
                   ) : t.startCompress}
                 </div>
@@ -859,6 +876,9 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                     <div>
                       <span className="text-xs font-bold uppercase block opacity-70">{t.newSize}</span>
                       <span className="text-xl font-black text-[var(--theme-accent)]">{formatSize(stats.newSize)}</span>
+                      <span className="text-xs font-bold block mt-1 text-[var(--theme-accent)]">
+                        ↓ {Math.round((1 - stats.ratio) * 100)}% smaller
+                      </span>
                     </div>
                     <div className="text-right">
                       <span className="text-xs font-bold uppercase block opacity-70">{t.time}</span>

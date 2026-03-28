@@ -8,7 +8,7 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 `@dharanish/omni-compress` (v1.5.0) — an isomorphic media compression library.
 - **One API** (`OmniCompressor.process(file, options): Promise<Blob>`) works identically in browser and Node.js
-- **Browser**: routes through Web Workers (off main thread), uses OffscreenCanvas fast path or FFmpeg Wasm heavy path
+- **Browser**: routes through Web Workers (off main thread), uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path
 - **Node.js**: spawns native `ffmpeg` binary via `child_process`
 - **Playground**: Astro 6 + React + Tailwind CSS v4 demo app at `apps/playground/`
 
@@ -28,12 +28,13 @@ packages/omni-compress/     ← published npm package (@dharanish/omni-compress)
     adapters/
       browser/
         fastPath.ts         ← OffscreenCanvas (images), WebCodecs stub (audio, unfinished)
+        avifEncoder.ts      ← @jsquash/avif standalone libaom-av1 Wasm encoder
         heavyPath.ts        ← FFmpeg Wasm singleton with 30s idle timeout
         workerPool.ts       ← Worker cache, concurrency queue (1 job/type), 60s idle timeout
       node/
         childProcess.ts     ← spawn ffmpeg binary, temp file I/O
     workers/
-      image.worker.ts       ← fast path → heavy path fallback
+      image.worker.ts       ← AVIF → @jsquash/avif, else fast path → heavy path fallback
       audio.worker.ts       ← fast path → heavy path fallback
   tests/
     browser/                ← Playwright + Vitest browser tests
@@ -60,7 +61,8 @@ apps/playground/            ← demo app (not published)
 OmniCompressor.process()
   → Router.evaluate() → environment: browser | node
   → browser: fileToArrayBuffer → WorkerPool → Worker
-      → FastPath (OffscreenCanvas): WebP, AVIF, JPEG, PNG images only
+      → AVIF: @jsquash/avif (standalone libaom-av1 Wasm, 1.1 MB gzipped)
+      → FastPath (OffscreenCanvas): WebP, JPEG, PNG images only
       → HeavyPath (FFmpeg Wasm): everything else, also fallback from FastPath
   → node: childProcess (native ffmpeg binary, no Wasm, no size limit)
 ```
@@ -68,17 +70,23 @@ OmniCompressor.process()
 ### Worker concurrency (workerPool.ts)
 One active job per worker type at a time. The FFmpeg Wasm singleton inside the worker uses fixed VFS filenames — concurrent dispatch causes collisions. Jobs queue and drain automatically. Workers terminate after 60s idle. FFmpeg singleton terminates after 30s idle.
 
+### AVIF encoding (avifEncoder.ts)
+- Uses `@jsquash/avif` — standalone libaom-av1 Wasm module from Google's Squoosh project (1.1 MB gzipped)
+- NO SharedArrayBuffer required — @jsquash/avif auto-detects multi-threading support
+- NO COOP/COEP headers needed for AVIF encoding
+- **Vite config caveat:** Must be excluded from dependency pre-bundling (`optimizeDeps.exclude: ['@jsquash/avif']`) otherwise the Wasm fetch will fail.
+- `image.worker.ts` routes AVIF directly to `encodeAVIF()` before checking fast/heavy path
+- Completely independent from FFmpeg — no FFmpeg involvement in AVIF encoding
+
 ### FFmpeg Wasm (heavyPath.ts)
-- Uses `@ffmpeg/core` — **single-threaded** (not `@ffmpeg/core-mt`)
-- `ffmpeg.load()` called with no args — uses bundled core, served same-origin
+- Uses `@ffmpeg/core` — **single-threaded**, `ffmpeg.load()` called with no args — uses bundled core, served same-origin
 - Singleton reused across calls; VFS cleaned between calls
 - 250 MB hard limit (`FileTooLargeError`) before loading into Wasm
 - Opus special case: 2-pass (resample to 48kHz WAV → encode) to avoid OOM crash in single-threaded Wasm
 
 ### COOP/COEP (SharedArrayBuffer)
-- **Dev**: No headers. `SharedArrayBuffer` may be unavailable. FFmpeg still works (single-threaded core doesn't require SAB).
-- **Production**: `coi-serviceworker.js` in `Layout.astro` adds COOP/COEP headers via Service Worker. One bootstrap reload on first visit. `crossOriginIsolated = true` after that.
-- SAB missing banner in `App.tsx` is **prod-only** (`import.meta.env.DEV` guard) — was a false alarm in dev since the single-threaded core doesn't need SAB.
+- **Dev**: No headers. `SharedArrayBuffer` may be unavailable. FFmpeg still works (single-threaded core doesn't require SAB). AVIF uses @jsquash/avif which auto-detects threading and does not require SAB.
+- **Production**: `coi-serviceworker.js` in `Layout.astro` adds COOP/COEP headers via Service Worker. One bootstrap reload on first visit.
 
 ### Node adapter gaps vs browser
 Node's `childProcess.ts` is missing: `preserveMetadata`, `maxWidth`/`maxHeight`, real progress reporting (emits fake 50% on `time=` in stderr). These are tracked but not yet implemented.
@@ -114,17 +122,17 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 | # | Area | Summary | Why first |
 |---|------|---------|-----------|
-| 35 | Bug | AVIF incorrectly routed to Fast Path — OffscreenCanvas cannot encode AVIF | Silent wrong output. Fix before any other work. |
-| 33 | Core | v2.0 API — named exports, CompressResult, AbortSignal, archive support | All new features should target v2.0. Building against current API creates debt. |
-| 23 | Core | Typed error hierarchy | Part of v2.0 API surface. Needs to ship with #33. |
+| ~~35~~ | ~~Bug~~ | ~~AVIF incorrectly routed to Fast Path~~ — **Fixed**: AVIF now uses @jsquash/avif (standalone libaom-av1 Wasm) | Resolved. |
+| ~~33~~ | ~~Core~~ | ~~v2.0 API — named exports, CompressResult, AbortSignal, archive support~~ | **Resolved in v2.0.0**. |
+| ~~23~~ | ~~Core~~ | ~~Typed error hierarchy~~ | **Resolved in v2.0.0**. |
 
 ### P1: High — high user impact, do next
 
 | # | Area | Summary | Why high |
 |---|------|---------|---------|
 | 4  | Perf | Service Worker caching for FFmpeg Wasm (~30 MB, re-downloaded every cold start) | Biggest perceived-performance win. Eliminates only UX advantage of compressorjs. |
-| 21 | Core | AbortController / cancellation | Users navigate away mid-compression. Orphaned Wasm jobs leak memory silently. |
-| 22 | Core | Magic byte format detection | Silent failures when file extension ≠ content. Safety/correctness issue. |
+| ~~21~~ | ~~Core~~ | ~~AbortController / cancellation~~ | **Resolved in v2.0.0**. |
+| ~~22~~ | ~~Core~~ | ~~Magic byte format detection~~ | **Resolved in v2.0.0**. |
 | 40 | Docs | compressorjs migration guide + compatibility shim | Fastest adoption path for 293K weekly downloads. |
 | 41 | UX | Interactive benchmark comparison page in playground | Proof > claims. Visual compression comparison. |
 
@@ -132,7 +140,7 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 | # | Area | Summary |
 |---|------|---------|
-| 34 | Perf | FFmpeg multi-threading via `@ffmpeg/core-mt` (all prerequisites met) |
+| 34 | Perf | FFmpeg multi-threading via `@ffmpeg/core-mt` (all non-AVIF formats that use FFmpeg) |
 | 20 | Core | WebCodecs audio fast path (AAC + Opus now universal in all browsers, 3-10x faster than Wasm) |
 | 6  | UX | Drag & Drop zone + batch file processing |
 | 31 | Core | Video compression support |
@@ -182,7 +190,7 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 Full research documented in issue #43 with sources. Summary:
 
 ### Critical bugs
-- **#35**: `FAST_PATH_IMAGE_FORMATS` includes `'avif'`, but OffscreenCanvas cannot encode AVIF. Silent wrong output.
+- **#35**: ~~`FAST_PATH_IMAGE_FORMATS` includes `'avif'`, but OffscreenCanvas cannot encode AVIF. Silent wrong output.~~ **Fixed**: AVIF removed from fast path formats. AVIF now routes to a dedicated `@jsquash/avif` encoder (standalone libaom-av1 Wasm from Squoosh). No FFmpeg, no SharedArrayBuffer required.
 
 ### Browser APIs
 - **WebCodecs AudioEncoder**: AAC + Opus universal in all browsers. MP3 will NEVER be available. FLAC Chrome-only.
@@ -194,7 +202,7 @@ Full research documented in issue #43 with sources. Summary:
 ### Quality benchmarks (with sources)
 - Canvas JPEG (compressorjs) uses libjpeg-turbo. FFmpeg MozJPEG is **5-16% smaller** at same visual quality. (Cloudflare, Mozilla Research)
 - AVIF is **40-54% smaller** than JPEG, **20-33% smaller** than WebP. (Google, Cloudflare, Meta)
-- AVIF encoding in single-threaded Wasm is extremely slow (5s-4min). Multi-threading (#34) is critical.
+- AVIF encoding now uses `@jsquash/avif` (standalone libaom-av1 Wasm, 1.1 MB gzipped). Previously extremely slow in single-threaded FFmpeg Wasm (5s-4min). Auto-detects multi-threading without requiring SharedArrayBuffer.
 - Opus at 96 kbps outperforms MP3 at 128 kbps (IETF listening tests).
 
 ### Competitive positioning — replace 7 libraries with one
@@ -265,3 +273,7 @@ git push origin v<version>
 - No summary paragraphs at end of responses
 - Tests use Vitest (browser + node configs via `vitest.workspace.ts`)
 - Workers are imported via Vite's `?worker&url` pattern in the playground, not bundled into the library
+- **Always update docs when changing code**: when any source code changes, update all affected documentation:
+  - `packages/omni-compress/README.md` — API reference, supported formats, setup guides
+  - `apps/playground/scripts/generate-llms-txt.js` — then re-run it (`node scripts/generate-llms-txt.js` in `apps/playground/`) to regenerate `public/llms.txt` and `public/llms-full.txt`
+  - `CLAUDE.md` — architecture, routing, known issues, playground rules
