@@ -4,6 +4,26 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-03-30
+
+### Added
+- **Named Export API (Issue #33):** Replaced class-based `OmniCompressor.process()` with tree-shakeable named exports: `compressImage()`, `compressAudio()`, `archive()`, and `archiveStream()`.
+- **Smart Archive Support:** The `archive()` function now supports a `smartOptimize` option to automatically pre-compress media files to optimized formats (WebP/MP3) before zipping.
+- **Node Adapter Parity:** The Node.js adapter now supports `maxWidth`, `maxHeight`, `preserveMetadata`, and audio flags (`bitrate`, `channels`, `sampleRate`), achieving parity with the browser engine.
+- **Improved progress reporting** in both browser and Node.js environments.
+- **Typed `CompressResult`:** v2.0 functions now return a structured object with metadata (`blob`, `originalSize`, `compressedSize`, `ratio`, `format`) instead of a raw Blob.
+
+### Changed
+- **Architecture Refactor:** Extracted the isomorphic compression engine into `core/processor.ts` to support complex batch operations and avoid circular dependencies.
+- **Deprecated Legacy API:** `OmniCompressor.process()` is now marked as `@deprecated` and will be removed in v3.0.
+
+## [1.5.0] - 2026-03-29
+
+### Added
+- **Native AVIF Encoding (Issue #35):** Integrated `@jsquash/avif` (standalone libaom-av1 Wasm) for high-performance AVIF encoding without requiring `SharedArrayBuffer` or COOP/COEP headers.
+- **Worker Concurrency Queue:** Implemented a job queue in `workerPool.ts` to serialize FFmpeg Wasm tasks, preventing VFS filename collisions and improving stability.
+- **Persona Theme Persistence:** Mute state and other UI preferences now persist across Astro view transitions.
+
 ## [1.4.0] - 2026-03-25
 
 ### Added

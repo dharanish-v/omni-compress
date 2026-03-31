@@ -93,6 +93,12 @@ export interface ArchiveOptions {
    * Default: 6.
    */
   level?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  /**
+   * When true, image and audio files are automatically compressed to optimized
+   * formats (WebP/MP3) before being added to the archive.
+   * Default: false.
+   */
+  smartOptimize?: boolean;
   /** Called with progress 0–100 as entries are processed. */
   onProgress?: (percent: number) => void;
   /** Cancel the operation. Throws AbortError when signalled. */

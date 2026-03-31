@@ -44,4 +44,33 @@ describe('Node Adapter (child_process FFmpeg)', () => {
     expect(result.size).toBeGreaterThan(0);
     expect(result.type).toBe('audio/mp3'); // Typical mime for mp3
   });
+
+  it('should resize an image in Node', async () => {
+    const inputPath = path.join(fixturesDir, 'sample.png');
+    const blob = new Blob([fs.readFileSync(inputPath)], { type: 'image/png' });
+
+    const result = await OmniCompressor.process(blob, {
+      type: 'image',
+      format: 'webp',
+      maxWidth: 100,
+      originalFileName: 'sample.png',
+    });
+
+    expect(result).toBeInstanceOf(Blob);
+    expect(result.size).toBeGreaterThan(0);
+  });
+
+  it('should support custom audio bitrate in Node', async () => {
+    const inputPath = path.join(fixturesDir, 'sample.wav');
+    const blob = new Blob([fs.readFileSync(inputPath)], { type: 'audio/wav' });
+
+    const result = await OmniCompressor.process(blob, {
+      type: 'audio',
+      format: 'opus',
+      bitrate: '32k',
+      originalFileName: 'sample.wav',
+    });
+
+    expect(result.size).toBeGreaterThan(0);
+  });
 });

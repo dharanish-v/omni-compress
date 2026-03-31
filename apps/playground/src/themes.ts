@@ -23,12 +23,12 @@ export const themes = [
       "pattern": "lines"
     },
     "strings": {
-      "titleSuffix": "Compress",
-      "desc": "Brevity is the soul of wit. Upload your media and let WebAssembly sculpt it down to its essence.",
+      "titleSuffix": "Omni",
+      "desc": "Brevity is the soul of wit. Upload any file type and let our engines sculpt it down to its essence.",
       "selectFile": "Select File(s)",
       "outputFormat": "Output Format",
       "lossySource": "LOSSY SOURCE",
-      "startCompress": "Start Compression",
+      "startCompress": "Start Process",
       "processing": "Processing...",
       "quote": "\"Brevity is the soul of wit.\" - William Shakespeare",
       "original": "Original",
@@ -63,12 +63,12 @@ export const themes = [
       "pattern": "dots"
     },
     "strings": {
-      "titleSuffix": "Comprimir",
-      "desc": "El arte es la eliminación de lo innecesario. Sube tu archivo y deja que WebAssembly lo esculpa.",
-      "selectFile": "Seleccionar archivo",
+      "titleSuffix": "Universal",
+      "desc": "El arte es la eliminación de lo innecesario. Sube cualquier archivo y deja que Omni lo esculpa.",
+      "selectFile": "Seleccionar archivo(s)",
       "outputFormat": "Formato de salida",
       "lossySource": "ORIGEN CON PÉRDIDA",
-      "startCompress": "Iniciar Compresión",
+      "startCompress": "Iniciar Proceso",
       "processing": "Procesando...",
       "quote": "\"El arte es la eliminación de lo innecesario.\" - Pablo Picasso",
       "original": "Original",

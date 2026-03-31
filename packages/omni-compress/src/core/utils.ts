@@ -41,6 +41,30 @@ export function assertFileSizeWithinLimit(
 }
 
 /**
+ * Checks if a file is an image based on its MIME type or extension.
+ */
+export function isImageFile(f: File | Blob): boolean {
+  if (f.type) return f.type.startsWith('image/');
+  if ('name' in f) {
+    const ext = f.name.split('.').pop()?.toLowerCase();
+    return ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'heic', 'tiff'].includes(ext || '');
+  }
+  return false;
+}
+
+/**
+ * Checks if a file is an audio file based on its MIME type or extension.
+ */
+export function isAudioFile(f: File | Blob): boolean {
+  if (f.type) return f.type.startsWith('audio/') || f.type === 'video/webm';
+  if ('name' in f) {
+    const ext = f.name.split('.').pop()?.toLowerCase();
+    return ['mp3', 'opus', 'ogg', 'wav', 'flac', 'aac', 'm4a', 'webm'].includes(ext || '');
+  }
+  return false;
+}
+
+/**
  * Detects the media format of a file from its magic bytes (file signature).
  *
  * Returns a lowercase format string (e.g. `'webp'`, `'mp3'`) or `null` if

@@ -20,13 +20,13 @@ This file contains the concatenated documentation for the Omni-Compress project,
 </p>
 
 <p align="center">
-  <b>Smart-routing media compression for browsers and Node.js.</b><br/>
-  One API. Three engines. Zero main-thread blocking.
+  <b>Universal compression and archiving for browsers and Node.js.</b><br/>
+  One API. Three engines. Isomorphic ZIP & Media processing.
 </p>
 
 ---
 
-`omni-compress` accepts an image or audio file and automatically routes compression to the fastest engine available at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries.
+`omni-compress` is a high-performance, isomorphic compression library. It automatically routes media compression (images/audio) to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level binaries — and provides built-in ZIP archiving for any file type.
 
 ```typescript
 import { OmniCompressor } from '@dharanish/omni-compress';
@@ -41,6 +41,7 @@ const compressed = await OmniCompressor.process(file, {
 
 ## Highlights
 
+- **Built-in Archiving** — Create ZIP archives from any file type with `archive()` or `archiveStream()`
 - **Zero main-thread blocking** — All browser processing runs in Web Workers
 - **Zero-copy memory** — `Transferable` ArrayBuffer transfers, no RAM duplication
 - **Smart routing** — Native `OffscreenCanvas` for standard formats, lazy-loaded FFmpeg Wasm for the rest
@@ -127,8 +128,8 @@ See [SECURITY.md](SECURITY.md) for our vulnerability reporting policy.
 </p>
 
 <p align="center">
-  <b>Smart-routing media compression for browsers and Node.js.</b><br/>
-  One API. Three engines. Zero main-thread blocking.
+  <b>Universal compression and archiving for browsers and Node.js.</b><br/>
+  One API. Three engines. Isomorphic ZIP & Media processing.
 </p>
 
 <p align="center">
@@ -137,22 +138,19 @@ See [SECURITY.md](SECURITY.md) for our vulnerability reporting policy.
 
 ---
 
-`omni-compress` accepts an image or audio file and automatically routes the compression to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries — without you writing a single line of platform-specific code.
-
-## Why omni-compress?
+`omni-compress` is a high-performance, isomorphic compression library. It automatically routes media compression (images/audio) to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level binaries — and provides built-in ZIP archiving for any file type.
 
 | Problem                                        | How omni-compress solves it                                                      |
 | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| Browser and Node need different code paths     | Single Isomorphic API — environment detection is automatic                        |
+| Archiving or batching needs separate libs      | **Built-in ZIP** `archive()` and `archiveStream()` for any file type             |
 | FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` for standard formats (0 KB Wasm)                   |
 | Media processing freezes the UI                | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
-| Browser and Node need different code paths     | Single API — environment detection is automatic                                  |
 | Wasm memory leaks crash browser tabs           | FFmpeg singleton with idle-timeout auto-termination; VFS cleanup per-operation   |
 | Large files crash the browser silently         | `FileTooLargeError` thrown before loading files > 250 MB into Wasm               |
 | Fast Path fails on unsupported browsers        | Automatic fallback from Fast Path to Heavy Path on any runtime error             |
-| Dynamic imports break some bundlers            | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading          |
 | No way to cancel a running compression         | Full `AbortSignal` support — terminates Wasm/child process on abort              |
 | Silent failures when file extension ≠ content  | `detectFormat()` reads magic bytes to identify the real format                   |
-| Archiving needs a separate library             | Built-in `archive()` / `archiveStream()` using fflate (isomorphic ZIP, 11 KB)   |
 
 ## Install
 
@@ -747,7 +745,7 @@ When contributing code, please maintain these design invariants:
 1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
 2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` in a `finally` block to clean the Virtual File System. The FFmpeg singleton self-terminates after an idle timeout — do not call `ffmpeg.terminate()` manually after each operation. Workers are cached and self-terminate when idle.
 3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
-4. **No main-thread work** — All media processing in browsers must run inside Web Workers.
+4. **No main-thread work** — All compute-intensive processing (media or archiving) in browsers must run inside Web Workers or use asynchronous APIs.
 5. **Graceful fallback** — Fast Path operations must be wrapped in try/catch within workers. On failure, fall back to the Heavy Path rather than surfacing the error to the user.
 6. **Size guards** — Always validate file size against `SAFE_SIZE_LIMITS` before passing data to Wasm. Throw `FileTooLargeError` for oversized inputs.
 

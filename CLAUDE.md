@@ -6,11 +6,11 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`@dharanish/omni-compress` (v1.5.0) — an isomorphic media compression library.
-- **One API** (`OmniCompressor.process(file, options): Promise<Blob>`) works identically in browser and Node.js
-- **Browser**: routes through Web Workers (off main thread), uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path
-- **Node.js**: spawns native `ffmpeg` binary via `child_process`
-- **Playground**: Astro 6 + React + Tailwind CSS v4 demo app at `apps/playground/`
+`@dharanish/omni-compress` (v2.0.0) — a universal, isomorphic compression and archiving library.
+- **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`) work identically in browser and Node.js.
+- **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
+- **Node.js**: Spawns native `ffmpeg` binary via `child_process`.
+- **Playground**: Astro 6 + React + Tailwind CSS v4 demo app at `apps/playground/`.
 
 ---
 
@@ -19,11 +19,13 @@ Read this before touching any file. It replaces the need to explore the codebase
 ```
 packages/omni-compress/     ← published npm package (@dharanish/omni-compress)
   src/
-    index.ts                ← single public entry, re-exports everything
+    index.ts                ← public entry (named exports), legacy shim
+    archive.ts              ← archive() and archiveStream() implementation
     core/
+      processor.ts          ← internal _compress() engine (isomorphic)
       router.ts             ← environment detection, fast/heavy path routing
       errors.ts             ← OmniCompressError, FileTooLargeError
-      utils.ts              ← fileToArrayBuffer, assertFileSizeWithinLimit, SAFE_SIZE_LIMITS
+      utils.ts              ← fileToArrayBuffer, media detection (isImageFile)
       logger.ts             ← Logger singleton
     adapters/
       browser/
@@ -58,7 +60,8 @@ apps/playground/            ← demo app (not published)
 
 ### Browser engine routing
 ```
-OmniCompressor.process()
+compressImage() / compressAudio()
+  → _compress() (core/processor.ts)
   → Router.evaluate() → environment: browser | node
   → browser: fileToArrayBuffer → WorkerPool → Worker
       → AVIF: @jsquash/avif (standalone libaom-av1 Wasm, 1.1 MB gzipped)
@@ -88,8 +91,8 @@ One active job per worker type at a time. The FFmpeg Wasm singleton inside the w
 - **Dev**: No headers. `SharedArrayBuffer` may be unavailable. FFmpeg still works (single-threaded core doesn't require SAB). AVIF uses @jsquash/avif which auto-detects threading and does not require SAB.
 - **Production**: `coi-serviceworker.js` in `Layout.astro` adds COOP/COEP headers via Service Worker. One bootstrap reload on first visit.
 
-### Node adapter gaps vs browser
-Node's `childProcess.ts` is missing: `preserveMetadata`, `maxWidth`/`maxHeight`, real progress reporting (emits fake 50% on `time=` in stderr). These are tracked but not yet implemented.
+### Node adapter parity
+Node's `childProcess.ts` supports: `preserveMetadata`, `maxWidth`/`maxHeight`, and basic progress reporting (emits 50% on `time=` in stderr). These are implemented via FFmpeg native flags.
 
 ### Build system (tsup)
 Two separate build targets:

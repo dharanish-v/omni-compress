@@ -2,6 +2,8 @@ import { zip, Zip, ZipDeflate } from 'fflate';
 import type { FlateError, AsyncZipOptions, DeflateOptions } from 'fflate';
 import type { ArchiveEntry, ArchiveOptions, ArchiveResult } from './core/router.js';
 import { AbortError, EncoderError } from './core/errors.js';
+import { _compress } from './core/processor.js';
+import { isImageFile, isAudioFile } from './core/utils.js';
 
 /**
  * Compresses an array of files into a ZIP archive.
@@ -14,9 +16,7 @@ import { AbortError, EncoderError } from './core/errors.js';
  * const result = await archive([
  *   { name: 'photo.webp', data: compressedBlob },
  *   { name: 'audio.opus', data: audioBlob },
- * ]);
- * // result.blob → save or upload the ZIP
- * // result.ratio → e.g. 0.73 means 27% smaller
+ * ], { smartOptimize: true });
  * ```
  */
 export async function archive(
@@ -35,18 +35,60 @@ export async function archive(
 
     const entry = entries[i];
     let data: Uint8Array;
+    let entryName = entry.name;
 
-    if (entry.data instanceof Uint8Array) {
-      data = entry.data;
+    // Convert File/Blob to Blob/Uint8Array if needed
+    const entryData = (entry.data instanceof Uint8Array) 
+      ? new Blob([entry.data.buffer as ArrayBuffer]) 
+      : entry.data;
+
+    originalSize += entryData.size;
+
+    if (options.smartOptimize && (isImageFile(entryData) || isAudioFile(entryData))) {
+      // 1. Pre-compress media
+      const isImage = isImageFile(entryData);
+      
+      const updateEntryProgress = (p: number) => {
+        const baseProgress = (i / total) * 50;
+        const itemProgress = (p / 100) * (50 / total);
+        options.onProgress?.(Math.round(baseProgress + itemProgress));
+      };
+
+      const resultBlob = isImage 
+        ? await _compress(entryData, { 
+            type: 'image', 
+            format: (entryData as File).type === 'image/webp' ? 'avif' : 'webp',
+            quality: 0.8,
+            onProgress: updateEntryProgress
+          }, options.signal)
+        : await _compress(entryData, { 
+            type: 'audio', 
+            format: (entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3',
+            bitrate: '128k',
+            onProgress: updateEntryProgress
+          }, options.signal);
+
+      data = new Uint8Array(await resultBlob.arrayBuffer());
+      
+      // Update extension if it changed
+      const format = isImage 
+        ? ((entryData as File).type === 'image/webp' ? 'avif' : 'webp')
+        : ((entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3');
+      
+      const parts = entryName.split('.');
+      if (parts.length > 1) {
+        parts.pop();
+        entryName = parts.join('.') + '.' + format;
+      } else {
+        entryName = entryName + '.' + format;
+      }
     } else {
-      data = new Uint8Array(await entry.data.arrayBuffer());
+      // 2. Raw pass-through
+      data = new Uint8Array(await entryData.arrayBuffer());
+      options.onProgress?.(Math.round(((i + 1) / total) * 50));
     }
 
-    originalSize += data.byteLength;
-    files[entry.name] = [data, { level }];
-
-    // Emit entry-read progress (0–50%); fflate handles the rest
-    options.onProgress?.(Math.round(((i + 1) / total) * 50));
+    files[entryName] = [data, { level }];
   }
 
   if (options.signal?.aborted) throw new AbortError('Archive aborted');
@@ -67,7 +109,6 @@ export async function archive(
 
   options.onProgress?.(100);
 
-  // Cast is safe: fflate never uses SharedArrayBuffer as its backing buffer
   const zipBuffer = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
   const blob = new Blob([zipBuffer], { type: 'application/zip' });
 
@@ -85,12 +126,6 @@ export async function archive(
  *
  * Prefer `archive()` for small archives. Use this for large archives where
  * you want to start streaming output before all entries are fully read.
- *
- * @example
- * ```ts
- * const stream = archiveStream(entries);
- * const response = new Response(stream, { headers: { 'Content-Type': 'application/zip' } });
- * ```
  */
 export function archiveStream(
   entries: ArchiveEntry[],
@@ -106,8 +141,6 @@ export function archiveStream(
 
         const level = (options.level ?? 6) as DeflateOptions['level'];
 
-        // fflate's Zip streams compressed chunks via a callback as files are added.
-        // Callback signature: (err: FlateError | null, data: Uint8Array, final: boolean)
         const zipInstance = new Zip((err: FlateError | null, chunk: Uint8Array, final: boolean) => {
           if (err) {
             controller.error(new EncoderError('ZIP stream compression failed', err));
@@ -120,24 +153,63 @@ export function archiveStream(
         const total = entries.length;
         for (let i = 0; i < total; i++) {
           if (options.signal?.aborted) {
+            zipInstance.end(); // close fflate zip
             controller.error(new AbortError('Archive stream aborted'));
             return;
           }
 
           const entry = entries[i];
+          let entryName = entry.name;
+          const entryData = (entry.data instanceof Uint8Array) 
+            ? new Blob([entry.data.buffer as ArrayBuffer]) 
+            : entry.data;
+
           let data: Uint8Array;
 
-          if (entry.data instanceof Uint8Array) {
-            data = entry.data;
+          if (options.smartOptimize && (isImageFile(entryData) || isAudioFile(entryData))) {
+            const isImage = isImageFile(entryData);
+            
+            const updateEntryProgress = (p: number) => {
+              const baseProgress = (i / total) * 100;
+              const itemProgress = (p / 100) * (100 / total);
+              options.onProgress?.(Math.round(baseProgress + itemProgress));
+            };
+
+            const resultBlob = isImage 
+              ? await _compress(entryData, { 
+                  type: 'image', 
+                  format: (entryData as File).type === 'image/webp' ? 'avif' : 'webp',
+                  quality: 0.8,
+                  onProgress: updateEntryProgress
+                }, options.signal)
+              : await _compress(entryData, { 
+                  type: 'audio', 
+                  format: (entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3',
+                  bitrate: '128k',
+                  onProgress: updateEntryProgress
+                }, options.signal);
+
+            data = new Uint8Array(await resultBlob.arrayBuffer());
+
+            const format = isImage 
+              ? ((entryData as File).type === 'image/webp' ? 'avif' : 'webp')
+              : ((entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3');
+            
+            const parts = entryName.split('.');
+            if (parts.length > 1) {
+              parts.pop();
+              entryName = parts.join('.') + '.' + format;
+            } else {
+              entryName = entryName + '.' + format;
+            }
           } else {
-            data = new Uint8Array(await entry.data.arrayBuffer());
+            data = new Uint8Array(await entryData.arrayBuffer());
+            options.onProgress?.(Math.round(((i + 1) / total) * 100));
           }
 
-          const file = new ZipDeflate(entry.name, { level });
+          const file = new ZipDeflate(entryName, { level });
           zipInstance.add(file);
-          file.push(data, true); // true = final chunk for this file
-
-          options.onProgress?.(Math.round(((i + 1) / total) * 100));
+          file.push(data, true);
         }
 
         zipInstance.end();

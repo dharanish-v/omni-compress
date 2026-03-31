@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { compressImage, compressAudio, archive, WorkerConfig, AbortError } from "@dharanish/omni-compress";
+import { 
+  compressImage, 
+  compressAudio, 
+  archive, 
+  WorkerConfig, 
+  AbortError,
+  isImageFile,
+  isAudioFile
+} from "@dharanish/omni-compress";
 import { themes } from "./themes";
 import { triggerFeedback } from "./utils/feedback";
 // @ts-ignore - Astro virtual module
@@ -19,20 +27,6 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 
 // Custom event name used to coordinate exclusive audio playback (#10)
 const AUDIO_PLAY_EVENT = 'omni-compress:audio-play';
-
-const isImageFile = (f: File | null) => {
-  if (!f) return false;
-  if (f.type) return f.type.startsWith('image/');
-  const ext = f.name.split('.').pop()?.toLowerCase();
-  return ['jpg', 'jpeg', 'png', 'webp', 'avif', 'gif', 'heic', 'tiff'].includes(ext || '');
-};
-
-const isAudioFile = (f: File | null) => {
-  if (!f) return false;
-  if (f.type) return f.type.startsWith('audio/') || f.type === 'video/webm';
-  const ext = f.name.split('.').pop()?.toLowerCase();
-  return ['mp3', 'opus', 'ogg', 'wav', 'flac', 'aac', 'm4a', 'webm'].includes(ext || '');
-};
 
 const isLossy = (f: File | null) => {
   if (!f) return false;
@@ -449,54 +443,15 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
 
       if (selectedFormat === 'zip') {
         // --- ARCHIVE MODE (Batch or Single Generic) ---
-        const archiveEntries = [];
-        let totalOriginalSize = 0;
+        const archiveEntries = files.map(f => ({ name: f.name, data: f }));
         
-        for (let i = 0; i < files.length; i++) {
-          const currentFile = files[i];
-          const isImage = isImageFile(currentFile);
-          const isAudio = isAudioFile(currentFile);
-          totalOriginalSize += currentFile.size;
-          
-          // Progress roughly updates based on how many files we've compressed + 50% for archiving
-          const updateProgress = (p: number) => {
-            const baseProgress = (i / files.length) * 50;
-            const itemProgress = (p / 100) * (50 / files.length);
-            setProgress(Math.round(baseProgress + itemProgress));
-          };
+        const totalOriginalSize = files.reduce((acc, f) => acc + f.size, 0);
 
-          if (isBatch && smartOptimize && (isImage || isAudio)) {
-            // Compress media first
-            let result;
-            if (isImage) {
-              result = await compressImage(currentFile, {
-                format: currentFile.type === 'image/webp' ? 'avif' : 'webp',
-                quality: 0.8,
-                onProgress: updateProgress,
-                signal: controller.signal,
-              });
-            } else {
-              result = await compressAudio(currentFile, {
-                format: (currentFile.type === 'audio/mpeg' || currentFile.type === 'audio/mp3') ? 'opus' : 'mp3',
-                bitrate: '128k',
-                onProgress: updateProgress,
-                signal: controller.signal,
-              });
-            }
-            const newName = currentFile.name.split('.').slice(0, -1).join('.') + '.' + result.format;
-            archiveEntries.push({ name: newName, data: result.blob });
-          } else {
-            // Raw file pass-through
-            archiveEntries.push({ name: currentFile.name, data: currentFile });
-            updateProgress(100);
-          }
-        }
-        
-        // Now archive them
         const zipResult = await archive(archiveEntries, {
           level: parseInt(archiveLevel, 10) as any,
+          smartOptimize,
           signal: controller.signal,
-          onProgress: (p) => setProgress(50 + Math.round(p / 2))
+          onProgress: (p) => setProgress(p)
         });
         
         const time = Math.round(performance.now() - start);
@@ -744,9 +699,11 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
             <div className="space-y-4" style={{ viewTransitionName: 'controls-area' }}>
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full font-bold py-4 px-6 border-2 shadow-[6px_6px_0px_0px_var(--theme-shadow)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px] transition-all bg-[var(--theme-primary)] text-[var(--theme-primary-text)] border-[var(--theme-border)] hover:bg-[var(--theme-text)] hover:text-[var(--theme-bg)]"
+                className="w-full font-bold py-4 px-6 border-2 shadow-[6px_6px_0px_0px_var(--theme-shadow)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px] transition-all bg-[var(--theme-primary)] text-[var(--theme-primary-text)] border-[var(--theme-border)] hover:bg-[var(--theme-text)] hover:text-[var(--theme-bg)] flex items-center justify-center overflow-hidden"
               >
-                {files.length === 0 ? t.selectFile : (isBatch ? `${files.length} files selected` : files[0].name)}
+                <span className="truncate">
+                  {files.length === 0 ? t.selectFile : (isBatch ? `${files.length} files selected` : files[0].name)}
+                </span>
               </button>
               <input 
                 type="file" 
@@ -1058,11 +1015,11 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                           <CustomAudioPlayer src={originalUrl} isMuted={isMuted} />
                         </div>
                       ) : (
-                        <div className="w-full h-full flex flex-col justify-center items-center p-4 text-center">
-                          <svg className="w-16 h-16 opacity-50 mb-2 text-[var(--theme-text)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-full h-full flex flex-col justify-center items-center p-4 text-center overflow-hidden">
+                          <svg className="w-16 h-16 opacity-50 mb-2 text-[var(--theme-text)] flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                           </svg>
-                          <span className="font-bold text-[var(--theme-text)] opacity-80 truncate px-4 max-w-full">{files[0]?.name}</span>
+                          <span className="font-bold text-[var(--theme-text)] opacity-80 truncate w-full px-4">{files[0]?.name}</span>
                         </div>
                       )
                     )}

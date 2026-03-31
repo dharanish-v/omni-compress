@@ -50,7 +50,27 @@ export async function processWithNode(
     // 2. Construct FFmpeg arguments based on type and options
     const args = ['-y', '-i', inputPath];
 
+    // Metadata preservation
+    if (options.preserveMetadata) {
+      args.push('-map_metadata', '0');
+    } else {
+      args.push('-map_metadata', '-1');
+    }
+
     if (options.type === 'image') {
+      // Resize logic: aspect-ratio preserving downscale
+      if (options.maxWidth || options.maxHeight) {
+        const w = options.maxWidth || -1;
+        const h = options.maxHeight || -1;
+        // Use FFmpeg scale filter with 'min' to prevent upscaling
+        // scale='min(iw,w):min(ih,h):force_original_aspect_ratio=decrease'
+        if (w !== -1 && h !== -1) {
+          args.push('-vf', `scale='min(${w},iw):min(${h},ih):force_original_aspect_ratio=decrease'`);
+        } else {
+          args.push('-vf', `scale=${w}:${h}`);
+        }
+      }
+
       if (options.format === 'webp') {
         args.push('-vcodec', 'libwebp');
         if (options.quality !== undefined) {
@@ -64,12 +84,21 @@ export async function processWithNode(
         args.push('-vcodec', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-still-picture', '1');
       }
     } else if (options.type === 'audio') {
+      if (options.channels) {
+        args.push('-ac', options.channels.toString());
+      }
+      if (options.sampleRate) {
+        args.push('-ar', options.sampleRate.toString());
+      }
+
       if (options.format === 'mp3') {
-        args.push('-acodec', 'libmp3lame', '-b:a', '128k');
+        args.push('-acodec', 'libmp3lame', '-b:a', options.bitrate || '128k');
       } else if (options.format === 'flac') {
         args.push('-acodec', 'flac');
       } else if (options.format === 'opus') {
-        args.push('-acodec', 'libopus', '-b:a', '128k');
+        args.push('-acodec', 'libopus', '-b:a', options.bitrate || '128k');
+      } else if (options.format === 'aac') {
+        args.push('-acodec', 'aac', '-b:a', options.bitrate || '128k');
       }
     }
 

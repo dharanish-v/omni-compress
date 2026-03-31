@@ -11,8 +11,8 @@
 </p>
 
 <p align="center">
-  <b>Smart-routing media compression for browsers and Node.js.</b><br/>
-  One API. Three engines. Zero main-thread blocking.
+  <b>Universal compression and archiving for browsers and Node.js.</b><br/>
+  One API. Three engines. Isomorphic ZIP & Media processing.
 </p>
 
 <p align="center">
@@ -21,22 +21,19 @@
 
 ---
 
-`omni-compress` accepts an image or audio file and automatically routes the compression to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries — without you writing a single line of platform-specific code.
-
-## Why omni-compress?
+`omni-compress` is a high-performance, isomorphic compression library. It automatically routes media compression (images/audio) to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level binaries — and provides built-in ZIP archiving for any file type.
 
 | Problem                                        | How omni-compress solves it                                                      |
 | ---------------------------------------------- | -------------------------------------------------------------------------------- |
+| Browser and Node need different code paths     | Single Isomorphic API — environment detection is automatic                        |
+| Archiving or batching needs separate libs      | **Built-in ZIP** `archive()` and `archiveStream()` for any file type             |
 | FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` for standard formats (0 KB Wasm)                   |
 | Media processing freezes the UI                | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
-| Browser and Node need different code paths     | Single API — environment detection is automatic                                  |
 | Wasm memory leaks crash browser tabs           | FFmpeg singleton with idle-timeout auto-termination; VFS cleanup per-operation   |
 | Large files crash the browser silently         | `FileTooLargeError` thrown before loading files > 250 MB into Wasm               |
 | Fast Path fails on unsupported browsers        | Automatic fallback from Fast Path to Heavy Path on any runtime error             |
-| Dynamic imports break some bundlers            | Tree-shakeable ESM + CJS dual build, no side effects, lazy Wasm loading          |
 | No way to cancel a running compression         | Full `AbortSignal` support — terminates Wasm/child process on abort              |
 | Silent failures when file extension ≠ content  | `detectFormat()` reads magic bytes to identify the real format                   |
-| Archiving needs a separate library             | Built-in `archive()` / `archiveStream()` using fflate (isomorphic ZIP, 11 KB)   |
 
 ## Install
 
@@ -301,6 +298,52 @@ try {
 | -------------- | -------------- | --------------------------------------------------------------- |
 | Browser (Wasm) | 250 MB         | WebAssembly linear memory limit (~2–4 GB shared with encoding)  |
 | Node.js        | Unlimited      | Native ffmpeg manages its own memory                            |
+
+---
+
+## Migration from `compressorjs`
+
+If you are coming from `compressorjs`, `omni-compress` provides a drop-in compatibility shim to make the switch as easy as possible.
+
+### Why switch?
+- **AVIF Support**: `compressorjs` cannot encode AVIF. `omni-compress` supports it via `@jsquash/avif`.
+- **Zero-blocking**: `compressorjs` runs on the main thread (blocking UI). `omni-compress` runs in Web Workers.
+- **Isomorphic**: Use the same API on Node.js.
+- **Audio Support**: Compress MP3, Opus, AAC, and more.
+
+### Using the Compatibility Shim
+
+The `Compressor` class matches the `compressorjs` constructor and options:
+
+```typescript
+import { Compressor } from '@dharanish/omni-compress';
+
+new Compressor(file, {
+  quality: 0.6,
+  mimeType: 'image/webp',
+  success(result) {
+    // 'result' is the compressed Blob/File
+    console.log('Original size:', file.size);
+    console.log('Compressed size:', result.size);
+  },
+  error(err) {
+    console.error('Compression failed:', err.message);
+  },
+});
+```
+
+### Direct API Migration
+
+For modern applications, we recommend moving to the async-first named exports:
+
+| `compressorjs` Option | `omni-compress` Equivalent (`compressImage`) |
+| --------------------- | --------------------------------------------- |
+| `quality`             | `quality: 0.6` (0.0 to 1.0)                  |
+| `maxWidth`            | `maxWidth: 1920`                             |
+| `maxHeight`           | `maxHeight: 1080`                            |
+| `mimeType`            | `format: 'webp'` (or 'avif', 'jpeg', 'png')  |
+| `strict: true`        | (Automatic in `Compressor` shim)             |
+| `success(blob)`       | `const { blob } = await compressImage(...)`  |
 
 ---
 

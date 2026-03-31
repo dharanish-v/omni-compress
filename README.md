@@ -10,13 +10,13 @@
 </p>
 
 <p align="center">
-  <b>Smart-routing media compression for browsers and Node.js.</b><br/>
-  One API. Three engines. Zero main-thread blocking.
+  <b>Universal compression and archiving for browsers and Node.js.</b><br/>
+  One API. Three engines. Isomorphic ZIP & Media processing.
 </p>
 
 ---
 
-`omni-compress` accepts an image or audio file and automatically routes compression to the fastest engine available at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level ffmpeg binaries.
+`omni-compress` is a high-performance, isomorphic compression library. It automatically routes media compression (images/audio) to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level binaries — and provides built-in ZIP archiving for any file type.
 
 ```typescript
 import { OmniCompressor } from '@dharanish/omni-compress';
@@ -31,6 +31,7 @@ const compressed = await OmniCompressor.process(file, {
 
 ## Highlights
 
+- **Built-in Archiving** — Create ZIP archives from any file type with `archive()` or `archiveStream()`
 - **Zero main-thread blocking** — All browser processing runs in Web Workers
 - **Zero-copy memory** — `Transferable` ArrayBuffer transfers, no RAM duplication
 - **Smart routing** — Native `OffscreenCanvas` for standard formats, lazy-loaded FFmpeg Wasm for the rest
