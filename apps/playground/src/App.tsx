@@ -54,6 +54,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [isMuted, setIsMuted] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [fileSizeError, setFileSizeError] = useState<string | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   // Advanced Controls State
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -180,43 +181,71 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     };
   }, [compressedUrl]);
 
+  const processFiles = (selectedFiles: File[]) => {
+    for (const selectedFile of selectedFiles) {
+      if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+        setFileSizeError(
+          `File "${selectedFile.name}" is ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB \u2014 exceeds the ${MAX_FILE_SIZE_MB} MB limit. ` +
+            `Large files can exhaust WebAssembly memory and crash your browser tab.`,
+        );
+        setFiles([]);
+        setOriginalUrl(null);
+        setCompressedUrl(null);
+        setStats(null);
+        setProgress(0);
+        return false;
+      }
+    }
+
+    setFileSizeError(null);
+    setFiles(selectedFiles);
+    if (selectedFiles.length === 1) {
+      setOriginalUrl(URL.createObjectURL(selectedFiles[0]));
+    } else {
+      setOriginalUrl(null); // No preview for batch
+    }
+    setCompressedUrl(null);
+    setStats(null);
+    setProgress(0);
+    return true;
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       triggerFeedback('click', isMuted);
-      
       const selectedFiles = Array.from(e.target.files);
-      
-      for (const selectedFile of selectedFiles) {
-        if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
-          setFileSizeError(
-            `File "${selectedFile.name}" is ${(selectedFile.size / 1024 / 1024).toFixed(1)} MB \u2014 exceeds the ${MAX_FILE_SIZE_MB} MB limit. ` +
-              `Large files can exhaust WebAssembly memory and crash your browser tab.`,
-          );
-          setFiles([]);
-          setOriginalUrl(null);
-          setCompressedUrl(null);
-          setStats(null);
-          setProgress(0);
-          e.target.value = '';
-          return;
-        }
+      if (!processFiles(selectedFiles)) {
+        e.target.value = '';
       }
-
-      setFileSizeError(null);
-      setFiles(selectedFiles);
-      if (selectedFiles.length === 1) {
-        setOriginalUrl(URL.createObjectURL(selectedFiles[0]));
-      } else {
-        setOriginalUrl(null); // No preview for batch
-      }
-      setCompressedUrl(null);
-      setStats(null);
-      setProgress(0);
     }
   };
 
   const handleCancel = () => {
     abortControllerRef.current?.abort();
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isDragging) setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      triggerFeedback('click', isMuted);
+      const droppedFiles = Array.from(e.dataTransfer.files);
+      processFiles(droppedFiles);
+    }
   };
 
   const handleCompress = async () => {
@@ -373,7 +402,24 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   };
 
   return (
-    <div className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 pb-20 font-sans transition-colors duration-500 flex items-center justify-center selection:bg-[var(--theme-accent)] selection:text-[var(--theme-accent-text)]">
+    <div 
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+      className="min-h-screen py-12 px-4 sm:px-6 lg:px-8 pb-20 font-sans transition-colors duration-500 flex items-center justify-center selection:bg-[var(--theme-accent)] selection:text-[var(--theme-accent-text)]"
+    >
+      {/* Drag Overlay */}
+      {isDragging && (
+        <div className="fixed inset-0 z-[1000] bg-[var(--theme-bg)]/80 backdrop-blur-sm flex items-center justify-center border-8 border-dashed border-[var(--theme-accent)] m-4 pointer-events-none">
+          <div className="text-center p-12 bg-[var(--theme-card-bg)] border-4 border-[var(--theme-border)] shadow-[12px_12px_0px_0px_var(--theme-shadow)]">
+            <svg className="w-24 h-24 text-[var(--theme-accent)] mx-auto mb-6 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            <h2 className="text-4xl font-black uppercase tracking-tighter text-[var(--theme-text)]">Drop files anywhere</h2>
+            <p className="text-lg font-bold text-[var(--theme-text)] mt-2 opacity-70 italic">to compress or archive instantly</p>
+          </div>
+        </div>
+      )}
       
       {/* Top Controls */}
       <div className="fixed top-6 right-6 z-[200] flex items-center gap-4">
