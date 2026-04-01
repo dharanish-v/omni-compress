@@ -13,6 +13,10 @@ import { triggerFeedback } from "./utils/feedback";
 // @ts-ignore - Astro virtual module
 import { navigate } from "astro:transitions/client";
 
+// Shared Components
+import { CustomAudioPlayer } from "./components/CustomAudioPlayer";
+import { CustomSelect } from "./components/CustomSelect";
+
 // Vite bundles these workers into self-contained assets and returns their URLs.
 // @ts-ignore - Vite ?worker&url import
 import ImageWorkerUrl from '../../../packages/omni-compress/src/workers/image.worker.ts?worker&url';
