@@ -5,7 +5,7 @@ const isProd = process.env.NODE_ENV === 'production';
 export default defineConfig([
   // Main library entry — tree-shakeable with code splitting
   {
-    entry: ['src/index.ts'],
+    entry: ['src/index.ts', 'src/compat/compressor.ts'],
     format: ['cjs', 'esm'],
     dts: true,
     splitting: true,

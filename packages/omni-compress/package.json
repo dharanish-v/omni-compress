@@ -53,6 +53,11 @@
       "import": "./dist/index.js",
       "require": "./dist/index.cjs"
     },
+    "./compat": {
+      "types": "./dist/compat/compressor.d.ts",
+      "import": "./dist/compat/compressor.js",
+      "require": "./dist/compat/compressor.cjs"
+    },
     "./workers/*": {
       "import": "./dist/workers/*.js",
       "require": "./dist/workers/*.cjs"
