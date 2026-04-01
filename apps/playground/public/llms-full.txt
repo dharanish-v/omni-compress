@@ -418,6 +418,52 @@ try {
 
 ---
 
+## Migration from `compressorjs`
+
+If you are coming from `compressorjs`, `omni-compress` provides a drop-in compatibility shim to make the switch as easy as possible.
+
+### Why switch?
+- **AVIF Support**: `compressorjs` cannot encode AVIF. `omni-compress` supports it via `@jsquash/avif`.
+- **Zero-blocking**: `compressorjs` runs on the main thread (blocking UI). `omni-compress` runs in Web Workers.
+- **Isomorphic**: Use the same API on Node.js.
+- **Audio Support**: Compress MP3, Opus, AAC, and more.
+
+### Using the Compatibility Shim
+
+The `Compressor` class matches the `compressorjs` constructor and options:
+
+```typescript
+import { Compressor } from '@dharanish/omni-compress';
+
+new Compressor(file, {
+  quality: 0.6,
+  mimeType: 'image/webp',
+  success(result) {
+    // 'result' is the compressed Blob/File
+    console.log('Original size:', file.size);
+    console.log('Compressed size:', result.size);
+  },
+  error(err) {
+    console.error('Compression failed:', err.message);
+  },
+});
+```
+
+### Direct API Migration
+
+For modern applications, we recommend moving to the async-first named exports:
+
+| `compressorjs` Option | `omni-compress` Equivalent (`compressImage`) |
+| --------------------- | --------------------------------------------- |
+| `quality`             | `quality: 0.6` (0.0 to 1.0)                  |
+| `maxWidth`            | `maxWidth: 1920`                             |
+| `maxHeight`           | `maxHeight: 1080`                            |
+| `mimeType`            | `format: 'webp'` (or 'avif', 'jpeg', 'png')  |
+| `strict: true`        | (Automatic in `Compressor` shim)             |
+| `success(blob)`       | `const { blob } = await compressImage(...)`  |
+
+---
+
 ## Supported Formats
 
 ### Images
