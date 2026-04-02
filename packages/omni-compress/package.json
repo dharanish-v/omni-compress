@@ -1,6 +1,6 @@
 {
   "name": "@dharanish/omni-compress",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Universal compression and archiving library. Smart-routes media (images/audio) via fastest engines (Web APIs, FFmpeg Wasm) and provides isomorphic ZIP archiving for any file type.",
   "author": "Dharanish V",
   "license": "MIT",
