@@ -133,11 +133,11 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 | # | Area | Summary | Why high |
 |---|------|---------|---------|
-| 4  | Perf | Service Worker caching for FFmpeg Wasm (~30 MB, re-downloaded every cold start) | Biggest perceived-performance win. Eliminates only UX advantage of compressorjs. |
+| ~~4~~  | ~~Perf~~ | ~~Service Worker caching for FFmpeg Wasm (~30 MB, re-downloaded every cold start)~~ | **Resolved in v2.1.0**. |
 | ~~21~~ | ~~Core~~ | ~~AbortController / cancellation~~ | **Resolved in v2.0.0**. |
 | ~~22~~ | ~~Core~~ | ~~Magic byte format detection~~ | **Resolved in v2.0.0**. |
-| 40 | Docs | compressorjs migration guide + compatibility shim | Fastest adoption path for 293K weekly downloads. |
-| 41 | UX | Interactive benchmark comparison page in playground | Proof > claims. Visual compression comparison. |
+| ~~40~~ | ~~Docs~~ | ~~compressorjs migration guide + compatibility shim~~ | **Resolved in v2.1.0**. |
+| ~~41~~ | ~~UX~~ | ~~Interactive benchmark comparison page in playground~~ | **Resolved in v2.1.0**. |
 
 ### P2: Medium — features, do after P1
 
@@ -148,9 +148,9 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | 6  | UX | Drag & Drop zone + batch file processing |
 | 31 | Core | Video compression support |
 | 42 | Core | Video via WebCodecs — H.264/AV1, no FFmpeg needed, 10-50x faster with HW accel |
-| 36 | Core | `strict` mode — return original if compressed is larger |
+| ~~36~~ | ~~Core~~ | ~~`strict` mode — return original if compressed is larger~~ | **Resolved in v2.1.0**. |
 | 37 | Core | Image resize modes (`contain`/`cover`/`none`) + `minWidth`/`minHeight` |
-| 38 | Core | Smart format auto-selection (`format: 'auto'`) + PNG→WebP auto-convert |
+| ~~38~~ | ~~Core~~ | ~~Smart format auto-selection (`format: 'auto'`) + PNG→WebP auto-convert~~ | **Resolved in v2.1.0**. |
 | 39 | Core | Target file size with iterative quality search (enforce `maxSizeMB`) |
 | 16 | UX | File reading latency + progress feedback for large files |
 

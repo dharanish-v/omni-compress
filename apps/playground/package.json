@@ -17,6 +17,8 @@
     "@astrojs/sitemap": "^3.7.1",
     "@dharanish/omni-compress": "workspace:*",
     "astro": "^6.0.8",
+    "browser-image-compression": "^2.0.2",
+    "compressorjs": "^1.2.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

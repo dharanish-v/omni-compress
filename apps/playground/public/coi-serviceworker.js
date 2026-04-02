@@ -1,8 +1,25 @@
-/*! coi-serviceworker v0.1.7 - Guido Zuidhof and contributors, licensed under MIT */
+/*! coi-serviceworker v0.1.8-enhanced (with FFmpeg & Worker caching) */
+const CACHE_NAME = 'omni-compress-assets-v2';
 let coepCredentialless = false;
+
 if (typeof window === 'undefined') {
     self.addEventListener("install", () => self.skipWaiting());
-    self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
+    self.addEventListener("activate", (event) => {
+        event.waitUntil(
+            Promise.all([
+                self.clients.claim(),
+                caches.keys().then((keys) => {
+                    return Promise.all(
+                        keys.map((key) => {
+                            if (key !== CACHE_NAME) {
+                                return caches.delete(key);
+                            }
+                        })
+                    );
+                })
+            ])
+        );
+    });
 
     self.addEventListener("message", (ev) => {
         if (!ev.data) {
@@ -27,40 +44,63 @@ if (typeof window === 'undefined') {
             return;
         }
 
+        const url = new URL(r.url);
+        const isFFmpegAsset = url.pathname.endsWith('.wasm') || 
+                             url.pathname.includes('@ffmpeg/core') || 
+                             url.pathname.includes('@jsquash/avif') ||
+                             url.pathname.includes('image.worker') ||
+                             url.pathname.includes('audio.worker');
+
         const request = (coepCredentialless && r.mode === "no-cors")
             ? new Request(r, {
                 credentials: "omit",
             })
             : r;
+
         event.respondWith(
-            fetch(request)
-                .then((response) => {
-                    if (response.status === 0) {
-                        return response;
+            caches.open(CACHE_NAME).then((cache) => {
+                return cache.match(request).then((cachedResponse) => {
+                    if (cachedResponse && isFFmpegAsset) {
+                        return cachedResponse;
                     }
 
-                    const newHeaders = new Headers(response.headers);
-                    newHeaders.set("Cross-Origin-Embedder-Policy",
-                        coepCredentialless ? "credentialless" : "require-corp"
-                    );
-                    if (!coepCredentialless) {
-                        newHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
-                    }
-                    newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
+                    return fetch(request)
+                        .then((response) => {
+                            if (response.status === 0) {
+                                return response;
+                            }
 
-                    return new Response(response.body, {
-                        status: response.status,
-                        statusText: response.statusText,
-                        headers: newHeaders,
-                    });
-                })
-                .catch((e) => console.error(e))
+                            // Cache large assets for subsequent cold starts
+                            if (isFFmpegAsset && response.status === 200) {
+                                cache.put(request, response.clone());
+                            }
+
+                            const newHeaders = new Headers(response.headers);
+                            newHeaders.set("Cross-Origin-Embedder-Policy",
+                                coepCredentialless ? "credentialless" : "require-corp"
+                            );
+                            if (!coepCredentialless) {
+                                newHeaders.set("Cross-Origin-Resource-Policy", "cross-origin");
+                            }
+                            newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
+
+                            return new Response(response.body, {
+                                status: response.status,
+                                statusText: response.statusText,
+                                headers: newHeaders,
+                            });
+                        })
+                        .catch((e) => {
+                            if (cachedResponse) return cachedResponse;
+                            throw e;
+                        });
+                });
+            })
         );
     });
 
 } else {
     (() => {
-        // You can customize the behavior of this script through a global `coi` variable.
         const coi = {
             shouldRegister: () => true,
             shouldDeregister: () => false,
@@ -83,8 +123,6 @@ if (typeof window === 'undefined') {
             }
         }
 
-        // If we're already coi: do nothing. Perhaps it's due to this script doing its job, or COOP/COEP are
-        // already set from the origin server. Also if the browser has no notion of crossOriginIsolated, just give up here.
         if (window.crossOriginIsolated !== false || !coi.shouldRegister()) return;
 
         if (!window.isSecureContext) {
@@ -92,7 +130,6 @@ if (typeof window === 'undefined') {
             return;
         }
 
-        // In some environments (e.g. Chrome incognito mode) this won't be available
         if (n.serviceWorker) {
             n.serviceWorker.register(window.document.currentScript.src).then(
                 (registration) => {
@@ -103,7 +140,6 @@ if (typeof window === 'undefined') {
                         coi.doReload();
                     });
 
-                    // If the registration is active, but it's not controlling the page
                     if (registration.active && !n.serviceWorker.controller) {
                         !coi.quiet && console.log("Reloading page to make use of COOP/COEP Service Worker.");
                         coi.doReload();

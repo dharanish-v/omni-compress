@@ -4,6 +4,8 @@ import {
   arrayBufferToBlob,
   getMimeType,
   assertFileSizeWithinLimit,
+  isImageFile,
+  isAudioFile,
 } from './utils.js';
 import { processWithBrowserWorker } from '../adapters/browser/workerPool.js';
 import { logger } from './logger.js';
@@ -14,6 +16,26 @@ import type { processWithNode as ProcessWithNodeFn } from '../adapters/node/chil
 let processWithNode: typeof ProcessWithNodeFn | null = null;
 
 /**
+ * Resolves the target format when set to 'auto'.
+ * Default logic:
+ * - Images: WebP (excellent compatibility/compression)
+ * - Audio: MP3 (universal compatibility)
+ */
+function resolveAutoFormat(input: File | Blob, options: CompressorOptions): string {
+  if (options.format !== 'auto') return options.format;
+
+  if (options.type === 'image') {
+    // If it's already WebP or AVIF, keep it or go to WebP
+    if (input.type === 'image/avif') return 'avif';
+    return 'webp';
+  } else {
+    // For audio, MP3 is the safest universal default
+    if (input.type === 'audio/opus' || input.type === 'audio/ogg') return 'opus';
+    return 'mp3';
+  }
+}
+
+/**
  * Internal engine — shared by both the v2.0 named exports and the archive/batch logic.
  */
 export async function _compress(
@@ -22,6 +44,14 @@ export async function _compress(
   signal?: AbortSignal,
 ): Promise<Blob> {
   if (signal?.aborted) throw new AbortError('Compression aborted');
+
+  // Resolve 'auto' format before routing
+  const originalFormat = options.format;
+  options.format = resolveAutoFormat(input, options);
+  
+  if (originalFormat === 'auto') {
+    logger.info(`Auto-format resolved: ${options.format}`, { type: options.type });
+  }
 
   logger.info('Starting compression', { type: options.type, format: options.format });
   const route = Router.evaluate(options);
@@ -39,6 +69,8 @@ export async function _compress(
 
   options.onProgress?.(0);
 
+  let processedBlob: Blob;
+
   if (route.env === 'node') {
     logger.info('Executing via Node.js native adapter');
     if (!processWithNode) {
@@ -46,10 +78,7 @@ export async function _compress(
       const adapter = await import('../adapters/node/childProcess.js');
       processWithNode = adapter.processWithNode;
     }
-    const result = await processWithNode!(input, options, signal);
-    logger.info('Node processing complete');
-    options.onProgress?.(100);
-    return result;
+    processedBlob = await processWithNode!(input, options, signal);
   } else {
     logger.info(`Executing via Browser Worker pool. Fast path: ${route.isFastPath}`);
     logger.debug('Converting File/Blob to ArrayBuffer');
@@ -57,9 +86,20 @@ export async function _compress(
 
     logger.debug('Dispatching task to worker pool');
     const processedBuffer = await processWithBrowserWorker(buffer, options, route.isFastPath, signal);
-
-    logger.info('Browser processing complete');
-    options.onProgress?.(100);
-    return arrayBufferToBlob(processedBuffer, mimeType);
+    processedBlob = arrayBufferToBlob(processedBuffer, mimeType);
   }
+
+  logger.info('Processing complete');
+  options.onProgress?.(100);
+
+  // Handle strict mode: if compressed is larger or equal, return original
+  if (options.strict && processedBlob.size >= input.size) {
+    logger.info('Strict mode: Compressed size exceeds original. Returning original blob.', {
+      compressed: processedBlob.size,
+      original: input.size,
+    });
+    return input;
+  }
+
+  return processedBlob;
 }

@@ -15,8 +15,8 @@ import { _compress } from './core/processor.js';
 import { logger } from './core/logger.js';
 import { InvalidOptionsError, FormatNotSupportedError, AbortError } from './core/errors.js';
 
-const VALID_IMAGE_FORMATS = new Set(['webp', 'avif', 'jpeg', 'jpg', 'png']);
-const VALID_AUDIO_FORMATS = new Set(['opus', 'mp3', 'flac', 'wav', 'aac', 'ogg']);
+const VALID_IMAGE_FORMATS = new Set(['webp', 'avif', 'jpeg', 'jpg', 'png', 'auto']);
+const VALID_AUDIO_FORMATS = new Set(['opus', 'mp3', 'flac', 'wav', 'aac', 'ogg', 'auto']);
 
 // ---------------------------------------------------------------------------
 // v2.0 named function exports (#33)
@@ -62,12 +62,13 @@ export async function compressImage(
 
   const compressorOptions: CompressorOptions = {
     type: 'image',
-    format: options.format,
+    format: options.format || 'auto',
     quality: options.quality,
     maxWidth: options.maxWidth,
     maxHeight: options.maxHeight,
     preserveMetadata: options.preserveMetadata,
     onProgress: options.onProgress,
+    strict: options.strict,
   };
 
   const blob = await _compress(input, compressorOptions, options.signal);
@@ -77,7 +78,7 @@ export async function compressImage(
     originalSize,
     compressedSize: blob.size,
     ratio: originalSize > 0 ? blob.size / originalSize : 1,
-    format: options.format,
+    format: compressorOptions.format,
   };
 }
 
@@ -111,12 +112,13 @@ export async function compressAudio(
 
   const compressorOptions: CompressorOptions = {
     type: 'audio',
-    format: options.format,
+    format: options.format || 'auto',
     bitrate: options.bitrate,
     channels: options.channels,
     sampleRate: options.sampleRate,
     preserveMetadata: options.preserveMetadata,
     onProgress: options.onProgress,
+    strict: options.strict,
   };
 
   const blob = await _compress(input, compressorOptions, options.signal);
@@ -126,7 +128,7 @@ export async function compressAudio(
     originalSize,
     compressedSize: blob.size,
     ratio: originalSize > 0 ? blob.size / originalSize : 1,
-    format: options.format,
+    format: compressorOptions.format,
   };
 }
 

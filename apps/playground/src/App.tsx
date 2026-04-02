@@ -930,6 +930,14 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
         <div className="text-xs font-bold uppercase tracking-widest flex items-center gap-2">
           <span>&copy; {new Date().getFullYear()} Dharanish V</span>
           <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
+          <a href="/omni-compress/benchmark" className="hover:text-[var(--theme-primary)] transition-colors underline decoration-2 underline-offset-4">
+            Benchmark
+          </a>
+          <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
+          <a href="https://github.com/dharanish-v/omni-compress#migration-from-compressorjs" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--theme-primary)] transition-colors underline decoration-2 underline-offset-4">
+            Migration
+          </a>
+          <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
           <a href="https://github.com/dharanish-v/omni-compress" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--theme-primary)] transition-colors underline decoration-2 underline-offset-4">
             Open Source
           </a>

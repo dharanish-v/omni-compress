@@ -1,0 +1,90 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { BenchmarkPanel } from '../components/BenchmarkPanel';
+import { themes } from '../themes';
+
+// We'll use the default English theme for the benchmark page
+const activeTheme = themes.find(t => t.id === 'en') || themes[0];
+---
+
+<Layout themeId="en">
+  <div class="min-h-screen py-16 px-4 sm:px-8 lg:px-12 pb-32 font-sans transition-colors duration-500 flex flex-col items-center selection:bg-[var(--theme-accent)] selection:text-[var(--theme-accent-text)] overflow-x-hidden">
+    
+    {/* Navigation */}
+    <div class="fixed top-4 right-4 sm:top-6 sm:right-6 z-[200]">
+      <a 
+        href="/omni-compress/"
+        class="p-3 sm:p-4 border-2 font-black uppercase text-[10px] sm:text-sm bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-[var(--theme-border)] shadow-[4px_4px_0px_0px_var(--theme-shadow)] sm:shadow-[6px_6px_0px_0px_var(--theme-shadow)] transition-all hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] sm:hover:translate-x-[6px] sm:hover:translate-y-[6px] inline-flex items-center gap-2 group"
+      >
+        <svg class="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+        Back to App
+      </a>
+    </div>
+
+    <div class="max-w-5xl w-full relative">
+       {/* Decorative background shapes */}
+       <div class="fixed -top-20 -left-20 w-96 h-96 rounded-full mix-blend-multiply opacity-20 blur-3xl bg-[var(--theme-shape1)] pointer-events-none animate-pulse"></div>
+       <div class="fixed -bottom-20 -right-20 w-[500px] h-[500px] mix-blend-multiply opacity-15 blur-3xl transform rotate-12 bg-[var(--theme-shape2)] pointer-events-none"></div>
+       <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pattern-grid opacity-[0.03] pointer-events-none"></div>
+
+       <div class="relative z-10 text-center mb-16 sm:mb-24 space-y-6">
+         <div class="inline-block px-4 sm:px-6 py-1 sm:py-2 border-4 border-[var(--theme-border)] bg-[var(--theme-accent)] text-[var(--theme-accent-text)] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[10px] sm:text-sm shadow-[4px_4px_0px_0px_var(--theme-shadow)] sm:shadow-[6px_6px_0px_0px_var(--theme-shadow)] mb-2 animate-bounce">
+           Experimental Protocol
+         </div>
+         <h1 class="text-5xl sm:text-8xl lg:text-[10rem] font-black tracking-tighter uppercase leading-[0.8] text-[var(--theme-text)] break-words hyphens-auto">
+           The <span class="text-[var(--theme-primary)] italic">Neural</span><br />
+           <span class="relative inline-block">
+             Audit
+             <svg class="absolute -bottom-4 left-0 w-full h-4 sm:h-8 text-[var(--theme-accent)] opacity-40" viewBox="0 0 100 10" preserveAspectRatio="none"><path d="M0 5 Q 25 0, 50 5 T 100 5" stroke="currentColor" stroke-width="6" fill="none" /></svg>
+           </span>
+         </h1>
+         <p class="text-lg sm:text-2xl lg:text-3xl font-black opacity-80 max-w-2xl mx-auto leading-tight pt-6 sm:pt-8 border-t-4 border-[var(--theme-border)] border-dashed">
+           Isomorphic benchmarks. <br class="hidden sm:block" />
+           Measuring pure <span class="bg-[var(--theme-secondary)] px-2">computational efficiency</span>.
+         </p>
+       </div>
+
+       <div class="relative z-10 pr-6 pb-6 sm:pr-8 sm:pb-8 lg:pr-0 lg:pb-0"> {/* Compensation for large shadows */}
+         <BenchmarkPanel client:load />
+       </div>
+    </div>
+
+    {/* Footer */}
+    <footer class="fixed bottom-0 left-0 w-full p-4 border-t-2 border-[var(--theme-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text)] z-50 flex justify-center items-center">
+      <div class="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-4 opacity-60">
+        <span>&copy; {new Date().getFullYear()} Omni-Compress</span>
+        <span class="w-1.5 h-1.5 bg-[var(--theme-accent)] rounded-full"></span>
+        <span>Neural Laboratory v2.0</span>
+      </div>
+    </footer>
+  </div>
+</Layout>
+
+<style is:global>
+  body {
+    background-color: var(--theme-bg);
+    color: var(--theme-text);
+    overflow-x: hidden;
+  }
+
+  .pattern-grid {
+    background-image: 
+      linear-gradient(to right, var(--theme-border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--theme-border) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* Custom scrollbar for Neo-Brutalist look */
+  ::-webkit-scrollbar {
+    width: 16px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--theme-bg);
+    border-left: 4px solid var(--theme-border);
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--theme-primary);
+    border: 4px solid var(--theme-border);
+    box-shadow: 4px 4px 0px 0px var(--theme-shadow);
+  }
+</style>
