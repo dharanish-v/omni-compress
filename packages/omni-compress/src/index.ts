@@ -44,11 +44,11 @@ export async function compressImage(
     throw new InvalidOptionsError('Options object is required');
   }
 
-  const format = options.format?.toLowerCase() as string | undefined;
-  if (!format || !VALID_IMAGE_FORMATS.has(format)) {
+  const format = (options.format || 'auto').toLowerCase();
+  if (!VALID_IMAGE_FORMATS.has(format)) {
     throw new FormatNotSupportedError(
       `"${options.format}" is not a supported image format. Supported: webp, avif, jpeg, png`,
-      options.format,
+      options.format as string,
     );
   }
 
@@ -62,7 +62,7 @@ export async function compressImage(
 
   const compressorOptions: CompressorOptions = {
     type: 'image',
-    format: options.format || 'auto',
+    format: format as any,
     quality: options.quality,
     maxWidth: options.maxWidth,
     maxHeight: options.maxHeight,
@@ -100,11 +100,11 @@ export async function compressAudio(
     throw new InvalidOptionsError('Options object is required');
   }
 
-  const format = options.format?.toLowerCase() as string | undefined;
-  if (!format || !VALID_AUDIO_FORMATS.has(format)) {
+  const format = (options.format || 'auto').toLowerCase();
+  if (!VALID_AUDIO_FORMATS.has(format)) {
     throw new FormatNotSupportedError(
       `"${options.format}" is not a supported audio format. Supported: opus, mp3, flac, wav, aac`,
-      options.format,
+      options.format as string,
     );
   }
 
@@ -112,7 +112,7 @@ export async function compressAudio(
 
   const compressorOptions: CompressorOptions = {
     type: 'audio',
-    format: options.format || 'auto',
+    format: format as any,
     bitrate: options.bitrate,
     channels: options.channels,
     sampleRate: options.sampleRate,
