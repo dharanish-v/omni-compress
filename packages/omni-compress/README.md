@@ -21,14 +21,15 @@
 
 ---
 
-`omni-compress` is a high-performance, isomorphic compression library. It automatically routes media compression (images/audio) to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level binaries — and provides built-in ZIP archiving for any file type.
+`omni-compress` is a high-performance, isomorphic compression library. It automatically routes media compression (images/audio/video) to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level binaries — and provides built-in ZIP archiving for any file type.
 
 | Problem                                        | How omni-compress solves it                                                      |
 | ---------------------------------------------- | -------------------------------------------------------------------------------- |
 | Browser and Node need different code paths     | Single Isomorphic API — environment detection is automatic                        |
 | Archiving or batching needs separate libs      | **Built-in ZIP** `archive()` and `archiveStream()` for any file type             |
-| FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas` for standard formats (0 KB Wasm)                   |
+| FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas`/`WebCodecs` for standard formats (0 KB Wasm)       |
 | Media processing freezes the UI                | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
+| FFmpeg Wasm is too slow                        | **Multi-threading** support via `@ffmpeg/core-mt` (requires COOP/COEP)           |
 | Wasm memory leaks crash browser tabs           | FFmpeg singleton with idle-timeout auto-termination; VFS cleanup per-operation   |
 | Large files crash the browser silently         | `FileTooLargeError` thrown before loading files > 250 MB into Wasm               |
 | Fast Path fails on unsupported browsers        | Automatic fallback from Fast Path to Heavy Path on any runtime error             |
@@ -59,7 +60,7 @@ yarn add @dharanish/omni-compress
 ## Quick Start
 
 ```typescript
-import { compressImage, compressAudio } from "@dharanish/omni-compress";
+import { compressImage, compressAudio, compressVideo } from "@dharanish/omni-compress";
 
 // Image → WebP
 const { blob, ratio } = await compressImage(imageFile, {
@@ -77,11 +78,18 @@ const { blob: audio } = await compressAudio(audioFile, {
   signal: controller.signal,
 });
 
+// Video → MP4
+const { blob: video } = await compressVideo(videoFile, {
+  format: "mp4",
+  bitrate: "1M",
+});
+
 // Archive multiple files into a ZIP
 import { archive } from "@dharanish/omni-compress";
 const { blob: zip } = await archive([
   { name: "photo.webp", data: blob },
   { name: "audio.opus", data: audio },
+  { name: "video.mp4", data: video },
 ]);
 ```
 
@@ -121,7 +129,7 @@ const result = await compressImage(file, {
 
 #### `compressAudio(input, options): Promise<CompressResult>`
 
-Compresses an audio file via FFmpeg Wasm (browser) or native ffmpeg (Node).
+Compresses an audio file via WebCodecs (fast path) or FFmpeg Wasm (heavy path).
 
 **`AudioOptions`**
 
@@ -135,9 +143,26 @@ Compresses an audio file via FFmpeg Wasm (browser) or native ffmpeg (Node).
 | `onProgress`       | `(percent: number) => void`       | —        | Progress callback `0` – `100`                            |
 | `signal`           | `AbortSignal`                     | —        | Cancel the operation — throws `AbortError` when signalled |
 
+#### `compressVideo(input, options): Promise<CompressResult>`
+
+Compresses a video file via WebCodecs (fast path foundation) or FFmpeg Wasm (heavy path).
+
+**`VideoOptions`**
+
+| Property           | Type                        | Default | Description                                              |
+| ------------------ | --------------------------- | ------- | -------------------------------------------------------- |
+| `format`           | `'mp4' \| 'webm'`           | —       | Target output format                                     |
+| `bitrate`          | `string`                    | `'1M'`  | Target video bitrate, e.g. `'500k'`, `'2M'`              |
+| `fps`              | `number`                    | Auto    | Output frame rate                                        |
+| `maxWidth`         | `number`                    | —       | Max output width in px                                   |
+| `maxHeight`        | `number`                    | —       | Max output height in px                                  |
+| `preserveMetadata` | `boolean`                   | `false` | Keep metadata in the output                              |
+| `onProgress`       | `(percent: number) => void` | —       | Progress callback `0` – `100`                            |
+| `signal`           | `AbortSignal`               | —       | Cancel the operation — throws `AbortError` when signalled |
+
 #### `CompressResult`
 
-Both `compressImage` and `compressAudio` return a `CompressResult`:
+`compressImage`, `compressAudio`, and `compressVideo` return a `CompressResult`:
 
 ```typescript
 interface CompressResult {
@@ -220,14 +245,6 @@ const blob = await OmniCompressor.process(file, {
 });
 ```
 
-### `OmniCompressor.setLogLevel(level)`
-
-Set the minimum log level. Accepts `'debug'`, `'info'`, `'warn'`, or `'error'`.
-
-```typescript
-OmniCompressor.setLogLevel("debug"); // Verbose logging for development
-```
-
 ---
 
 ## Cancellation (AbortSignal)
@@ -292,59 +309,6 @@ try {
 | `AbortError`             | `ABORTED`             | `AbortSignal` fired before or during processing                   |
 | `EncoderError`           | `ENCODER_FAILED`      | FFmpeg or fflate encoder threw — wraps the underlying cause       |
 
-### Size Limits
-
-| Environment    | Max Input Size | Reason                                                          |
-| -------------- | -------------- | --------------------------------------------------------------- |
-| Browser (Wasm) | 250 MB         | WebAssembly linear memory limit (~2–4 GB shared with encoding)  |
-| Node.js        | Unlimited      | Native ffmpeg manages its own memory                            |
-
----
-
-## Migration from `compressorjs`
-
-If you are coming from `compressorjs`, `omni-compress` provides a drop-in compatibility shim to make the switch as easy as possible.
-
-### Why switch?
-- **AVIF Support**: `compressorjs` cannot encode AVIF. `omni-compress` supports it via `@jsquash/avif`.
-- **Zero-blocking**: `compressorjs` runs on the main thread (blocking UI). `omni-compress` runs in Web Workers.
-- **Isomorphic**: Use the same API on Node.js.
-- **Audio Support**: Compress MP3, Opus, AAC, and more.
-
-### Using the Compatibility Shim
-
-The `Compressor` class matches the `compressorjs` constructor and options:
-
-```typescript
-import { Compressor } from '@dharanish/omni-compress';
-
-new Compressor(file, {
-  quality: 0.6,
-  mimeType: 'image/webp',
-  success(result) {
-    // 'result' is the compressed Blob/File
-    console.log('Original size:', file.size);
-    console.log('Compressed size:', result.size);
-  },
-  error(err) {
-    console.error('Compression failed:', err.message);
-  },
-});
-```
-
-### Direct API Migration
-
-For modern applications, we recommend moving to the async-first named exports:
-
-| `compressorjs` Option | `omni-compress` Equivalent (`compressImage`) |
-| --------------------- | --------------------------------------------- |
-| `quality`             | `quality: 0.6` (0.0 to 1.0)                  |
-| `maxWidth`            | `maxWidth: 1920`                             |
-| `maxHeight`           | `maxHeight: 1080`                            |
-| `mimeType`            | `format: 'webp'` (or 'avif', 'jpeg', 'png')  |
-| `strict: true`        | (Automatic in `Compressor` shim)             |
-| `success(blob)`       | `const { blob } = await compressImage(...)`  |
-
 ---
 
 ## Supported Formats
@@ -360,24 +324,29 @@ For modern applications, we recommend moving to the async-first named exports:
 | HEIC   | —                           | ✅                       | ✅ ffmpeg        |
 | TIFF   | —                           | ✅                       | ✅ ffmpeg        |
 
-> **Note on AVIF:** OffscreenCanvas cannot encode AVIF in any browser. AVIF output in the browser routes through `@jsquash/avif` (standalone libaom-av1 Wasm from Google's Squoosh, 1.1 MB gzipped), not FFmpeg. No SharedArrayBuffer or special setup needed. On Node.js, AVIF uses the native ffmpeg binary.
-
 ### Audio
 
-| Format   | Heavy Path (FFmpeg Wasm) | Node (OS binary) |
-| -------- | ------------------------ | ---------------- |
-| MP3      | ✅ libmp3lame            | ✅ ffmpeg        |
-| Opus/OGG | ✅ libopus               | ✅ ffmpeg        |
-| FLAC     | ✅ flac                  | ✅ ffmpeg        |
-| WAV      | ✅                       | ✅ ffmpeg        |
-| AAC      | ✅                       | ✅ ffmpeg        |
+| Format   | Fast Path (WebCodecs) | Heavy Path (FFmpeg Wasm) | Node (OS binary) |
+| -------- | --------------------- | ------------------------ | ---------------- |
+| MP3      | —                     | ✅ libmp3lame            | ✅ ffmpeg        |
+| Opus/OGG | ✅ (Opus)             | ✅ libopus               | ✅ ffmpeg        |
+| FLAC     | —                     | ✅ flac                  | ✅ ffmpeg        |
+| WAV      | —                     | ✅                       | ✅ ffmpeg        |
+| AAC      | ✅                    | ✅                       | ✅ ffmpeg        |
+
+### Video
+
+| Format | Heavy Path (FFmpeg Wasm) | Node (OS binary) |
+| ------ | ------------------------ | ---------------- |
+| MP4    | ✅ libx264               | ✅ ffmpeg        |
+| WebM   | ✅ libvpx-vp9            | ✅ ffmpeg        |
 
 ---
 
 ## Architecture
 
 ```
-compressImage() / compressAudio()
+compressImage() / compressAudio() / compressVideo()
         │
         ▼
    ┌─────────┐
@@ -391,7 +360,7 @@ compressImage() / compressAudio()
  (Native)     (FFmpeg Wasm)    (child_process)
    │                │                │
 OffscreenCanvas    @ffmpeg/ffmpeg    OS ffmpeg binary
-(JPEG/PNG/WebP)    Lazy-loaded       Via ffmpeg-static
+WebCodecs (A/V)    Multi-threaded    Via ffmpeg-static
    │                │                │
    └────────────────┴────────────────┘
                     │
@@ -400,146 +369,11 @@ OffscreenCanvas    @ffmpeg/ffmpeg    OS ffmpeg binary
               AbortSignal          ← Cancellation at any stage
 ```
 
-### Processing Paths
-
-1. **Fast Path** — JPEG, PNG, WebP in browsers. Uses `OffscreenCanvas` for hardware-accelerated encoding inside a Web Worker. **Zero Wasm overhead.** Falls back to Heavy Path automatically on any runtime error.
-
-2. **Heavy Path** — All other formats (AVIF, HEIC, TIFF, FLAC, Opus, MP3 …) in browsers. Lazy-loads `@ffmpeg/ffmpeg` WebAssembly inside a Web Worker. The FFmpeg instance is a singleton reused across compressions (only the VFS is cleaned between calls) and self-terminates after 30 s of idle.
-
-3. **Node Adapter** — Any format on Node.js or Electron. Spawns a native `child_process` using `ffmpeg-static` or a system-wide `ffmpeg` binary. Maximum performance, no Wasm.
-
 ---
 
-## Framework Integration
+## Playground & Themes
 
-### React
-
-```tsx
-import { compressImage, AbortError } from "@dharanish/omni-compress";
-
-function ImageUploader() {
-  const controllerRef = useRef<AbortController | null>(null);
-
-  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    controllerRef.current = new AbortController();
-
-    const { blob, ratio } = await compressImage(file, {
-      format: "webp",
-      quality: 0.75,
-      signal: controllerRef.current.signal,
-    });
-
-    const url = URL.createObjectURL(blob);
-    console.log(`Saved ${Math.round((1 - ratio) * 100)}%`);
-  };
-
-  return (
-    <>
-      <input type="file" accept="image/*" onChange={handleFile} />
-      <button onClick={() => controllerRef.current?.abort()}>Cancel</button>
-    </>
-  );
-}
-```
-
-### Vue 3
-
-```vue
-<script setup lang="ts">
-import { compressAudio } from "@dharanish/omni-compress";
-
-async function onFileChange(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file) return;
-
-  const { blob, ratio } = await compressAudio(file, {
-    format: "opus",
-    bitrate: "96k",
-  });
-  console.log(`${Math.round((1 - ratio) * 100)}% smaller`);
-}
-</script>
-```
-
-### Node.js / Express
-
-```typescript
-import { compressImage } from "@dharanish/omni-compress";
-import { readFile } from "fs/promises";
-
-const buffer = await readFile("photo.png");
-const blob = new Blob([buffer], { type: "image/png" });
-
-const { blob: webp, ratio } = await compressImage(blob, {
-  format: "webp",
-  quality: 0.8,
-});
-```
-
----
-
-## Bundler Configuration
-
-### Vite
-
-If you use Vite, you must exclude `@jsquash/avif` (along with FFmpeg) from Vite's dependency pre-bundling, otherwise the AVIF WebAssembly module will fail to load with a `magic word` error:
-
-```javascript
-// vite.config.ts
-export default defineConfig({
-  optimizeDeps: {
-    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@jsquash/avif']
-  }
-});
-```
-
-Web Workers require `Cross-Origin-Isolation` headers. Add [`coi-serviceworker`](https://github.com/nicolo-ribaudo/coi-serviceworker) to your `public/` directory, or configure your server:
-
-```
-Cross-Origin-Opener-Policy: same-origin
-Cross-Origin-Embedder-Policy: require-corp
-```
-
-### Webpack 5
-
-```javascript
-// webpack.config.js
-module.exports = {
-  module: {
-    rules: [{ test: /\.worker\.js$/, type: "asset/resource" }],
-  },
-};
-```
-
----
-
-## Troubleshooting
-
-| Issue                              | Solution                                                                                              |
-| ---------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `SharedArrayBuffer is not defined` | Enable cross-origin isolation headers (see Bundler Configuration above)                               |
-| `FFmpeg Wasm failed to load`       | Ensure CORS headers are set and your CSP allows `wasm-unsafe-eval`                                    |
-| `ffmpeg: command not found` (Node) | Install `ffmpeg-static` or add `ffmpeg` to your system `PATH`                                         |
-| Worker files 404                   | Verify `dist/workers/*.js` are served by your dev server or CDN                                       |
-| Memory issues with large files     | The library uses 2-pass encoding for Opus to avoid Wasm OOM. For very large files, consider Node.js   |
-| `FileTooLargeError` thrown         | File exceeds 250 MB. Reduce the size before compression, or use Node.js (no Wasm memory limit)        |
-| AVIF output is wrong / tiny        | Ensure you're on v2.0+. Earlier versions silently routed AVIF to OffscreenCanvas (which can't encode it). AVIF now uses @jsquash/avif automatically. |
-| Cancelled compression hangs        | Call `controller.abort()` — `AbortError` is thrown and the worker/process is terminated immediately   |
-
----
-
-## Browser Compatibility
-
-| Feature                     | Chrome        | Firefox       | Safari        | Edge          |
-| --------------------------- | ------------- | ------------- | ------------- | ------------- |
-| Fast Path (OffscreenCanvas) | 69+           | 105+          | 16.4+         | 79+           |
-| Heavy Path (FFmpeg Wasm)    | 57+           | 52+           | 16.4+         | 79+           |
-| Web Workers                 | ✅ All modern | ✅ All modern | ✅ All modern | ✅ All modern |
-| AbortSignal                 | ✅ All modern | ✅ All modern | ✅ All modern | ✅ All modern |
-| WebCodecs (Audio Fast Path) | 94+           | ❌            | ❌            | 94+           |
+The [Live Demo](https://dharanish-v.github.io/omni-compress/) features a **Neo-Brutalist "Laboratory" UI** with 25 distinct persona-based themes (Shakespeare, Picasso, Aryabhata, etc.) supporting multiple languages with culturally relevant quotes and accurate technical terminology.
 
 ---
 
