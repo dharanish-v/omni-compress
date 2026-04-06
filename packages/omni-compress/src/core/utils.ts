@@ -8,12 +8,17 @@ export function arrayBufferToBlob(buffer: ArrayBuffer, mimeType: string): Blob {
   return new Blob([buffer], { type: mimeType });
 }
 
-export function getMimeType(type: 'image' | 'audio', format: string): string {
+export function getMimeType(type: 'image' | 'audio' | 'video', format: string): string {
   if (type === 'image') {
     if (format === 'jpg') return 'image/jpeg';
     return `image/${format}`;
-  } else {
+  } else if (type === 'audio') {
+    if (format === 'opus') return 'audio/ogg'; // Common container for Opus
     return `audio/${format}`;
+  } else {
+    if (format === 'mp4') return 'video/mp4';
+    if (format === 'webm') return 'video/webm';
+    return `video/${format}`;
   }
 }
 
@@ -56,10 +61,22 @@ export function isImageFile(f: File | Blob): boolean {
  * Checks if a file is an audio file based on its MIME type or extension.
  */
 export function isAudioFile(f: File | Blob): boolean {
-  if (f.type) return f.type.startsWith('audio/') || f.type === 'video/webm';
+  if (f.type) return f.type.startsWith('audio/');
   if ('name' in f) {
     const ext = f.name.split('.').pop()?.toLowerCase();
-    return ['mp3', 'opus', 'ogg', 'wav', 'flac', 'aac', 'm4a', 'webm'].includes(ext || '');
+    return ['mp3', 'opus', 'ogg', 'wav', 'flac', 'aac', 'm4a'].includes(ext || '');
+  }
+  return false;
+}
+
+/**
+ * Checks if a file is a video file based on its MIME type or extension.
+ */
+export function isVideoFile(f: File | Blob): boolean {
+  if (f.type) return f.type.startsWith('video/');
+  if ('name' in f) {
+    const ext = f.name.split('.').pop()?.toLowerCase();
+    return ['mp4', 'webm', 'mov', 'avi', 'mkv', 'm4v'].includes(ext || '');
   }
   return false;
 }

@@ -3,7 +3,7 @@ import { processAudioHeavyPath } from '../adapters/browser/heavyPath.js';
 import { logger } from '../core/logger.js';
 
 self.onmessage = async (event: MessageEvent) => {
-  const { id, buffer, options, isFastPath } = event.data;
+  const { id, buffer, options, isFastPath, ffmpegConfig } = event.data;
 
   logger.debug(`Worker:Audio starting task ${id}. FastPath: ${isFastPath}`);
 
@@ -20,13 +20,13 @@ self.onmessage = async (event: MessageEvent) => {
         );
         resultBuffer = await processAudioHeavyPath(buffer, options, (progress) => {
           self.postMessage({ id, type: 'progress', progress });
-        });
+        }, ffmpegConfig);
       }
     } else {
       logger.debug('Worker:Audio executing Heavy Path (FFmpeg)');
       resultBuffer = await processAudioHeavyPath(buffer, options, (progress) => {
         self.postMessage({ id, type: 'progress', progress });
-      });
+      }, ffmpegConfig);
     }
 
     logger.debug(`Worker:Audio task ${id} complete. Transferring buffer back.`);

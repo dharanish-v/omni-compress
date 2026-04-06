@@ -22,6 +22,7 @@ export default defineConfig([
     entry: {
       'workers/image.worker': 'src/workers/image.worker.ts',
       'workers/audio.worker': 'src/workers/audio.worker.ts',
+      'workers/video.worker': 'src/workers/video.worker.ts',
     },
     format: ['cjs', 'esm'],
     dts: true,

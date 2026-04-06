@@ -28,10 +28,13 @@ function resolveAutoFormat(input: File | Blob, options: CompressorOptions): stri
     // If it's already WebP or AVIF, keep it or go to WebP
     if (input.type === 'image/avif') return 'avif';
     return 'webp';
-  } else {
+  } else if (options.type === 'audio') {
     // For audio, MP3 is the safest universal default
     if (input.type === 'audio/opus' || input.type === 'audio/ogg') return 'opus';
     return 'mp3';
+  } else {
+    // For video, MP4 is the safest universal default
+    return 'mp4';
   }
 }
 

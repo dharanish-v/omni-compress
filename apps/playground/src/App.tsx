@@ -2,11 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { 
   compressImage, 
   compressAudio, 
+  compressVideo,
   archive, 
   WorkerConfig, 
   AbortError,
   isImageFile,
-  isAudioFile
+  isAudioFile,
+  isVideoFile,
+  MT_SUPPORTED
 } from "@dharanish/omni-compress";
 import { themes } from "./themes";
 import { triggerFeedback } from "./utils/feedback";
@@ -22,9 +25,12 @@ import { CustomSelect } from "./components/CustomSelect";
 import ImageWorkerUrl from '../../../packages/omni-compress/src/workers/image.worker.ts?worker&url';
 // @ts-ignore - Vite ?worker&url import
 import AudioWorkerUrl from '../../../packages/omni-compress/src/workers/audio.worker.ts?worker&url';
+// @ts-ignore - Vite ?worker&url import
+import VideoWorkerUrl from '../../../packages/omni-compress/src/workers/video.worker.ts?worker&url';
 
 WorkerConfig.imageWorkerUrl = ImageWorkerUrl;
 WorkerConfig.audioWorkerUrl = AudioWorkerUrl;
+WorkerConfig.videoWorkerUrl = VideoWorkerUrl;
 
 const MAX_FILE_SIZE_MB = 250;
 const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
@@ -32,22 +38,11 @@ const MAX_FILE_SIZE_BYTES = MAX_FILE_SIZE_MB * 1024 * 1024;
 // Custom event name used to coordinate exclusive audio playback (#10)
 const AUDIO_PLAY_EVENT = 'omni-compress:audio-play';
 
-const isLossy = (f: File | null) => {
-  if (!f) return false;
-  const lossyMimes = [
-    'image/jpeg', 'image/jpg', 'audio/mpeg', 'audio/mp3', 'audio/opus', 'audio/ogg', 'audio/webm', 'video/webm'
-  ];
-  const lossyExts = ['.jpg', '.jpeg', '.mp3', '.ogg', '.opus', '.webm'];
-  const fileName = f.name.toLowerCase();
-  
-  return lossyMimes.includes(f.type) || lossyExts.some(ext => fileName.endsWith(ext));
-};
-
 const formatSize = (bytes: number) => (bytes / 1024 / 1024).toFixed(2) + " MB";
 
 function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [activeThemeId] = useState<string>(initialTheme);
-  const [sabMissing, setSabMissing] = useState(false);
+  const [isMTActive, setIsMTActive] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [originalUrl, setOriginalUrl] = useState<string | null>(null);
   const [compressedUrl, setCompressedUrl] = useState<string | null>(null);
@@ -69,6 +64,8 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const [audioBitrate, setAudioBitrate] = useState("128k");
   const [audioChannels, setAudioChannels] = useState<string>("auto");
   const [audioSampleRate, setAudioSampleRate] = useState<string>("auto");
+  const [videoBitrate, setVideoBitrate] = useState("1M");
+  const [videoFps, setVideoFps] = useState<string>("auto");
   
   // Smart Archive Controls
   const [smartOptimize, setSmartOptimize] = useState(true);
@@ -83,7 +80,8 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
   const isBatch = files.length > 1;
   const isAllImages = files.length > 0 && files.every(f => isImageFile(f));
   const isAllAudio = files.length > 0 && files.every(f => isAudioFile(f));
-  const isMixedOrGeneric = files.length > 0 && !isAllImages && !isAllAudio;
+  const isAllVideos = files.length > 0 && files.every(f => isVideoFile(f));
+  const isMixedOrGeneric = files.length > 0 && !isAllImages && !isAllAudio && !isAllVideos;
 
   useEffect(() => {
     const handleBeforeInstallPrompt = (e: any) => {
@@ -102,13 +100,9 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     } catch {}
   }, []);
 
-  // Client-only: detect missing SharedArrayBuffer after hydration (#12)
+  // Client-only: detect Multi-threading support after hydration
   useEffect(() => {
-    if (import.meta.env.DEV) return;
-    const timer = setTimeout(() => {
-      if (typeof SharedArrayBuffer === 'undefined') setSabMissing(true);
-    }, 1500);
-    return () => clearTimeout(timer);
+    setIsMTActive(MT_SUPPORTED);
   }, []);
 
   // Persist mute preference across Astro view-transition navigations (#11)
@@ -165,9 +159,11 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
         const firstFile = files[0];
         if (firstFile.type === 'audio/mpeg' || firstFile.type === 'audio/mp3') setSelectedFormat('opus');
         else setSelectedFormat('mp3');
+      } else if (isAllVideos) {
+        setSelectedFormat('mp4');
       }
     }
-  }, [files, isAllImages, isAllAudio, isMixedOrGeneric]);
+  }, [files, isAllImages, isAllAudio, isAllVideos, isMixedOrGeneric]);
 
   useEffect(() => {
     return () => {
@@ -252,6 +248,23 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
     }
   };
 
+  const handleClear = () => {
+    triggerFeedback('click', isMuted);
+    setFiles([]);
+    setOriginalUrl(null);
+    setCompressedUrl(null);
+    setStats(null);
+    setProgress(0);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    triggerFeedback('click', isMuted);
+    const newFiles = [...files];
+    newFiles.splice(index, 1);
+    processFiles(newFiles);
+  };
+
   const handleCompress = async () => {
     if (files.length === 0 || !selectedFormat) return;
     triggerFeedback('click', isMuted);
@@ -296,6 +309,8 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
         for (let i = 0; i < files.length; i++) {
           const currentFile = files[i];
           const isImage = isImageFile(currentFile);
+          const isAudio = isAudioFile(currentFile);
+          const isVideo = isVideoFile(currentFile);
           totalOriginalSize += currentFile.size;
           
           const updateProgress = (p: number) => {
@@ -315,7 +330,7 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               onProgress: updateProgress,
               signal: controller.signal,
             });
-          } else {
+          } else if (isAudio) {
             result = await compressAudio(currentFile, {
               format: selectedFormat as any,
               bitrate: audioBitrate,
@@ -324,6 +339,20 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
               onProgress: updateProgress,
               signal: controller.signal,
             });
+          } else if (isVideo) {
+            result = await compressVideo(currentFile, {
+              format: selectedFormat as any,
+              bitrate: videoBitrate,
+              fps: videoFps !== "auto" ? parseInt(videoFps, 10) : undefined,
+              maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
+              maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
+              preserveMetadata,
+              onProgress: updateProgress,
+              signal: controller.signal,
+            });
+          } else {
+            // Non-media file just copied to archive as is
+            result = { blob: currentFile, format: currentFile.name.split('.').pop() || 'bin' };
           }
           
           const newName = currentFile.name.split('.').slice(0, -1).join('.') + '.' + result.format;
@@ -364,12 +393,23 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
             onProgress: (p: number) => setProgress(Math.round(p)),
             signal: controller.signal,
           });
-        } else {
+        } else if (isAudioFile(singleFile)) {
           result = await compressAudio(singleFile, {
             format: selectedFormat as 'opus' | 'mp3' | 'flac' | 'wav' | 'aac',
             bitrate: audioBitrate,
             channels: audioChannels !== "auto" ? (parseInt(audioChannels, 10) as 1 | 2) : undefined,
             sampleRate: audioSampleRate !== "auto" ? parseInt(audioSampleRate, 10) : undefined,
+            onProgress: (p: number) => setProgress(Math.round(p)),
+            signal: controller.signal,
+          });
+        } else {
+          result = await compressVideo(singleFile, {
+            format: selectedFormat as 'mp4' | 'webm',
+            bitrate: videoBitrate,
+            fps: videoFps !== "auto" ? parseInt(videoFps, 10) : undefined,
+            maxWidth: maxWidth ? parseInt(maxWidth, 10) : undefined,
+            maxHeight: maxHeight ? parseInt(maxHeight, 10) : undefined,
+            preserveMetadata,
             onProgress: (p: number) => setProgress(Math.round(p)),
             signal: controller.signal,
           });
@@ -504,21 +544,29 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
           </div>
         )}
 
-        {/* SharedArrayBuffer / COOP-COEP Warning (#12) */}
-        {sabMissing && (
-          <div className="col-span-1 md:col-span-12 mb-2 border-4 border-[var(--theme-border)] bg-amber-100 text-amber-900 p-6 shadow-[8px_8px_0px_0px_var(--theme-shadow)] relative z-10">
+        {/* Multi-threading Status / Warning (#34) */}
+        {!isMTActive && !import.meta.env.DEV && (
+          <div className="col-span-1 md:col-span-12 mb-2 border-4 border-[var(--theme-border)] bg-amber-100 text-amber-900 p-6 shadow-[8px_8px_0px_0px_var(--theme-shadow)] relative z-10 text-[var(--theme-text)]">
             <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-amber-900 text-amber-100 flex items-center justify-center border-2 border-current font-black text-2xl shadow-[4px_4px_0px_var(--theme-shadow)]">
+              <div className="flex-shrink-0 w-12 h-12 bg-amber-900 text-amber-100 flex items-center justify-center border-2 border-current font-black text-2xl shadow-[4px_4px_0px_0px_var(--theme-shadow)]">
                 ⚠
               </div>
               <div>
-                <h3 className="font-black text-lg uppercase tracking-wide mb-1">Cross-Origin Isolation Missing</h3>
+                <h3 className="font-black text-lg uppercase tracking-wide mb-1">Performance Reduced</h3>
                 <p className="font-bold text-sm">
-                  <code>SharedArrayBuffer</code> is unavailable — your browser is missing the required
-                  {' '}<code>Cross-Origin-Opener-Policy</code> / <code>Cross-Origin-Embedder-Policy</code> headers.
-                  Heavy-path formats (Opus, FLAC, MP3 via FFmpeg) will fail. Standard web formats still work.
+                  <code>SharedArrayBuffer</code> is unavailable. FFmpeg will run in <b>single-threaded mode</b>. 
+                  This usually happens when COOP/COEP headers are missing or blocked by your browser.
                 </p>
               </div>
+            </div>
+          </div>
+        )}
+
+        {isMTActive && (
+          <div className="col-span-1 md:col-span-12 mb-4 flex justify-end">
+            <div className="inline-flex items-center gap-2 px-3 py-1 border-2 border-[var(--theme-border)] bg-[var(--theme-card-bg)] text-[10px] font-black uppercase tracking-widest shadow-[2px_2px_0px_0px_var(--theme-shadow)] text-[var(--theme-text)]">
+              <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+              Neural Multi-threading Active
             </div>
           </div>
         )}
@@ -535,29 +583,53 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
             <p style={{ viewTransitionName: 'main-desc' }} className="text-lg font-medium leading-relaxed mb-6 border-l-4 pl-4 transition-colors text-[var(--theme-text)] border-[var(--theme-primary)] opacity-90">
               {t.desc}
             </p>
-            
-            <div className="space-y-4" style={{ viewTransitionName: 'controls-area' }}>
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full font-bold py-4 px-6 border-2 shadow-[6px_6px_0px_0px_var(--theme-shadow)] hover:shadow-none hover:translate-x-[6px] hover:translate-y-[6px] transition-all bg-[var(--theme-primary)] text-[var(--theme-primary-text)] border-[var(--theme-border)] hover:bg-[var(--theme-text)] hover:text-[var(--theme-bg)] flex items-center justify-center overflow-hidden"
-              >
-                <span className="truncate">
-                  {files.length === 0 ? t.selectFile : (isBatch ? `${files.length} files selected` : files[0].name)}
-                </span>
-              </button>
-              <input 
-                type="file" 
-                multiple
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                className="hidden" 
-              />
-              {files.length === 0 && (
-                <p className="text-center text-xs font-bold uppercase tracking-widest text-[var(--theme-text)] opacity-50 mt-2">
-                  Drop multiple files to batch process
-                </p>
-              )}
 
+            <div className="space-y-4" style={{ viewTransitionName: 'controls-area' }}>
+              <div 
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                className={`w-full cursor-pointer p-8 border-4 border-dashed transition-all duration-300 flex flex-col items-center justify-center gap-4 group
+                  ${isDragging ? 'border-[var(--theme-accent)] bg-[var(--theme-accent)]/10 scale-[0.98]' : 'border-[var(--theme-border)] bg-[var(--theme-card-bg)] hover:bg-[var(--theme-primary)]/5'}`}
+              >
+                <svg className={`w-12 h-12 transition-transform duration-500 ${isDragging ? 'scale-110' : 'group-hover:scale-110'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                </svg>
+                <div className="text-center">
+                  <span className="text-xl font-black uppercase tracking-tight block text-[var(--theme-text)]">
+                    {files.length === 0 ? 'Click or Drop Files' : `${files.length} Files Loaded`}
+                  </span>
+                  <span className="text-xs font-bold opacity-50 uppercase tracking-widest text-[var(--theme-text)]">
+                    Images, Audio, or Mixed (Auto-ZIP)
+                  </span>
+                </div>
+              </div>
+
+              <input
+                type="file"
+                multiple
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+              />
+
+              {files.length > 0 && (
+                <div className="border-4 p-4 bg-[var(--theme-bg)] border-[var(--theme-border)] max-h-48 overflow-y-auto scrollbar-thin">
+                  <div className="flex justify-between items-center mb-2 sticky top-0 bg-[var(--theme-bg)] pb-2 border-b-2 border-[var(--theme-border)]/20">
+                    <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Selection Manifest</span>
+                    <button onClick={handleClear} className="text-[10px] font-black uppercase text-red-600 hover:underline">Clear Selection</button>
+                  </div>
+                  <div className="space-y-2 text-[var(--theme-text)]">
+                    {files.map((f, i) => (
+                      <div key={i} className="flex items-center justify-between gap-4 p-2 bg-[var(--theme-card-bg)] border-2 border-[var(--theme-border)] text-xs font-bold group">
+                        <span className="truncate flex-grow">{f.name}</span>
+                        <span className="opacity-50 flex-shrink-0">{formatSize(f.size)}</span>
+                        <button onClick={(e) => { e.stopPropagation(); removeFile(i); }} className="text-red-600 hover:scale-125 transition-transform">×</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {files.length > 0 && (
                 <div className="flex flex-col gap-2">
                   <div className="flex justify-between items-center">
@@ -765,6 +837,50 @@ function App({ initialTheme = 'en' }: { initialTheme?: string }) {
                                 { value: '22050', label: '22050 Hz' }
                               ]}
                             />
+                          </div>
+                        </>
+                      )}
+
+                      {/* Video Specific Controls */}
+                      {selectedFormat !== 'zip' && isAllVideos && (
+                        <>
+                          <div>
+                            <CustomSelect
+                              label="Video Bitrate"
+                              value={videoBitrate}
+                              onChange={setVideoBitrate}
+                              isMuted={isMuted}
+                              options={[
+                                { value: '500k', label: '500 kbps (Low)' },
+                                { value: '1M', label: '1 Mbps (Standard)' },
+                                { value: '2M', label: '2 Mbps (High)' },
+                                { value: '5M', label: '5 Mbps (Maximum)' },
+                              ]}
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4 text-[var(--theme-text)]">
+                            <CustomSelect
+                              label="FPS"
+                              value={videoFps}
+                              onChange={setVideoFps}
+                              isMuted={isMuted}
+                              options={[
+                                { value: 'auto', label: 'Auto' },
+                                { value: '24', label: '24 FPS (Cinematic)' },
+                                { value: '30', label: '30 FPS (Standard)' },
+                                { value: '60', label: '60 FPS (Fluid)' }
+                              ]}
+                            />
+                            <div>
+                              <label className="text-xs font-bold uppercase text-[var(--theme-text)] mb-1 block">Max Width</label>
+                              <input 
+                                type="number" 
+                                placeholder="Auto"
+                                value={maxWidth}
+                                onChange={e => setMaxWidth(e.target.value)}
+                                className="w-full border-2 p-2 font-mono text-sm bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-[var(--theme-border)] focus:outline-none"
+                              />
+                            </div>
                           </div>
                         </>
                       )}

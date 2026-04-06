@@ -6,8 +6,8 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`@dharanish/omni-compress` (v2.0.0) — a universal, isomorphic compression and archiving library.
-- **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`) work identically in browser and Node.js.
+`@dharanish/omni-compress` (v2.2.0) — a universal, isomorphic compression and archiving library.
+- **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`, `compressVideo`) work identically in browser and Node.js.
 - **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
 - **Node.js**: Spawns native `ffmpeg` binary via `child_process`.
 - **Playground**: Astro 6 + React + Tailwind CSS v4 demo app at `apps/playground/`.
@@ -60,18 +60,18 @@ apps/playground/            ← demo app (not published)
 
 ### Browser engine routing
 ```
-compressImage() / compressAudio()
+compressImage() / compressAudio() / compressVideo()
   → _compress() (core/processor.ts)
   → Router.evaluate() → environment: browser | node
   → browser: fileToArrayBuffer → WorkerPool → Worker
       → AVIF: @jsquash/avif (standalone libaom-av1 Wasm, 1.1 MB gzipped)
-      → FastPath (OffscreenCanvas): WebP, JPEG, PNG images only
+      → FastPath (OffscreenCanvas/WebCodecs): WebP, JPEG, PNG images; AAC, Opus audio
       → HeavyPath (FFmpeg Wasm): everything else, also fallback from FastPath
   → node: childProcess (native ffmpeg binary, no Wasm, no size limit)
 ```
 
 ### Worker concurrency (workerPool.ts)
-One active job per worker type at a time. The FFmpeg Wasm singleton inside the worker uses fixed VFS filenames — concurrent dispatch causes collisions. Jobs queue and drain automatically. Workers terminate after 60s idle. FFmpeg singleton terminates after 30s idle.
+One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm singleton inside the worker uses fixed VFS filenames — concurrent dispatch causes collisions. Jobs queue and drain automatically. Workers terminate after 60s idle. FFmpeg singleton terminates after 30s idle.
 
 ### AVIF encoding (avifEncoder.ts)
 - Uses `@jsquash/avif` — standalone libaom-av1 Wasm module from Google's Squoosh project (1.1 MB gzipped)
@@ -82,22 +82,23 @@ One active job per worker type at a time. The FFmpeg Wasm singleton inside the w
 - Completely independent from FFmpeg — no FFmpeg involvement in AVIF encoding
 
 ### FFmpeg Wasm (heavyPath.ts)
-- Uses `@ffmpeg/core` — **single-threaded**, `ffmpeg.load()` called with no args — uses bundled core, served same-origin
+- Uses `@ffmpeg/ffmpeg` v0.12.x + `@ffmpeg/core-mt` (v0.12.6)
+- **Multi-threaded** support when `SharedArrayBuffer` is available (Cross-Origin Isolated).
 - Singleton reused across calls; VFS cleaned between calls
 - 250 MB hard limit (`FileTooLargeError`) before loading into Wasm
 - Opus special case: 2-pass (resample to 48kHz WAV → encode) to avoid OOM crash in single-threaded Wasm
 
 ### COOP/COEP (SharedArrayBuffer)
-- **Dev**: No headers. `SharedArrayBuffer` may be unavailable. FFmpeg still works (single-threaded core doesn't require SAB). AVIF uses @jsquash/avif which auto-detects threading and does not require SAB.
-- **Production**: `coi-serviceworker.js` in `Layout.astro` adds COOP/COEP headers via Service Worker. One bootstrap reload on first visit.
+- **Dev**: `configure-response-headers` plugin in `astro.config.mjs` adds required headers. `SharedArrayBuffer` is available.
+- **Production**: `coi-serviceworker.js` v2 in `Layout.astro` adds COOP/COEP headers via Service Worker and caches Wasm/Worker assets for offline performance.
 
 ### Node adapter parity
-Node's `childProcess.ts` supports: `preserveMetadata`, `maxWidth`/`maxHeight`, and basic progress reporting (emits 50% on `time=` in stderr). These are implemented via FFmpeg native flags.
+Node's `childProcess.ts` supports: `preserveMetadata`, `maxWidth`/`maxHeight`, `fps` (video), and basic progress reporting (emits 50% on `time=` in stderr). These are implemented via FFmpeg native flags.
 
 ### Build system (tsup)
 Two separate build targets:
 1. Main library (`index.ts`) — CJS + ESM with code splitting
-2. Workers (`image.worker.ts`, `audio.worker.ts`) — fully self-contained bundles (`noExternal: [/.*/]`), no splitting, loaded as standalone URLs
+2. Workers (`image.worker.ts`, `audio.worker.ts`, `video.worker.ts`) — fully self-contained bundles (`noExternal: [/.*/]`), no splitting, loaded as standalone URLs
 
 Workers are exposed via `exports["./workers/*"]` in package.json.
 
@@ -143,11 +144,11 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 | # | Area | Summary |
 |---|------|---------|
-| 34 | Perf | FFmpeg multi-threading via `@ffmpeg/core-mt` (all non-AVIF formats that use FFmpeg) |
-| 20 | Core | WebCodecs audio fast path (AAC + Opus now universal in all browsers, 3-10x faster than Wasm) |
-| 6  | UX | Drag & Drop zone + batch file processing |
-| 31 | Core | Video compression support |
-| 42 | Core | Video via WebCodecs — H.264/AV1, no FFmpeg needed, 10-50x faster with HW accel |
+| ~~34~~ | ~~Perf~~ | ~~FFmpeg multi-threading via `@ffmpeg/core-mt` (all non-AVIF formats that use FFmpeg)~~ | **Resolved in v2.2.0**. |
+| ~~20~~ | ~~Core~~ | ~~WebCodecs audio fast path (AAC + Opus now universal in all browsers, 3-10x faster than Wasm)~~ | **Resolved in v2.2.0**. |
+| ~~6~~  | ~~UX~~ | ~~Drag & Drop zone + batch file processing~~ | **Resolved in v2.2.0**. |
+| ~~31~~ | ~~Core~~ | ~~Video compression support~~ | **Resolved in v2.2.0**. |
+| ~~42~~ | ~~Core~~ | ~~Video via WebCodecs — H.264/AV1, no FFmpeg needed, 10-50x faster with HW accel~~ | **Resolved in v2.2.0 (Foundation and Heavy Path completed, Fast Path stubbed)**. |
 | ~~36~~ | ~~Core~~ | ~~`strict` mode — return original if compressed is larger~~ | **Resolved in v2.1.0**. |
 | 37 | Core | Image resize modes (`contain`/`cover`/`none`) + `minWidth`/`minHeight` |
 | ~~38~~ | ~~Core~~ | ~~Smart format auto-selection (`format: 'auto'`) + PNG→WebP auto-convert~~ | **Resolved in v2.1.0**. |
@@ -177,14 +178,22 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | 18 | UX | PWA / offline capabilities |
 | 43 | Docs | Competitive landscape analysis & strategic positioning reference |
 
-### Recently resolved (v1.5.0)
+### Recently resolved (v2.2.0)
 
 | # | Area | Summary |
 |---|------|---------|
-| 8  | Core | Concurrency queue — serializes FFmpeg jobs per worker type, prevents VFS filename collisions |
-| 10 | UX | Audio player exclusivity — custom event bus pauses other players when one starts |
-| 11 | UX | Mute state persistence — sessionStorage read/write with `hasMuteRestoredRef` race-condition guard |
-| 12 | UX | SAB/COOP-COEP warning banner — prod-only guard; coi-serviceworker added to Layout.astro |
+| 4 | Perf | Service Worker caching for FFmpeg/AVIF Wasm and Workers |
+| 34 | Perf | FFmpeg multi-threading via `@ffmpeg/core-mt` |
+| 20 | Core | WebCodecs audio fast path (AAC + Opus) |
+| 6 | UX | Drag & Drop zone + batch file processing |
+| 31 | Core | Video compression support (Heavy Path) |
+| 42 | Core | Video via WebCodecs foundation |
+| 36 | Core | `strict` mode logic |
+| 38 | Core | Smart format auto-selection |
+| 8 | Core | Concurrency queue — serializes FFmpeg jobs per worker type |
+| 10 | UX | Audio player exclusivity — custom event bus |
+| 11 | UX | Mute state persistence — sessionStorage |
+| 12 | UX | SAB/COOP-COEP warning banner + coi-serviceworker |
 
 ---
 

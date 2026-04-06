@@ -16,18 +16,31 @@ const pendingJobs = new Map<number, WorkerJob>();
 export const WorkerConfig = {
   imageWorkerUrl: '',
   audioWorkerUrl: '',
+  videoWorkerUrl: '',
+  /** URL to ffmpeg-core.js (or ffmpeg-core-mt.js if MT_SUPPORTED is true) */
+  ffmpegCoreUrl: '',
+  /** URL to ffmpeg-core.wasm */
+  ffmpegWasmUrl: '',
+  /** URL to ffmpeg-core.worker.js (required for multi-threading) */
+  ffmpegWorkerUrl: '',
 };
+
+/**
+ * Indicates if the current environment supports multi-threaded WebAssembly
+ * (requires Cross-Origin Isolation headers / SharedArrayBuffer).
+ */
+export const MT_SUPPORTED = typeof SharedArrayBuffer !== 'undefined';
 
 // --- Worker Cache ---
 // Workers are cached per type and reused across compression calls.
 // Each worker self-terminates after an idle timeout to free memory.
 
-const workerCache = new Map<'image' | 'audio', Worker>();
-const workerIdleTimers = new Map<'image' | 'audio', ReturnType<typeof setTimeout>>();
+const workerCache = new Map<'image' | 'audio' | 'video', Worker>();
+const workerIdleTimers = new Map<'image' | 'audio' | 'video', ReturnType<typeof setTimeout>>();
 
 const WORKER_IDLE_TIMEOUT_MS = 60_000; // 60 seconds
 
-function resetWorkerIdleTimer(type: 'image' | 'audio') {
+function resetWorkerIdleTimer(type: 'image' | 'audio' | 'video') {
   const existing = workerIdleTimers.get(type);
   if (existing) clearTimeout(existing);
 
@@ -50,7 +63,7 @@ function resetWorkerIdleTimer(type: 'image' | 'audio') {
   workerIdleTimers.set(type, timer);
 }
 
-function getWorker(type: 'image' | 'audio'): Worker {
+function getWorker(type: 'image' | 'audio' | 'video'): Worker {
   const cached = workerCache.get(type);
   if (cached) {
     resetWorkerIdleTimer(type);
@@ -63,10 +76,14 @@ function getWorker(type: 'image' | 'audio'): Worker {
     workerUrl =
       WorkerConfig.imageWorkerUrl ||
       new URL('./workers/image.worker.js', import.meta.url).href;
-  } else {
+  } else if (type === 'audio') {
     workerUrl =
       WorkerConfig.audioWorkerUrl ||
       new URL('./workers/audio.worker.js', import.meta.url).href;
+  } else {
+    workerUrl =
+      WorkerConfig.videoWorkerUrl ||
+      new URL('./workers/video.worker.js', import.meta.url).href;
   }
 
   const worker = new Worker(workerUrl, { type: 'module' });
@@ -122,14 +139,14 @@ interface QueuedJob {
   reject: (reason: unknown) => void;
 }
 
-const jobQueues = new Map<'image' | 'audio', QueuedJob[]>();
-const activeJobs = new Map<'image' | 'audio', number>(); // count of in-flight jobs
+const jobQueues = new Map<'image' | 'audio' | 'video', QueuedJob[]>();
+const activeJobs = new Map<'image' | 'audio' | 'video', number>(); // count of in-flight jobs
 
 // One active job per worker — the FFmpeg singleton inside the worker can only
 // handle one operation at a time safely.
 const MAX_CONCURRENT_PER_TYPE = 1;
 
-function getQueue(type: 'image' | 'audio'): QueuedJob[] {
+function getQueue(type: 'image' | 'audio' | 'video'): QueuedJob[] {
   let q = jobQueues.get(type);
   if (!q) {
     q = [];
@@ -138,7 +155,7 @@ function getQueue(type: 'image' | 'audio'): QueuedJob[] {
   return q;
 }
 
-function drainQueue(type: 'image' | 'audio') {
+function drainQueue(type: 'image' | 'audio' | 'video') {
   const active = activeJobs.get(type) ?? 0;
   const queue = getQueue(type);
 
@@ -156,7 +173,7 @@ function drainQueue(type: 'image' | 'audio') {
   dispatchToWorker(next.buffer, next.options, next.isFastPath, next.resolve, next.reject, next.signal);
 }
 
-function terminateWorker(type: 'image' | 'audio') {
+function terminateWorker(type: 'image' | 'audio' | 'video') {
   const worker = workerCache.get(type);
   if (worker) {
     worker.terminate();
@@ -225,6 +242,12 @@ function dispatchToWorker(
       buffer,
       options: safeOptions,
       isFastPath,
+      ffmpegConfig: {
+        coreUrl: WorkerConfig.ffmpegCoreUrl,
+        wasmUrl: WorkerConfig.ffmpegWasmUrl,
+        workerUrl: WorkerConfig.ffmpegWorkerUrl,
+        mtSupported: MT_SUPPORTED,
+      },
     },
     [buffer], // Transferable object
   );

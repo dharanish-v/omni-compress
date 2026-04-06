@@ -3,8 +3,8 @@
 // ---------------------------------------------------------------------------
 
 export interface CompressorOptions {
-  type: 'image' | 'audio';
-  format: 'webp' | 'avif' | 'jpeg' | 'png' | 'opus' | 'mp3' | 'flac' | 'wav' | 'auto' | string;
+  type: 'image' | 'audio' | 'video';
+  format: 'webp' | 'avif' | 'jpeg' | 'png' | 'opus' | 'mp3' | 'flac' | 'wav' | 'auto' | 'mp4' | 'webm' | string;
   maxSizeMB?: number;
   quality?: number; // 0.0 to 1.0
   onProgress?: (percent: number) => void;
@@ -22,6 +22,9 @@ export interface CompressorOptions {
   bitrate?: string; // e.g., '128k', '192k'
   channels?: 1 | 2;
   sampleRate?: number;
+  // Advanced Video Options
+  videoBitrate?: string; // e.g., '1M', '2M'
+  fps?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -91,6 +94,31 @@ export interface AudioOptions {
   signal?: AbortSignal;
 }
 
+/** Options for compressVideo(). */
+export interface VideoOptions {
+  /** Target output format. Default: 'mp4'. */
+  format?: 'mp4' | 'webm';
+  /** Target video bitrate, e.g. '1M', '2M'. Default: '1M'. */
+  bitrate?: string;
+  /** Resize output width to at most this many pixels (maintains aspect ratio). */
+  maxWidth?: number;
+  /** Resize output height to at most this many pixels (maintains aspect ratio). */
+  maxHeight?: number;
+  /** Output frames per second. Default: input FPS. */
+  fps?: number;
+  /** When true, metadata is preserved. Default: false (stripped). */
+  preserveMetadata?: boolean;
+  /**
+   * If the compressed video is larger than the original, return the original.
+   * Default: false.
+   */
+  strict?: boolean;
+  /** Called with progress 0–100 during processing. */
+  onProgress?: (percent: number) => void;
+  /** Cancel the operation. Throws AbortError when signalled. */
+  signal?: AbortSignal;
+}
+
 /** A single file entry for the archive() / archiveStream() functions. */
 export interface ArchiveEntry {
   /** Path/name of the file inside the ZIP (e.g. 'images/photo.webp'). */
@@ -144,11 +172,11 @@ export interface RouteContext {
 // AVIF intentionally excluded: OffscreenCanvas cannot encode AVIF (issue #35).
 // AVIF always routes to FFmpeg Wasm heavy path.
 const FAST_PATH_IMAGE_FORMATS = new Set(['webp', 'jpeg', 'png', 'jpg']);
-// Note: Native browser encoding support for opus/mp3 varies, but we'll assume fast-path
-// attempts WebCodecs or MediaRecorder. For heavy formats like FLAC, we force Wasm.
-// Since a full WebCodecs muxer is not implemented, we route all audio to the Heavy Path
-// unless we strictly want to implement MediaRecorder.
-const FAST_PATH_AUDIO_FORMATS = new Set<string>();
+// Note: Native browser encoding support for opus/mp3 varies.
+// AAC and Opus are widely supported via WebCodecs.
+const FAST_PATH_AUDIO_FORMATS = new Set(['aac', 'opus']);
+// WebCodecs VideoEncoder supports H.264 and AV1.
+const FAST_PATH_VIDEO_FORMATS = new Set(['mp4', 'webm']);
 
 export class Router {
   static getEnvironment(): Environment {
@@ -166,9 +194,12 @@ export class Router {
     if (options.type === 'image') {
       // Browsers generally support OffscreenCanvas encoding to these formats
       return FAST_PATH_IMAGE_FORMATS.has(format);
-    } else {
+    } else if (options.type === 'audio') {
       // Browsers can sometimes encode these natively
       return FAST_PATH_AUDIO_FORMATS.has(format);
+    } else {
+      // Video Fast Path via WebCodecs
+      return FAST_PATH_VIDEO_FORMATS.has(format);
     }
   }
 

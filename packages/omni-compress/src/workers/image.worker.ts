@@ -4,7 +4,7 @@ import { encodeAVIF } from '../adapters/browser/avifEncoder.js';
 import { logger } from '../core/logger.js';
 
 self.onmessage = async (event: MessageEvent) => {
-  const { id, buffer, options, isFastPath } = event.data;
+  const { id, buffer, options, isFastPath, ffmpegConfig } = event.data;
 
   try {
     let resultBuffer: ArrayBuffer;
@@ -24,12 +24,12 @@ self.onmessage = async (event: MessageEvent) => {
         );
         resultBuffer = await processImageHeavyPath(buffer, options, (progress) => {
           self.postMessage({ id, type: 'progress', progress });
-        });
+        }, ffmpegConfig);
       }
     } else {
       resultBuffer = await processImageHeavyPath(buffer, options, (progress) => {
         self.postMessage({ id, type: 'progress', progress });
-      });
+      }, ffmpegConfig);
     }
 
     // Zero-Copy Memory Transfer back to main thread

@@ -50,61 +50,162 @@ export async function processImageFastPath(
 }
 
 /**
- * FAST PATH: Audio Processing (Pure JS + WebCodecs)
- * Implements a lightweight WAV demuxer and AAC ADTS muxer.
- * 
- * Why Pure JS?
- * For standard tasks like WAV to AAC, libraries like mp4box.js add unnecessary bloat.
- * Manual ADTS muxing is < 1KB and gives us a perfectly playable .aac file.
+ * FAST PATH: Audio Processing (WebCodecs)
+ * Decodes input audio via AudioDecoder and re-encodes it via AudioEncoder.
  */
 export async function processAudioFastPath(
   buffer: ArrayBuffer,
   options: CompressorOptions
 ): Promise<ArrayBuffer> {
-  if (typeof AudioEncoder === 'undefined') {
-    throw new Error('WebCodecs API not supported. FFmpeg fallback required.');
+  if (typeof AudioEncoder === 'undefined' || typeof AudioDecoder === 'undefined') {
+    throw new Error('WebCodecs API not supported in this environment.');
   }
 
-  // 1. Demux WAV (Extract PCM and metadata)
-  const wavInfo = demuxWav(buffer);
+  // 1. Decode input buffer to raw AudioData chunks
+  const audioDataChunks = await decodeAudio(buffer);
+  if (audioDataChunks.length === 0) {
+    throw new Error('Failed to decode any audio data from input.');
+  }
+
+  const firstChunk = audioDataChunks[0];
+  const sampleRate = firstChunk.sampleRate;
+  const numberOfChannels = firstChunk.numberOfChannels;
+
+  // 2. Encode PCM data to target format
+  const isAAC = options.format.toLowerCase() === 'aac';
+  const isOpus = options.format.toLowerCase() === 'opus';
+  
+  // Note: Standard WebCodecs output format for AAC is raw frames (needing ADTS headers for playback)
+  // For Opus, it typically outputs Ogg Opus packets.
   
   return new Promise((resolve, reject) => {
-    const chunks: Uint8Array[] = [];
+    const encodedChunks: Uint8Array[] = [];
     
-    // 2. Setup AAC Encoder
     const encoder = new AudioEncoder({
       output: (chunk) => {
-        // 3. ADTS Muxing: Every AAC chunk needs a header to be a valid file
-        const header = createAdtsHeader(wavInfo.sampleRate, wavInfo.channels, chunk.byteLength);
         const body = new Uint8Array(chunk.byteLength);
         chunk.copyTo(body);
-        
-        const frame = new Uint8Array(header.length + body.length);
-        frame.set(header);
-        frame.set(body, header.length);
-        chunks.push(frame);
+
+        if (isAAC) {
+          // AAC requires ADTS headers per frame for a standalone file
+          const header = createAdtsHeader(sampleRate, numberOfChannels, chunk.byteLength);
+          const frame = new Uint8Array(header.length + body.length);
+          frame.set(header);
+          frame.set(body, header.length);
+          encodedChunks.push(frame);
+        } else {
+          // For Opus, we currently provide the raw packets
+          // Full Ogg encapsulation is complex; if raw packets aren't enough, fallback to Heavy Path
+          encodedChunks.push(body);
+        }
       },
       error: (e) => reject(e),
     });
 
-    // Configure for standard AAC (mp4a.40.2 is AAC-LC)
-    encoder.configure({
-      codec: 'mp4a.40.2', 
-      sampleRate: wavInfo.sampleRate,
-      numberOfChannels: wavInfo.channels,
-      bitrate: 128_000,
-    });
+    const encoderConfig: AudioEncoderConfig = {
+      codec: isAAC ? 'mp4a.40.2' : 'opus', // AAC-LC or Opus
+      sampleRate,
+      numberOfChannels,
+      bitrate: parseBitrate(options.bitrate) || 128_000,
+    };
 
-    // 4. Feed AudioData to Encoder
-    // Note: Creating AudioData requires specific plane partitioning or interleaved format mapping.
-    // For the sake of this open-source contribution, we implement the core pipeline.
-    // Full PCM-to-AudioData mapping is a specific utility.
-    
-    // Logic fallback: If complex demuxing is needed, the Router should have picked Heavy Path.
-    // Here we handle the "Golden Path" of simple PCM WAV.
-    
-    reject(new Error('AudioData construction from raw PCM buffer pending implementation. Routing to Heavy Path recommended for production stability.'));
+    try {
+      encoder.configure(encoderConfig);
+      
+      for (const chunk of audioDataChunks) {
+        encoder.encode(chunk);
+        chunk.close(); // Critical: Free memory immediately
+      }
+      
+      encoder.flush().then(() => {
+        encoder.close();
+        const totalLength = encodedChunks.reduce((acc, c) => acc + c.length, 0);
+        const finalBuffer = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of encodedChunks) {
+          finalBuffer.set(chunk, offset);
+          offset += chunk.length;
+        }
+        resolve(finalBuffer.buffer);
+      });
+    } catch (e) {
+      reject(e);
+    }
   });
+}
+
+/**
+ * FAST PATH: Video Processing (WebCodecs)
+ * Hardware-accelerated video encoding via VideoEncoder.
+ * 
+ * Note: Video processing is complex due to container muxing (MP4/WebM).
+ * Full implementation pending. Currently routes to Heavy Path.
+ */
+export async function processVideoFastPath(
+  _buffer: ArrayBuffer,
+  _options: CompressorOptions
+): Promise<ArrayBuffer> {
+  if (typeof VideoEncoder === 'undefined') {
+    throw new Error('WebCodecs Video API not supported in this environment.');
+  }
+
+  // Placeholder for WebCodecs Video Pipeline:
+  // 1. Demux input container (MP4/WebM)
+  // 2. Decode video stream to VideoFrame objects
+  // 3. Re-encode VideoFrames via VideoEncoder
+  // 4. Mux encoded chunks back into target container
+  
+  throw new Error('Video Fast Path (WebCodecs) pending implementation. Routing to Heavy Path (FFmpeg).');
+}
+
+/**
+ * Decodes any browser-supported audio format to AudioData chunks.
+ * Note: Uses a temporary decoder to handle the raw buffer.
+ */
+async function decodeAudio(buffer: ArrayBuffer): Promise<AudioData[]> {
+  // WebCodecs decoding usually requires an encapsulated stream (MP4/WebM)
+  // For raw bitstreams, we'd need a demuxer.
+  // HOWEVER, many browsers allow decoding via AudioContext.decodeAudioData
+  // but AudioContext is not available in Workers.
+  
+  // Strategy: If input is WAV, use our demuxer. Otherwise, throw to fallback.
+  // Full cross-format decoding in Workers is usually best handled by FFmpeg (Heavy Path).
+  const info = isWav(buffer) ? demuxWav(buffer) : null;
+  if (!info) {
+    throw new Error('Worker-side decoding only supported for WAV in Fast Path. Redirecting to Heavy Path.');
+  }
+
+  // For WAV, we can skip decoding and create AudioData directly from PCM
+  // This implementation assumes 16-bit integer PCM (standard WAV)
+  const pcmData = new Int16Array(buffer, info.dataOffset);
+  const totalSamples = pcmData.length / info.channels;
+  
+  const audioData = new AudioData({
+    format: 's16', // Signed 16-bit
+    sampleRate: info.sampleRate,
+    numberOfFrames: totalSamples,
+    numberOfChannels: info.channels,
+    timestamp: 0,
+    data: pcmData,
+  });
+
+  return [audioData];
+}
+
+function isWav(buffer: ArrayBuffer): boolean {
+  const view = new DataView(buffer);
+  if (buffer.byteLength < 12) return false;
+  const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
+  const wave = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11));
+  return riff === 'RIFF' && wave === 'WAVE';
+}
+
+function parseBitrate(bitrate?: string): number | null {
+  if (!bitrate) return null;
+  const match = bitrate.match(/^(\d+)(k?)$/i);
+  if (!match) return null;
+  const val = parseInt(match[1], 10);
+  return match[2].toLowerCase() === 'k' ? val * 1000 : val;
 }
 
 /**

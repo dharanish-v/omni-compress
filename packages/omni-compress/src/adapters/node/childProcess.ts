@@ -100,6 +100,36 @@ export async function processWithNode(
       } else if (options.format === 'aac') {
         args.push('-acodec', 'aac', '-b:a', options.bitrate || '128k');
       }
+    } else if (options.type === 'video') {
+      if (options.maxWidth || options.maxHeight) {
+        const w = options.maxWidth || -1;
+        const h = options.maxHeight || -1;
+        if (w !== -1 && h !== -1) {
+          args.push('-vf', `scale='min(${w},iw):min(${h},ih):force_original_aspect_ratio=decrease'`);
+        } else {
+          args.push('-vf', `scale=${w}:${h}`);
+        }
+      }
+
+      if (options.fps) {
+        args.push('-r', options.fps.toString());
+      }
+
+      if (options.format === 'mp4') {
+        args.push('-vcodec', 'libx264', '-pix_fmt', 'yuv420p', '-preset', 'veryfast');
+        if (options.videoBitrate) {
+          args.push('-b:v', options.videoBitrate);
+        } else {
+          args.push('-crf', '28');
+        }
+        args.push('-acodec', 'aac', '-b:a', '128k');
+      } else if (options.format === 'webm') {
+        args.push('-vcodec', 'libvpx-vp9', '-deadline', 'realtime');
+        if (options.videoBitrate) {
+          args.push('-b:v', options.videoBitrate);
+        }
+        args.push('-acodec', 'libopus', '-b:a', '128k');
+      }
     }
 
     args.push(outputPath);
@@ -153,8 +183,10 @@ export async function processWithNode(
     let mimeType = '';
     if (options.type === 'image') {
       mimeType = options.format === 'jpg' ? 'image/jpeg' : `image/${options.format}`;
+    } else if (options.type === 'audio') {
+      mimeType = options.format === 'opus' ? 'audio/ogg' : `audio/${options.format}`;
     } else {
-      mimeType = `audio/${options.format}`;
+      mimeType = options.format === 'mp4' ? 'video/mp4' : `video/${options.format}`;
     }
 
     // Convert Buffer to ArrayBuffer to Blob for standard web API compliance

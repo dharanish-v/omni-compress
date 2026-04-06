@@ -7,9 +7,17 @@ import { logger } from "../../core/logger.js";
 // Web Worker, cleaning only the Virtual File System between calls.
 // The instance self-terminates after an idle timeout to free Wasm memory.
 
+interface FFmpegConfig {
+  coreUrl?: string;
+  wasmUrl?: string;
+  workerUrl?: string;
+  mtSupported?: boolean;
+}
+
 let singletonFFmpeg: any = null;
 let singletonPromise: Promise<any> | null = null;
 let idleTimer: ReturnType<typeof setTimeout> | null = null;
+let currentMtSupported: boolean = false;
 
 const IDLE_TIMEOUT_MS = 30_000; // 30 seconds
 
@@ -31,7 +39,7 @@ function resetIdleTimer() {
   }, IDLE_TIMEOUT_MS);
 }
 
-async function getFFmpeg() {
+async function getFFmpeg(config?: FFmpegConfig) {
   if (singletonFFmpeg) {
     resetIdleTimer();
     return singletonFFmpeg;
@@ -42,8 +50,12 @@ async function getFFmpeg() {
   }
 
   singletonPromise = (async () => {
-    logger.debug("Initializing FFmpeg Wasm singleton...");
+    const isMT = config?.mtSupported ?? false;
+    currentMtSupported = isMT;
+    
+    logger.debug(`Initializing FFmpeg Wasm singleton (Multi-threaded: ${isMT})...`);
     const { FFmpeg } = await import("@ffmpeg/ffmpeg");
+    const { toBlobURL } = await import("@ffmpeg/util");
     const ffmpeg = new FFmpeg();
 
     ffmpeg.on("log", ({ message }: { message: string }) => {
@@ -51,8 +63,28 @@ async function getFFmpeg() {
     });
 
     try {
-      await ffmpeg.load();
-      logger.debug("FFmpeg Wasm singleton loaded successfully.");
+      const loadConfig: any = {};
+      
+      if (config?.coreUrl) {
+        // If custom URLs are provided, use them
+        const coreType = isMT ? 'text/javascript' : 'text/javascript';
+        loadConfig.coreURL = await toBlobURL(config.coreUrl, coreType);
+        if (config.wasmUrl) loadConfig.wasmURL = await toBlobURL(config.wasmUrl, 'application/wasm');
+        if (isMT && config.workerUrl) loadConfig.workerURL = await toBlobURL(config.workerUrl, 'text/javascript');
+      } else {
+        // Default: Use @ffmpeg/core or @ffmpeg/core-mt from unpkg or local node_modules
+        // (Default behavior of ffmpeg.load() is usually sufficient if files are co-located)
+        if (isMT) {
+          // Force multi-threaded core
+          const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
+          loadConfig.coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+          loadConfig.wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+          loadConfig.workerURL = await toBlobURL(`${baseURL}/ffmpeg-core.worker.js`, 'text/javascript');
+        }
+      }
+
+      await ffmpeg.load(loadConfig);
+      logger.debug(`FFmpeg Wasm singleton loaded successfully. MT: ${isMT}`);
       singletonFFmpeg = ffmpeg;
       resetIdleTimer();
       return ffmpeg;
@@ -70,6 +102,7 @@ export async function processImageHeavyPath(
   buffer: ArrayBuffer,
   options: CompressorOptions,
   onProgress?: (progress: number) => void,
+  ffmpegConfig?: FFmpegConfig,
 ): Promise<ArrayBuffer> {
   if (buffer.byteLength > SAFE_SIZE_LIMITS.browser) {
     throw new Error(
@@ -78,7 +111,8 @@ export async function processImageHeavyPath(
     );
   }
 
-  const ffmpeg = await getFFmpeg();
+  const ffmpeg = await getFFmpeg(ffmpegConfig);
+  const threadCount = currentMtSupported ? '0' : '1'; // 0 = auto (use all cores)
 
   const ext =
     options.originalFileName?.split(".").pop()?.toLowerCase() || "img";
@@ -96,7 +130,7 @@ export async function processImageHeavyPath(
     await ffmpeg.writeFile(inputFileName, fileData);
 
     // -map 0:v:0: Select only the first video stream
-    const args = ["-i", inputFileName, "-map", "0:v:0"];
+    const args = ["-nostdin", "-y", "-threads", threadCount, "-i", inputFileName, "-map", "0:v:0"];
 
     if (!options.preserveMetadata) {
       args.push("-map_metadata", "-1");
@@ -140,6 +174,7 @@ export async function processAudioHeavyPath(
   buffer: ArrayBuffer,
   options: CompressorOptions,
   onProgress?: (progress: number) => void,
+  ffmpegConfig?: FFmpegConfig,
 ): Promise<ArrayBuffer> {
   if (buffer.byteLength > SAFE_SIZE_LIMITS.browser) {
     throw new Error(
@@ -148,7 +183,8 @@ export async function processAudioHeavyPath(
     );
   }
 
-  const ffmpeg = await getFFmpeg();
+  const ffmpeg = await getFFmpeg(ffmpegConfig);
+  const threadCount = currentMtSupported ? '0' : '1';
 
   const ext =
     options.originalFileName?.split(".").pop()?.toLowerCase() || "audio";
@@ -166,23 +202,17 @@ export async function processAudioHeavyPath(
     await ffmpeg.writeFile(inputFileName, fileData);
 
     if (options.format === "opus") {
-      // Two-pass approach for Opus to avoid "memory access out of bounds" in
-      // the single-threaded @ffmpeg/core WASM build:
-      //   1. The raw 'opus' muxer (output.opus) is unstable in this build.
-      //      Using the OGG muxer (.ogg) with '-c:a libopus' is safer.
-      //   2. Resampling to 48kHz AND encoding in a single exec can cause
-      //      peak memory spikes that exceed WASM linear memory bounds.
-      //      Splitting into resample + encode avoids this.
+      // With MT support, Opus might be more stable, but we'll keep the two-pass
+      // approach for now as it's guaranteed to be safe for memory.
       const intermediateFile = "resampled.wav";
-      // Use OGG container — the raw 'opus' muxer crashes in this WASM build
       const opusOutputFile = "output.ogg";
 
-      // Pass 1: Resample to 48kHz PCM (no encoding overhead)
+      // Pass 1: Resample to 48kHz PCM
       const resampleArgs = [
         "-nostdin",
         "-y",
         "-threads",
-        "1",
+        threadCount,
         "-i",
         inputFileName,
         "-map",
@@ -201,17 +231,16 @@ export async function processAudioHeavyPath(
           `FFmpeg audio resampling failed (code ${resampleCode}).`,
         );
 
-      // Free input from WASM FS before encoding to reduce WASM heap pressure
       try {
         await ffmpeg.deleteFile(inputFileName);
       } catch (_e) {}
 
-      // Pass 2: Encode resampled audio to Opus via OGG muxer
+      // Pass 2: Encode resampled audio to Opus
       const encodeArgs = [
         "-nostdin",
         "-y",
         "-threads",
-        "1",
+        threadCount,
         "-i",
         intermediateFile,
         "-c:a",
@@ -243,16 +272,11 @@ export async function processAudioHeavyPath(
       } catch (_e) {}
       return resultData.slice().buffer;
     } else {
-      // ROBUST ARGUMENTS:
-      // -nostdin: Non-interactive
-      // -threads 1: Stability in Wasm
-      // -i: Input
-      // -map 0:a: ONLY audio. Ignore album art MJPEG which causes OOM.
       const args = [
         "-nostdin",
         "-y",
         "-threads",
-        "1",
+        threadCount,
         "-i",
         inputFileName,
         "-map",
@@ -281,6 +305,96 @@ export async function processAudioHeavyPath(
 
     const resultData = (await ffmpeg.readFile(outputFileName)) as Uint8Array;
     return resultData.slice().buffer; // Copy out of Wasm heap
+  } finally {
+    ffmpeg.off("progress", progressHandler);
+    try {
+      await ffmpeg.deleteFile(inputFileName);
+    } catch (_e) {}
+    try {
+      await ffmpeg.deleteFile(outputFileName);
+    } catch (_e) {}
+    resetIdleTimer();
+  }
+}
+
+/**
+ * HEAVY PATH: Video Processing (FFmpeg Wasm)
+ */
+export async function processVideoHeavyPath(
+  buffer: ArrayBuffer,
+  options: CompressorOptions,
+  onProgress?: (progress: number) => void,
+  ffmpegConfig?: FFmpegConfig,
+): Promise<ArrayBuffer> {
+  if (buffer.byteLength > SAFE_SIZE_LIMITS.browser) {
+    throw new Error(
+      `Buffer size (${(buffer.byteLength / 1024 / 1024).toFixed(1)} MB) exceeds safe Wasm limit (250 MB). ` +
+        `Refusing to load into FFmpeg.`,
+    );
+  }
+
+  const ffmpeg = await getFFmpeg(ffmpegConfig);
+  const threadCount = currentMtSupported ? '0' : '1';
+
+  const ext = options.originalFileName?.split(".").pop()?.toLowerCase() || "video";
+  const inputFileName = `input.${ext}`;
+  const outputFileName = `output.${options.format}`;
+
+  const fileData = new Uint8Array(buffer);
+
+  const progressHandler = ({ progress }: { progress: number }) => {
+    onProgress?.(progress * 100);
+  };
+
+  try {
+    ffmpeg.on("progress", progressHandler);
+    await ffmpeg.writeFile(inputFileName, fileData);
+
+    const args = [
+      "-nostdin",
+      "-y",
+      "-threads", threadCount,
+      "-i", inputFileName,
+    ];
+
+    if (!options.preserveMetadata) {
+      args.push("-map_metadata", "-1");
+    }
+
+    if (options.maxWidth || options.maxHeight) {
+      const w = options.maxWidth || -1;
+      const h = options.maxHeight || -1;
+      args.push("-vf", `scale=${w}:${h}:force_original_aspect_ratio=decrease`);
+    }
+
+    if (options.format === "mp4") {
+      args.push("-c:v", "libx264", "-pix_fmt", "yuv420p", "-preset", "veryfast");
+      if (options.videoBitrate) {
+        args.push("-b:v", options.videoBitrate);
+      } else {
+        args.push("-crf", "28"); 
+      }
+      args.push("-c:a", "aac", "-b:a", "128k");
+    } else if (options.format === "webm") {
+      args.push("-c:v", "libvpx-vp9", "-deadline", "realtime");
+      if (options.videoBitrate) {
+        args.push("-b:v", options.videoBitrate);
+      }
+      args.push("-c:a", "libopus", "-b:a", "128k");
+    }
+
+    if (options.fps) {
+      args.push("-r", options.fps.toString());
+    }
+
+    args.push(outputFileName);
+
+    const code = await ffmpeg.exec(args);
+    if (code !== 0)
+      throw new Error(`FFmpeg video conversion failed (code ${code}).`);
+
+    const resultData = (await ffmpeg.readFile(outputFileName)) as Uint8Array;
+    return resultData.slice().buffer;
   } finally {
     ffmpeg.off("progress", progressHandler);
     try {

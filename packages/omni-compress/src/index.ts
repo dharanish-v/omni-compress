@@ -4,6 +4,7 @@ import {
   type CompressResult,
   type ImageOptions,
   type AudioOptions,
+  type VideoOptions,
 } from './core/router.js';
 import {
   fileToArrayBuffer,
@@ -17,6 +18,7 @@ import { InvalidOptionsError, FormatNotSupportedError, AbortError } from './core
 
 const VALID_IMAGE_FORMATS = new Set(['webp', 'avif', 'jpeg', 'jpg', 'png', 'auto']);
 const VALID_AUDIO_FORMATS = new Set(['opus', 'mp3', 'flac', 'wav', 'aac', 'ogg', 'auto']);
+const VALID_VIDEO_FORMATS = new Set(['mp4', 'webm', 'auto']);
 
 // ---------------------------------------------------------------------------
 // v2.0 named function exports (#33)
@@ -132,6 +134,60 @@ export async function compressAudio(
   };
 }
 
+/**
+ * Compresses a video file to the specified format.
+ *
+ * Automatically selects the fastest available engine:
+ * - **Fast path**: WebCodecs (H.264/AV1 — browser hardware-accelerated)
+ * - **Heavy path**: FFmpeg Wasm (fallback)
+ * - **Node**: native `ffmpeg` binary via child_process
+ *
+ * @example
+ * ```ts
+ * const { blob, ratio } = await compressVideo(file, { format: 'mp4', bitrate: '1M' });
+ * ```
+ */
+export async function compressVideo(
+  input: File | Blob,
+  options: VideoOptions,
+): Promise<CompressResult> {
+  if (!options || typeof options !== 'object') {
+    throw new InvalidOptionsError('Options object is required');
+  }
+
+  const format = (options.format || 'auto').toLowerCase();
+  if (!VALID_VIDEO_FORMATS.has(format)) {
+    throw new FormatNotSupportedError(
+      `"${options.format}" is not a supported video format. Supported: mp4, webm`,
+      options.format as string,
+    );
+  }
+
+  const originalSize = input.size;
+
+  const compressorOptions: CompressorOptions = {
+    type: 'video',
+    format: format === 'auto' ? 'mp4' : format,
+    videoBitrate: options.bitrate,
+    maxWidth: options.maxWidth,
+    maxHeight: options.maxHeight,
+    fps: options.fps,
+    preserveMetadata: options.preserveMetadata,
+    onProgress: options.onProgress,
+    strict: options.strict,
+  };
+
+  const blob = await _compress(input, compressorOptions, options.signal);
+
+  return {
+    blob,
+    originalSize,
+    compressedSize: blob.size,
+    ratio: originalSize > 0 ? blob.size / originalSize : 1,
+    format: compressorOptions.format,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // v1.x legacy class — kept as @deprecated shim until v3.0
 // ---------------------------------------------------------------------------
@@ -202,6 +258,6 @@ export * from './core/router.js';
 export * from './core/utils.js';
 export * from './core/logger.js';
 export * from './core/errors.js';
-export { WorkerConfig } from './adapters/browser/workerPool.js';
+export { WorkerConfig, MT_SUPPORTED } from './adapters/browser/workerPool.js';
 export { archive, archiveStream } from './archive.js';
 export { default as Compressor } from './compat/compressor.js';
