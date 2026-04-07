@@ -63,10 +63,13 @@ apps/playground/            ← demo app (not published)
 compressImage() / compressAudio() / compressVideo()
   → _compress() (core/processor.ts)
   → Router.evaluate() → environment: browser | node
-  → browser: fileToArrayBuffer → WorkerPool → Worker
-      → AVIF: @jsquash/avif (standalone libaom-av1 Wasm, 1.1 MB gzipped)
-      → FastPath (OffscreenCanvas/WebCodecs): WebP, JPEG, PNG images; AAC, Opus audio
-      → HeavyPath (FFmpeg Wasm): everything else, also fallback from FastPath
+  → browser: 
+      → Dynamic Switching: Files < 4MB using Fast Path or AVIF run on **Main Thread** (High Speed).
+      → Worker Pool: Files > 4MB or Heavy Path run in **Web Workers** (Isolation).
+      → fileToArrayBuffer → (Main Thread OR WorkerPool)
+          → AVIF: @jsquash/avif (standalone libaom-av1 Wasm, 1.1 MB gzipped)
+          → FastPath (OffscreenCanvas/WebCodecs): WebP, JPEG, PNG images; AAC, Opus audio
+          → HeavyPath (FFmpeg Wasm): everything else, also fallback from FastPath
   → node: childProcess (native ffmpeg binary, no Wasm, no size limit)
 ```
 

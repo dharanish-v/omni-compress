@@ -167,16 +167,28 @@ export type Environment = 'browser' | 'node';
 export interface RouteContext {
   env: Environment;
   isFastPath: boolean;
+  /**
+   * If true, the task should be dispatched to a Web Worker.
+   * If false, the task can run on the main thread for lower latency (small files).
+   */
+  shouldUseWorker: boolean;
 }
 
-// AVIF intentionally excluded: OffscreenCanvas cannot encode AVIF (issue #35).
-// AVIF always routes to FFmpeg Wasm heavy path.
+// AVIF intentionally excluded from OffscreenCanvas fast path: 
+// OffscreenCanvas cannot encode AVIF (issue #35).
 const FAST_PATH_IMAGE_FORMATS = new Set(['webp', 'jpeg', 'png', 'jpg']);
 // Note: Native browser encoding support for opus/mp3 varies.
 // AAC and Opus are widely supported via WebCodecs.
 const FAST_PATH_AUDIO_FORMATS = new Set(['aac', 'opus']);
 // WebCodecs VideoEncoder supports H.264 and AV1.
 const FAST_PATH_VIDEO_FORMATS = new Set(['mp4', 'webm']);
+
+/**
+ * Threshold for bypassing Web Workers to avoid communication overhead.
+ * 4MB is a safe limit for most mobile/desktop browsers to process
+ * OffscreenCanvas or WebCodecs tasks without noticeable UI stutter.
+ */
+const MAIN_THREAD_THRESHOLD = 4 * 1024 * 1024;
 
 export class Router {
   static getEnvironment(): Environment {
@@ -203,10 +215,28 @@ export class Router {
     }
   }
 
-  static evaluate(options: CompressorOptions): RouteContext {
+  static evaluate(options: CompressorOptions, fileSize: number): RouteContext {
+    const env = this.getEnvironment();
+    const isFastPath = this.isFastPathSupported(options);
+    const format = options.format.toLowerCase();
+
+    let shouldUseWorker = true;
+
+    if (env === 'browser') {
+      // Small files using Fast Path (OffscreenCanvas/WebCodecs) or 
+      // the standalone AVIF encoder can run on the main thread to 
+      // eliminate worker communication overhead (~50-150ms).
+      const isMainThreadEligible = isFastPath || format === 'avif';
+      
+      if (isMainThreadEligible && fileSize < MAIN_THREAD_THRESHOLD) {
+        shouldUseWorker = false;
+      }
+    }
+
     return {
-      env: this.getEnvironment(),
-      isFastPath: this.isFastPathSupported(options),
+      env,
+      isFastPath,
+      shouldUseWorker,
     };
   }
 }

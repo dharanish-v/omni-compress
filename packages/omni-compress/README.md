@@ -350,7 +350,7 @@ compressImage() / compressAudio() / compressVideo()
         │
         ▼
    ┌─────────┐
-   │  Router │  ← Evaluates runtime + format
+   │  Router │  ← Evaluates runtime + format + size
    └────┬────┘
         │
    ┌────┴────────────────────────────┐
@@ -364,10 +364,21 @@ WebCodecs (A/V)    Multi-threaded    Via ffmpeg-static
    │                │                │
    └────────────────┴────────────────┘
                     │
-              Web Workers          ← Zero main-thread blocking
-              Transferable Objects ← Zero-copy memory
-              AbortSignal          ← Cancellation at any stage
+        ┌───────────┴───────────┐
+        │                       │
+  Main Thread Path        Web Worker Path
+  (High Speed)            (Isolation)
+  Files < 4MB             Files > 4MB
+  Zero-latency            Non-blocking
 ```
+
+### Intelligent Routing
+
+`omni-compress` includes a smart switching engine that dynamically chooses between the **Main Thread** and **Web Workers**:
+
+*   **Main Thread Path:** Standard web files (< 4MB) using native Fast Paths or the standalone AVIF encoder run directly on the main thread. This eliminates `postMessage` communication latency (~50-150ms), matching the performance of legacy main-thread-only libraries like `compressorjs`.
+*   **Web Worker Path:** Large files (> 4MB) and all FFmpeg Heavy Path tasks are automatically dispatched to background workers. This ensures that long-running operations never freeze your application's UI.
+
 
 ---
 
