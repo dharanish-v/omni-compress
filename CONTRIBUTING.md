@@ -63,7 +63,7 @@ When contributing code, please maintain these design invariants:
 1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
 2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` in a `finally` block to clean the Virtual File System. The FFmpeg singleton self-terminates after an idle timeout — do not call `ffmpeg.terminate()` manually after each operation. Workers are cached and self-terminate when idle.
 3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
-4. **No main-thread work** — All compute-intensive processing (media or archiving) in browsers must run inside Web Workers or use asynchronous APIs.
+4. **Intelligent Threading** — All heavy compute-intensive processing must run inside Web Workers. However, for small files (< 4MB) using native Fast Paths or standalone AVIF, the library utilizes a high-speed main-thread path to eliminate worker communication overhead.
 5. **Graceful fallback** — Fast Path operations must be wrapped in try/catch within workers. On failure, fall back to the Heavy Path rather than surfacing the error to the user.
 6. **Size guards** — Always validate file size against `SAFE_SIZE_LIMITS` before passing data to Wasm. Throw `FileTooLargeError` for oversized inputs.
 
