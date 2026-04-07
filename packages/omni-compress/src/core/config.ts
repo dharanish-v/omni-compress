@@ -21,4 +21,10 @@ export const WorkerConfig = {
    * Set to 0 to always use Web Workers.
    */
   mainThreadThreshold: 4 * 1024 * 1024,
+  /**
+   * Threshold (in bytes) for AVIF main-thread execution.
+   * AVIF is much heavier than WebP/JPEG, so the threshold is lower by default.
+   * Default: 512KB (512 * 1024).
+   */
+  avifMainThreadThreshold: 512 * 1024,
 };

@@ -12,6 +12,10 @@ export interface CompressorOptions {
   onProgress?: (percent: number) => void;
   originalFileName?: string;
   /**
+   * Explicitly force Web Worker usage (true) or Main Thread usage (false).
+   */
+  useWorker?: boolean;
+  /**
    * If the compressed file is larger than the original, return the original.
    * Default: false.
    */
@@ -67,6 +71,11 @@ export interface ImageOptions {
    * Default: false.
    */
   strict?: boolean;
+  /**
+   * Explicitly force Web Worker usage (true) or Main Thread usage (false).
+   * If omitted, the library chooses based on file size and operation type.
+   */
+  useWorker?: boolean;
   /** Called with progress 0–100 during heavy-path (FFmpeg) operations. */
   onProgress?: (percent: number) => void;
   /** Cancel the operation. Throws AbortError when signalled. */
@@ -90,6 +99,11 @@ export interface AudioOptions {
    * Default: false.
    */
   strict?: boolean;
+  /**
+   * Explicitly force Web Worker usage (true) or Main Thread usage (false).
+   * If omitted, the library chooses based on file size and operation type.
+   */
+  useWorker?: boolean;
   /** Called with progress 0–100 during FFmpeg operations. */
   onProgress?: (percent: number) => void;
   /** Cancel the operation. Throws AbortError when signalled. */
@@ -115,6 +129,11 @@ export interface VideoOptions {
    * Default: false.
    */
   strict?: boolean;
+  /**
+   * Explicitly force Web Worker usage (true) or Main Thread usage (false).
+   * If omitted, the library chooses based on file size and operation type.
+   */
+  useWorker?: boolean;
   /** Called with progress 0–100 during processing. */
   onProgress?: (percent: number) => void;
   /** Cancel the operation. Throws AbortError when signalled. */
@@ -218,13 +237,23 @@ export class Router {
     let shouldUseWorker = true;
 
     if (env === 'browser') {
-      // Small files using Fast Path (OffscreenCanvas/WebCodecs) or 
-      // the standalone AVIF encoder can run on the main thread to 
-      // eliminate worker communication overhead (~50-150ms).
-      const isMainThreadEligible = isFastPath || format === 'avif';
-      
-      if (isMainThreadEligible && fileSize < WorkerConfig.mainThreadThreshold) {
-        shouldUseWorker = false;
+      // 1. Explicit user override
+      if (options.useWorker !== undefined) {
+        shouldUseWorker = options.useWorker;
+      } else {
+        // 2. Automated routing based on file size and type
+        const isAVIF = format === 'avif';
+        const isMainThreadEligible = isFastPath || isAVIF;
+
+        if (isMainThreadEligible) {
+          const threshold = isAVIF 
+            ? WorkerConfig.avifMainThreadThreshold 
+            : WorkerConfig.mainThreadThreshold;
+          
+          if (fileSize < threshold) {
+            shouldUseWorker = false;
+          }
+        }
       }
     }
 

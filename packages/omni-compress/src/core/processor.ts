@@ -82,11 +82,14 @@ if (route.env === 'node') {
   }
   processedBlob = await processWithNode!(input, options, signal);
 } else {
-  logger.debug('Converting File/Blob to ArrayBuffer');
-  const buffer = await fileToArrayBuffer(input);
   let processedBuffer: ArrayBuffer;
 
   if (!route.shouldUseWorker) {
+    // 1. High-speed Main Thread Path
+    // We still need the buffer here as native APIs on main thread expect it
+    logger.debug('Converting File/Blob to ArrayBuffer for main-thread execution');
+    const buffer = await fileToArrayBuffer(input);
+
     try {
       logger.info('Executing via Main Thread (High-speed path)');
       const adapter = await import('../adapters/browser/mainThread.js');
@@ -97,20 +100,23 @@ if (route.env === 'node') {
         options.onProgress,
       );
     } catch (mainThreadError: any) {
-
       logger.warn(
         `Main thread execution failed: ${mainThreadError.message}. Falling back to Worker.`,
       );
-      processedBuffer = await processWithBrowserWorker(buffer, options, route.isFastPath, signal);
+      // Worker path can take the original File/Blob directly
+      processedBuffer = await processWithBrowserWorker(input, options, route.isFastPath, signal);
     }
   } else {
+    // 2. Background Worker Path
+    // Performance optimization: pass the raw File/Blob to the worker and let it read it
+    // off the main thread. postMessage(blob) is instantaneous.
     logger.info(`Executing via Browser Worker pool. Fast path: ${route.isFastPath}`);
-    logger.debug('Dispatching task to worker pool');
-    processedBuffer = await processWithBrowserWorker(buffer, options, route.isFastPath, signal);
+    processedBuffer = await processWithBrowserWorker(input, options, route.isFastPath, signal);
   }
 
   processedBlob = arrayBufferToBlob(processedBuffer, mimeType);
 }
+
 
 
   logger.info('Processing complete');

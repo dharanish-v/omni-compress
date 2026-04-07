@@ -3,33 +3,36 @@ import { processVideoHeavyPath } from '../adapters/browser/heavyPath.js';
 import { logger } from '../core/logger.js';
 
 self.onmessage = async (event: MessageEvent) => {
-  const { id, buffer, options, isFastPath, ffmpegConfig } = event.data;
-
-  logger.debug(`Worker:Video starting task ${id}. FastPath: ${isFastPath}`);
+  const { id, buffer: inputData, options, isFastPath, ffmpegConfig } = event.data;
 
   try {
+    // Ensure we have an ArrayBuffer
+    let buffer: ArrayBuffer;
+    if (inputData instanceof ArrayBuffer) {
+      buffer = inputData;
+    } else if (inputData instanceof Blob) {
+      buffer = await inputData.arrayBuffer();
+    } else {
+      throw new Error('Worker:Video invalid input data type');
+    }
+
     let resultBuffer: ArrayBuffer;
 
     if (isFastPath) {
       try {
-        logger.debug('Worker:Video executing Fast Path');
         resultBuffer = await processVideoFastPath(buffer, options);
       } catch (fastPathError: any) {
-        logger.warn(
-          `Worker:Video Fast Path failed: ${fastPathError.message}. Falling back to Heavy Path.`
-        );
+        logger.warn(`Worker:Video Fast Path failed, falling back to Heavy Path: ${fastPathError.message}`);
         resultBuffer = await processVideoHeavyPath(buffer, options, (progress) => {
           self.postMessage({ id, type: 'progress', progress });
         }, ffmpegConfig);
       }
     } else {
-      logger.debug('Worker:Video executing Heavy Path (FFmpeg)');
       resultBuffer = await processVideoHeavyPath(buffer, options, (progress) => {
         self.postMessage({ id, type: 'progress', progress });
       }, ffmpegConfig);
     }
 
-    logger.debug(`Worker:Video task ${id} complete. Transferring buffer back.`);
     // Zero-Copy Memory Transfer back to main thread
     self.postMessage({ id, type: 'success', buffer: resultBuffer }, { transfer: [resultBuffer] });
   } catch (error: any) {

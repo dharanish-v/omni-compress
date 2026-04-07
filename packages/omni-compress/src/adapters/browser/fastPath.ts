@@ -10,15 +10,21 @@ export async function processImageFastPath(
   options: CompressorOptions
 ): Promise<ArrayBuffer> {
   const blob = new Blob([buffer]);
-  const bitmap = await createImageBitmap(blob);
   
-  let targetWidth = bitmap.width;
-  let targetHeight = bitmap.height;
+  let targetWidth: number | undefined;
+  let targetHeight: number | undefined;
 
-  // Calculate new dimensions while maintaining aspect ratio
+  // 1. Pre-calculate dimensions if possible to use createImageBitmap's native resizer
+  // This is much faster and uses less memory than scaling on a canvas.
   if (options.maxWidth || options.maxHeight) {
-    const ratio = bitmap.width / bitmap.height;
-    
+    // We need the original dimensions first to calculate aspect ratio
+    // Browsers are fast at header-only decoding for metadata
+    const tempBitmap = await createImageBitmap(blob);
+    const ratio = tempBitmap.width / tempBitmap.height;
+    targetWidth = tempBitmap.width;
+    targetHeight = tempBitmap.height;
+    tempBitmap.close();
+
     if (options.maxWidth && targetWidth > options.maxWidth) {
       targetWidth = options.maxWidth;
       targetHeight = targetWidth / ratio;
@@ -28,17 +34,24 @@ export async function processImageFastPath(
       targetHeight = options.maxHeight;
       targetWidth = targetHeight * ratio;
     }
+
+    targetWidth = Math.floor(targetWidth);
+    targetHeight = Math.floor(targetHeight);
   }
 
-  // Ensure dimensions are integers
-  targetWidth = Math.floor(targetWidth);
-  targetHeight = Math.floor(targetHeight);
-
-  const canvas = new OffscreenCanvas(targetWidth, targetHeight);
+  // 2. Decode and resize in one pass
+  const bitmap = await createImageBitmap(blob, {
+    resizeWidth: targetWidth,
+    resizeHeight: targetHeight,
+    resizeQuality: 'high',
+  });
+  
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
 
-  ctx.drawImage(bitmap, 0, 0, targetWidth, targetHeight);
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
 
   const mimeType = getMimeType(options.type, options.format);
   const outBlob = await canvas.convertToBlob({

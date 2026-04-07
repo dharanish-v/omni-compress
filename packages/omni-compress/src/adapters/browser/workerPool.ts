@@ -10,6 +10,7 @@ interface WorkerJob {
   options: CompressorOptions;
   resolve: (value: ArrayBuffer) => void;
   reject: (reason: unknown) => void;
+  worker: Worker;
 }
 
 const pendingJobs = new Map<number, WorkerJob>();
@@ -20,107 +21,109 @@ const pendingJobs = new Map<number, WorkerJob>();
  */
 export const MT_SUPPORTED = typeof SharedArrayBuffer !== 'undefined';
 
-// --- Worker Cache ---
-// Workers are cached per type and reused across compression calls.
-// Each worker self-terminates after an idle timeout to free memory.
+// --- Worker Pool ---
+// We maintain a pool of workers per type.
+// Fast Path tasks can run in parallel (up to hardwareConcurrency).
+// Heavy Path (FFmpeg) tasks are serialized per worker instance to avoid VFS collisions.
 
-const workerCache = new Map<'image' | 'audio' | 'video', Worker>();
-const workerIdleTimers = new Map<'image' | 'audio' | 'video', ReturnType<typeof setTimeout>>();
+const workerPools = new Map<'image' | 'audio' | 'video', Worker[]>();
+const workerIdleTimers = new Map<Worker, ReturnType<typeof setTimeout>>();
 
 const WORKER_IDLE_TIMEOUT_MS = 60_000; // 60 seconds
+const MAX_CONCURRENT_PER_TYPE = Math.min(4, typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 2) : 2);
 
-function resetWorkerIdleTimer(type: 'image' | 'audio' | 'video') {
-  const existing = workerIdleTimers.get(type);
+function resetWorkerIdleTimer(worker: Worker, type: 'image' | 'audio' | 'video') {
+  const existing = workerIdleTimers.get(worker);
   if (existing) clearTimeout(existing);
 
   const timer = setTimeout(() => {
-    const worker = workerCache.get(type);
-    if (worker) {
-      const hasPendingJobs = Array.from(pendingJobs.values()).some(
-        (job) => job.options.type === type,
-      );
-      if (!hasPendingJobs) {
-        worker.terminate();
-        workerCache.delete(type);
-        workerIdleTimers.delete(type);
-      } else {
-        resetWorkerIdleTimer(type);
-      }
+    // Check if this worker has any pending jobs
+    const isBusy = Array.from(pendingJobs.values()).some(
+      (job) => job.worker === worker,
+    );
+    
+    if (!isBusy) {
+      worker.terminate();
+      const pool = workerPools.get(type) || [];
+      workerPools.set(type, pool.filter(w => w !== worker));
+      workerIdleTimers.delete(worker);
+    } else {
+      resetWorkerIdleTimer(worker, type);
     }
   }, WORKER_IDLE_TIMEOUT_MS);
 
-  workerIdleTimers.set(type, timer);
+  workerIdleTimers.set(worker, timer);
 }
 
-function getWorker(type: 'image' | 'audio' | 'video'): Worker {
-  const cached = workerCache.get(type);
-  if (cached) {
-    resetWorkerIdleTimer(type);
-    return cached;
+function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
+  const pool = workerPools.get(type) || [];
+  
+  // 1. Try to find an idle worker
+  const busyWorkers = new Set(Array.from(pendingJobs.values()).map(j => j.worker));
+  const idleWorker = pool.find(w => !busyWorkers.has(w));
+  
+  if (idleWorker) {
+    resetWorkerIdleTimer(idleWorker, type);
+    return idleWorker;
   }
 
-  let workerUrl = '';
-
-  if (type === 'image') {
-    workerUrl =
-      WorkerConfig.imageWorkerUrl ||
-      new URL('./workers/image.worker.js', import.meta.url).href;
-  } else if (type === 'audio') {
-    workerUrl =
-      WorkerConfig.audioWorkerUrl ||
-      new URL('./workers/audio.worker.js', import.meta.url).href;
-  } else {
-    workerUrl =
-      WorkerConfig.videoWorkerUrl ||
-      new URL('./workers/video.worker.js', import.meta.url).href;
-  }
-
-  const worker = new Worker(workerUrl, { type: 'module' });
-
-  worker.onmessage = (event: MessageEvent) => {
-    const { id, type: msgType, buffer, error, progress } = event.data;
-    const job = pendingJobs.get(id);
-
-    if (job) {
-      if (msgType === 'progress') {
-        job.options.onProgress?.(progress);
-        return;
-      }
-
-      if (msgType === 'error') {
-        job.reject(new Error(error));
-      } else if (msgType === 'success') {
-        job.resolve(buffer);
-      }
-
-      pendingJobs.delete(id);
-      resetWorkerIdleTimer(type);
-
-      // Drain the next queued job for this worker type
-      drainQueue(type);
+  // 2. Create new worker if pool not full
+  if (pool.length < MAX_CONCURRENT_PER_TYPE) {
+    let workerUrl = '';
+    if (type === 'image') {
+      workerUrl = WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
+    } else if (type === 'audio') {
+      workerUrl = WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
+    } else {
+      workerUrl = WorkerConfig.videoWorkerUrl || new URL('./workers/video.worker.js', import.meta.url).href;
     }
-  };
 
-  worker.onerror = (error) => {
-    logger.error('Worker error:', error);
-    workerCache.delete(type);
-    workerIdleTimers.delete(type);
-    worker.terminate();
-  };
+    const worker = new Worker(workerUrl, { type: 'module' });
+    
+    worker.onmessage = (event: MessageEvent) => {
+      const { id, type: msgType, buffer, error, progress } = event.data;
+      const job = pendingJobs.get(id);
 
-  workerCache.set(type, worker);
-  resetWorkerIdleTimer(type);
-  return worker;
+      if (job) {
+        if (msgType === 'progress') {
+          job.options.onProgress?.(progress);
+          return;
+        }
+
+        if (msgType === 'error') {
+          job.reject(new Error(error));
+        } else if (msgType === 'success') {
+          job.resolve(buffer);
+        }
+
+        pendingJobs.delete(id);
+        resetWorkerIdleTimer(worker, type);
+        drainQueue(type);
+      }
+    };
+
+    worker.onerror = (error) => {
+      logger.error('Worker error:', error);
+      const currentPool = workerPools.get(type) || [];
+      workerPools.set(type, currentPool.filter(w => w !== worker));
+      workerIdleTimers.delete(worker);
+      worker.terminate();
+    };
+
+    pool.push(worker);
+    workerPools.set(type, pool);
+    resetWorkerIdleTimer(worker, type);
+    return worker;
+  }
+
+  // 3. No worker available (must queue)
+  throw new Error('No available workers');
 }
 
-// --- Concurrency Queue (#8) ---
-// Each worker type processes one job at a time. Heavy-path jobs share a single
-// FFmpeg Wasm singleton with fixed VFS filenames, so concurrent dispatch to the
-// same worker causes filename collisions and memory spikes. The queue serialises
-// dispatch and drains automatically when each job completes.
+// --- Concurrency Queue ---
 
 interface QueuedJob {
-  buffer: ArrayBuffer;
+  data: File | Blob | ArrayBuffer;
   options: CompressorOptions;
   isFastPath: boolean;
   signal?: AbortSignal;
@@ -129,11 +132,6 @@ interface QueuedJob {
 }
 
 const jobQueues = new Map<'image' | 'audio' | 'video', QueuedJob[]>();
-const activeJobs = new Map<'image' | 'audio' | 'video', number>(); // count of in-flight jobs
-
-// One active job per worker — the FFmpeg singleton inside the worker can only
-// handle one operation at a time safely.
-const MAX_CONCURRENT_PER_TYPE = 1;
 
 function getQueue(type: 'image' | 'audio' | 'video'): QueuedJob[] {
   let q = jobQueues.get(type);
@@ -145,38 +143,28 @@ function getQueue(type: 'image' | 'audio' | 'video'): QueuedJob[] {
 }
 
 function drainQueue(type: 'image' | 'audio' | 'video') {
-  const active = activeJobs.get(type) ?? 0;
   const queue = getQueue(type);
+  if (queue.length === 0) return;
 
-  if (active >= MAX_CONCURRENT_PER_TYPE || queue.length === 0) return;
+  try {
+    const worker = getAvailableWorker(type);
+    const next = queue.shift()!;
 
-  const next = queue.shift()!;
-
-  // Skip jobs whose signal has already been aborted while they waited in the queue
-  if (next.signal?.aborted) {
-    next.reject(new AbortError('Compression aborted'));
-    drainQueue(type); // Try the next one
-    return;
-  }
-
-  dispatchToWorker(next.buffer, next.options, next.isFastPath, next.resolve, next.reject, next.signal);
-}
-
-function terminateWorker(type: 'image' | 'audio' | 'video') {
-  const worker = workerCache.get(type);
-  if (worker) {
-    worker.terminate();
-    workerCache.delete(type);
-    const timer = workerIdleTimers.get(type);
-    if (timer) {
-      clearTimeout(timer);
-      workerIdleTimers.delete(type);
+    if (next.signal?.aborted) {
+      next.reject(new AbortError('Compression aborted'));
+      drainQueue(type);
+      return;
     }
+
+    dispatchToWorker(worker, next.data, next.options, next.isFastPath, next.resolve, next.reject, next.signal);
+  } catch (e) {
+    // No worker available yet, stay in queue
   }
 }
 
 function dispatchToWorker(
-  buffer: ArrayBuffer,
+  worker: Worker,
+  data: File | Blob | ArrayBuffer,
   options: CompressorOptions,
   isFastPath: boolean,
   resolve: (value: ArrayBuffer) => void,
@@ -184,33 +172,28 @@ function dispatchToWorker(
   signal?: AbortSignal,
 ) {
   const id = ++workerIdCounter;
-  const worker = getWorker(options.type);
   const type = options.type;
-
-  activeJobs.set(type, (activeJobs.get(type) ?? 0) + 1);
 
   let abortCleanup: (() => void) | null = null;
 
-  // Wrap resolve/reject to decrement active count and clean up abort listener
   const finalResolve = (value: ArrayBuffer) => {
     abortCleanup?.();
-    activeJobs.set(type, Math.max(0, (activeJobs.get(type) ?? 1) - 1));
     resolve(value);
   };
   const finalReject = (reason: unknown) => {
     abortCleanup?.();
-    activeJobs.set(type, Math.max(0, (activeJobs.get(type) ?? 1) - 1));
     reject(reason);
   };
 
-  pendingJobs.set(id, { id, options, resolve: finalResolve, reject: finalReject });
+  pendingJobs.set(id, { id, options, resolve: finalResolve, reject: finalReject, worker });
 
-  // AbortSignal support (#21): terminate the worker on abort (kills FFmpeg Wasm mid-run),
-  // reject the pending promise with AbortError, then drain the queue with a fresh worker.
   if (signal) {
     const onAbort = () => {
       pendingJobs.delete(id);
-      terminateWorker(type);
+      worker.terminate();
+      const pool = workerPools.get(type) || [];
+      workerPools.set(type, pool.filter(w => w !== worker));
+      workerIdleTimers.delete(worker);
       finalReject(new AbortError('Compression aborted'));
       drainQueue(type);
     };
@@ -218,17 +201,15 @@ function dispatchToWorker(
     abortCleanup = () => signal.removeEventListener('abort', onAbort);
   }
 
-  // Strip functions like `onProgress` because they cannot be cloned via postMessage
   const safeOptions = { ...options };
   delete safeOptions.onProgress;
 
-  logger.debug(`Dispatching job ${id} to ${type} worker (queue depth: ${getQueue(type).length})`);
+  const transfer = data instanceof ArrayBuffer ? [data] : [];
 
-  // Zero-Copy Memory Transfer: transfer the ArrayBuffer ownership to the worker
   worker.postMessage(
     {
       id,
-      buffer,
+      buffer: data,
       options: safeOptions,
       isFastPath,
       ffmpegConfig: {
@@ -238,12 +219,12 @@ function dispatchToWorker(
         mtSupported: MT_SUPPORTED,
       },
     },
-    [buffer], // Transferable object
+    transfer as any,
   );
 }
 
 export function processWithBrowserWorker(
-  buffer: ArrayBuffer,
+  data: File | Blob | ArrayBuffer,
   options: CompressorOptions,
   isFastPath: boolean,
   signal?: AbortSignal,
@@ -255,15 +236,8 @@ export function processWithBrowserWorker(
     }
 
     const type = options.type;
-    const active = activeJobs.get(type) ?? 0;
-
-    if (active < MAX_CONCURRENT_PER_TYPE) {
-      // Slot available — dispatch immediately
-      dispatchToWorker(buffer, options, isFastPath, resolve, reject, signal);
-    } else {
-      // Queue the job — it will be drained when the current job completes
-      logger.debug(`Queueing ${type} job (active: ${active}, queued: ${getQueue(type).length})`);
-      getQueue(type).push({ buffer, options, isFastPath, signal, resolve, reject });
-    }
+    const queue = getQueue(type);
+    queue.push({ data, options, isFastPath, signal, resolve, reject });
+    drainQueue(type);
   });
 }
