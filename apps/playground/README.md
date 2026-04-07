@@ -2,7 +2,7 @@
 
 > "Brevity is the soul of wit." — William Shakespeare
 
-The **Omni-Compress Playground** is an interactive, high-performance web application designed to demonstrate the power of the `@dharanish/omni-compress` library. It combines cutting-edge WebAssembly technology with a bold, **Neo-Brutalist** design system.
+The **Omni-Compress Playground** is an interactive, high-performance web application designed to demonstrate the power of the `omni-compress` library. It combines cutting-edge WebAssembly technology with a bold, **Neo-Brutalist** design system.
 
 ---
 

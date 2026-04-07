@@ -1,9 +1,9 @@
 # Omni Compress
 
 <p align="center">
-  <img src="https://img.shields.io/npm/v/@dharanish/omni-compress?style=flat-square&color=0f4c81" alt="NPM Version" />
+  <img src="https://img.shields.io/npm/v/omni-compress?style=flat-square&color=0f4c81" alt="NPM Version" />
   <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
-  <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
+  <img src="https://img.shields.io/npm/dt/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
   <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
   <img src="https://img.shields.io/endpoint?url=https://dharanish-v.github.io/omni-compress/coverage.json&style=flat-square" alt="Coverage" />
   <img src="https://img.shields.io/badge/Tested_with-Vitest-729B1B?style=flat-square&logo=vitest" alt="Tested with Vitest" />
@@ -19,7 +19,7 @@
 `omni-compress` is a high-performance, isomorphic compression library. It automatically routes media compression (images/audio) to the fastest available engine at runtime — native Web APIs, FFmpeg WebAssembly, or OS-level binaries — and provides built-in ZIP archiving for any file type.
 
 ```typescript
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from 'omni-compress';
 
 const compressed = await OmniCompressor.process(file, {
   type: 'image',
@@ -64,13 +64,13 @@ The project includes an interactive playground built with a **Neo-Brutalist** de
 
 | Package | Description | Links |
 |---|---|---|
-| `@dharanish/omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/@dharanish/omni-compress) |
+| `omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/omni-compress) |
 | `playground` | Live demo UI | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/) |
 
 ## Quick Start
 
 ```bash
-npm install @dharanish/omni-compress
+npm install omni-compress
 ```
 
 For full API reference, supported formats, architecture details, and framework examples, see the **[package README](packages/omni-compress/README.md)**.

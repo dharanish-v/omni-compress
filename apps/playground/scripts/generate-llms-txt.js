@@ -15,7 +15,7 @@ Omni-Compress automatically routes media compression to the fastest available en
 
 ## v2.0 API (recommended)
 \`\`\`typescript
-import { compressImage, compressAudio, archive, detectFormat } from '@dharanish/omni-compress';
+import { compressImage, compressAudio, archive, detectFormat } from 'omni-compress';
 
 // Image compression — returns CompressResult { blob, originalSize, compressedSize, ratio, format }
 // Note: AVIF uses @jsquash/avif (standalone libaom-av1 Wasm) — no extra setup needed.
@@ -47,7 +47,7 @@ const format = detectFormat(await file.arrayBuffer()); // e.g. 'webp', 'flac', n
 \`\`\`typescript
 // OmniCompressor.process() still works but returns a raw Blob (no size metadata).
 // Migrate to compressImage() / compressAudio() for CompressResult.
-import { OmniCompressor } from '@dharanish/omni-compress';
+import { OmniCompressor } from 'omni-compress';
 const blob = await OmniCompressor.process(file, { type: 'image', format: 'webp' });
 \`\`\`
 

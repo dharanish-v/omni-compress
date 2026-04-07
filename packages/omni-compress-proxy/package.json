@@ -1,0 +1,47 @@
+{
+  "name": "@dharanish/omni-compress",
+  "version": "2.3.0",
+  "description": "Renamed to 'omni-compress'. This package re-exports omni-compress for backwards compatibility.",
+  "author": "Dharanish V",
+  "license": "MIT",
+  "type": "module",
+  "sideEffects": false,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dharanish-v/omni-compress.git",
+    "directory": "packages/omni-compress-proxy"
+  },
+  "homepage": "https://dharanish-v.github.io/omni-compress/",
+  "bugs": {
+    "url": "https://github.com/dharanish-v/omni-compress/issues"
+  },
+  "main": "./index.cjs",
+  "module": "./index.js",
+  "types": "./index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./index.d.ts",
+      "import": "./index.js",
+      "require": "./index.cjs"
+    },
+    "./compat": {
+      "types": "./compat/index.d.ts",
+      "import": "./compat/index.js",
+      "require": "./compat/index.cjs"
+    }
+  },
+  "files": [
+    "index.js",
+    "index.cjs",
+    "index.d.ts",
+    "compat/",
+    "README.md",
+    "LICENSE"
+  ],
+  "dependencies": {
+    "omni-compress": "2.3.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

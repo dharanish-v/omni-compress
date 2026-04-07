@@ -14,7 +14,7 @@ A clear and concise description of what the bug is.
 
 Steps to reproduce the behavior:
 
-1. Import `OmniCompressor` from `@dharanish/omni-compress`
+1. Import `OmniCompressor` from `omni-compress`
 2. Call `OmniCompressor.process(...)` with `...`
 3. See error
 

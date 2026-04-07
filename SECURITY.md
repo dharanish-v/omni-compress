@@ -13,7 +13,7 @@ If you discover a security vulnerability in `omni-compress`, please report it re
 
 **Do NOT open a public GitHub issue for security vulnerabilities.**
 
-Instead, please email **dharanish.v** via the contact information on [the npm package page](https://www.npmjs.com/package/@dharanish/omni-compress) or open a [private security advisory](https://github.com/dharanish-v/omni-compress/security/advisories/new) on GitHub.
+Instead, please email **dharanish.v** via the contact information on [the npm package page](https://www.npmjs.com/package/omni-compress) or open a [private security advisory](https://github.com/dharanish-v/omni-compress/security/advisories/new) on GitHub.
 
 ### What to include
 

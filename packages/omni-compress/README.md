@@ -1,9 +1,9 @@
 # Omni Compress
 
 <p align="center">
-  <img src="https://img.shields.io/npm/v/@dharanish/omni-compress?style=flat-square&color=0f4c81" alt="NPM Version" />
+  <img src="https://img.shields.io/npm/v/omni-compress?style=flat-square&color=0f4c81" alt="NPM Version" />
   <img src="https://img.shields.io/github/license/dharanish-v/omni-compress?style=flat-square&color=5386b4" alt="License" />
-  <img src="https://img.shields.io/npm/dt/@dharanish/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
+  <img src="https://img.shields.io/npm/dt/omni-compress?style=flat-square&color=c06c5b" alt="NPM Downloads" />
   <img src="https://img.shields.io/github/actions/workflow/status/dharanish-v/omni-compress/ci.yml?branch=master&style=flat-square&color=d9a05b" alt="CI Status" />
   <img src="https://img.shields.io/endpoint?url=https://dharanish-v.github.io/omni-compress/coverage.json&style=flat-square" alt="Coverage" />
   <img src="https://img.shields.io/badge/Tested_with-Vitest-729B1B?style=flat-square&logo=vitest" alt="Tested with Vitest" />
@@ -39,19 +39,21 @@
 ## Install
 
 ```bash
-npm install @dharanish/omni-compress
+npm install omni-compress
 ```
 
 ```bash
 # bun
-bun add @dharanish/omni-compress
+bun add omni-compress
 
 # pnpm
-pnpm add @dharanish/omni-compress
+pnpm add omni-compress
 
 # yarn
-yarn add @dharanish/omni-compress
+yarn add omni-compress
 ```
+
+> Previously published as `@dharanish/omni-compress` (deprecated — please migrate to `omni-compress`).
 
 > **Node.js users:** For the Node adapter to work, install `ffmpeg-static` (bundled as an optional dependency) or ensure `ffmpeg` is available on your system `PATH`.
 
@@ -60,7 +62,7 @@ yarn add @dharanish/omni-compress
 ## Quick Start
 
 ```typescript
-import { compressImage, compressAudio, compressVideo } from "@dharanish/omni-compress";
+import { compressImage, compressAudio, compressVideo } from "omni-compress";
 
 // Image → WebP
 const { blob, ratio } = await compressImage(imageFile, {
@@ -85,7 +87,7 @@ const { blob: video } = await compressVideo(videoFile, {
 });
 
 // Archive multiple files into a ZIP
-import { archive } from "@dharanish/omni-compress";
+import { archive } from "omni-compress";
 const { blob: zip } = await archive([
   { name: "photo.webp", data: blob },
   { name: "audio.opus", data: audio },
@@ -102,7 +104,7 @@ const { blob: zip } = await archive([
 Compresses an image using the fastest available engine (OffscreenCanvas fast path, FFmpeg Wasm heavy path, or native ffmpeg on Node).
 
 ```typescript
-import { compressImage } from "@dharanish/omni-compress";
+import { compressImage } from "omni-compress";
 
 const result = await compressImage(file, {
   format: "webp",
@@ -182,7 +184,7 @@ interface CompressResult {
 Compresses an array of files into a ZIP archive. Works identically in browser and Node.js.
 
 ```typescript
-import { archive } from "@dharanish/omni-compress";
+import { archive } from "omni-compress";
 
 const result = await archive(
   [
@@ -200,7 +202,7 @@ const result = await archive(
 Streaming ZIP output — prefer this for large archives where you want to start sending bytes before all entries are compressed.
 
 ```typescript
-import { archiveStream } from "@dharanish/omni-compress";
+import { archiveStream } from "omni-compress";
 
 const stream = archiveStream(entries, { level: 6 });
 const response = new Response(stream, {
@@ -222,7 +224,7 @@ const response = new Response(stream, {
 Reads the first 16 bytes of a buffer and returns the file's actual format from its magic bytes — not its extension.
 
 ```typescript
-import { detectFormat } from "@dharanish/omni-compress";
+import { detectFormat } from "omni-compress";
 
 const buffer = await file.arrayBuffer();
 const format = detectFormat(buffer);
@@ -238,7 +240,7 @@ Supported signatures: `jpeg`, `png`, `gif`, `webp`, `wav`, `avif`, `flac`, `ogg`
 > **`OmniCompressor.process()` is deprecated** as of v2.0. It will continue to work until v3.0 but returns a raw `Blob` instead of the richer `CompressResult`. Migrate to `compressImage()` or `compressAudio()`.
 
 ```typescript
-import { OmniCompressor } from "@dharanish/omni-compress";
+import { OmniCompressor } from "omni-compress";
 
 /** @deprecated Use compressImage() or compressAudio() instead */
 const blob = await OmniCompressor.process(file, {
@@ -288,7 +290,7 @@ import {
   InvalidOptionsError,
   AbortError,
   EncoderError,
-} from "@dharanish/omni-compress";
+} from "omni-compress";
 
 try {
   await compressImage(file, { format: "webp" });

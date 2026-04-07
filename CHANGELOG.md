@@ -4,6 +4,29 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-04-08
+
+### Changed
+- **Package Rename (Issue #44):** The library is now published as the unscoped `omni-compress` package on npm for better discoverability.
+- **Legacy Shim:** The original `@dharanish/omni-compress` package is now a deprecated shim that re-exports `omni-compress` for backwards compatibility.
+- **Documentation Overhaul:** Updated all READMEs, documentation, and playground imports to reflect the new package name.
+
+## [2.2.0] - 2026-04-07
+
+### Added
+- **Intelligent Threading:** Implemented a high-speed main-thread path for small files (< 4MB) to eliminate Web Worker communication overhead when using native engines or standalone AVIF.
+- **Multi-Worker Scaling:** Optimized the worker pool for parallel processing of different media types.
+- **Resize-on-Decode:** Integrated native browser resizing during the decoding phase for improved performance on large images.
+- **Video Compression support** (Heavy Path) for MP4 and WebM.
+
+## [2.1.0] - 2026-04-02
+
+### Added
+- **Smart Mode:** Added `format: 'auto'` for automatic selection of the best compression format.
+- **Strict Mode:** Added `strict: true` to return the original file if the compressed version is larger.
+- **Drag & Drop Support:** Enhanced playground UI with intuitive file handling and batch uploads.
+- **Service Worker caching** for FFmpeg/AVIF Wasm and Workers.
+
 ## [2.0.0] - 2026-03-30
 
 ### Added

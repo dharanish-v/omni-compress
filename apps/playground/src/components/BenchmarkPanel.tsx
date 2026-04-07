@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { compressImage } from '@dharanish/omni-compress';
+import { compressImage } from 'omni-compress';
 import Compressor from 'compressorjs';
 import imageCompression from 'browser-image-compression';
 import { triggerFeedback } from '../utils/feedback';

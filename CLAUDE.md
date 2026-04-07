@@ -6,7 +6,7 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`@dharanish/omni-compress` (v2.2.0) — a universal, isomorphic compression and archiving library.
+`omni-compress` (v2.3.0) — a universal, isomorphic compression and archiving library.
 - **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`, `compressVideo`) work identically in browser and Node.js.
 - **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
 - **Node.js**: Spawns native `ffmpeg` binary via `child_process`.
@@ -17,7 +17,8 @@ Read this before touching any file. It replaces the need to explore the codebase
 ## Monorepo layout
 
 ```
-packages/omni-compress/     ← published npm package (@dharanish/omni-compress)
+packages/omni-compress/     ← published npm package (`omni-compress`, source of truth)
+packages/omni-compress-proxy/ ← deprecated scoped shim published as `@dharanish/omni-compress` (re-exports from omni-compress for backwards compatibility)
   src/
     index.ts                ← public entry (named exports), legacy shim
     archive.ts              ← archive() and archiveStream() implementation
@@ -147,11 +148,11 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 | # | Area | Summary |
 |---|------|---------|
-| ~~34~~ | ~~Perf~~ | ~~FFmpeg multi-threading via `@ffmpeg/core-mt` (all non-AVIF formats that use FFmpeg)~~ | **Resolved in v2.2.0**. |
-| ~~20~~ | ~~Core~~ | ~~WebCodecs audio fast path (AAC + Opus now universal in all browsers, 3-10x faster than Wasm)~~ | **Resolved in v2.2.0**. |
-| ~~6~~  | ~~UX~~ | ~~Drag & Drop zone + batch file processing~~ | **Resolved in v2.2.0**. |
-| ~~31~~ | ~~Core~~ | ~~Video compression support~~ | **Resolved in v2.2.0**. |
-| ~~42~~ | ~~Core~~ | ~~Video via WebCodecs — H.264/AV1, no FFmpeg needed, 10-50x faster with HW accel~~ | **Resolved in v2.2.0 (Foundation and Heavy Path completed, Fast Path stubbed)**. |
+| ~~34~~ | ~~Perf~~ | ~~FFmpeg multi-threading via `@ffmpeg/core-mt` (all non-AVIF formats that use FFmpeg)~~ | **Resolved in v2.3.0**. |
+| ~~20~~ | ~~Core~~ | ~~WebCodecs audio fast path (AAC + Opus now universal in all browsers, 3-10x faster than Wasm)~~ | **Resolved in v2.3.0**. |
+| ~~6~~  | ~~UX~~ | ~~Drag & Drop zone + batch file processing~~ | **Resolved in v2.3.0**. |
+| ~~31~~ | ~~Core~~ | ~~Video compression support~~ | **Resolved in v2.3.0**. |
+| ~~42~~ | ~~Core~~ | ~~Video via WebCodecs — H.264/AV1, no FFmpeg needed, 10-50x faster with HW accel~~ | **Resolved in v2.3.0 (Foundation and Heavy Path completed, Fast Path stubbed)**. |
 | ~~36~~ | ~~Core~~ | ~~`strict` mode — return original if compressed is larger~~ | **Resolved in v2.1.0**. |
 | 37 | Core | Image resize modes (`contain`/`cover`/`none`) + `minWidth`/`minHeight` |
 | ~~38~~ | ~~Core~~ | ~~Smart format auto-selection (`format: 'auto'`) + PNG→WebP auto-convert~~ | **Resolved in v2.1.0**. |
@@ -181,7 +182,7 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | 18 | UX | PWA / offline capabilities |
 | 43 | Docs | Competitive landscape analysis & strategic positioning reference |
 
-### Recently resolved (v2.2.0)
+### Recently resolved (v2.3.0)
 
 | # | Area | Summary |
 |---|------|---------|
@@ -197,6 +198,7 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | 10 | UX | Audio player exclusivity — custom event bus |
 | 11 | UX | Mute state persistence — sessionStorage |
 | 12 | UX | SAB/COOP-COEP warning banner + coi-serviceworker |
+| 44 | DX | Publish unscoped `omni-compress` package for npm discoverability |
 
 ---
 
@@ -239,7 +241,7 @@ omni-compress targets the ENTIRE media compression ecosystem (~4.7M addressable 
 - Framework integration = #1 growth lever (Sharp grew via Next.js, Zod via tRPC).
 
 ### npm discoverability (CRITICAL)
-npm switched to OpenSearch (Dec 2024). **Scoped packages (`@dharanish/`) are invisible** in search results. Must publish unscoped `omni-compress` (#44).
+npm switched to OpenSearch (Dec 2024). **Scoped packages (`@dharanish/`) are invisible** in search results. ~~Must publish unscoped `omni-compress` (#44).~~ **Resolved**: The main package (`packages/omni-compress/`) is now published as the unscoped `omni-compress` — the canonical source of truth. `packages/omni-compress-proxy/` publishes as the deprecated `@dharanish/omni-compress` scoped shim (thin re-export for backwards compatibility). CI auto-syncs the proxy version before publishing. Run `npm deprecate "@dharanish/omni-compress@<=2.2.0" "Renamed to omni-compress"` once locally after next release.
 
 ### Codec legal status
 All codecs safe (MIT-compatible) except AAC (low risk — active Via Licensing patents, but zero open-source enforcement). H.265/HEVC must be avoided for video — use AV1. Full analysis in #43.
@@ -279,6 +281,18 @@ git push origin v<version>
 # Workflow: .github/workflows/publish.yml — triggers on v* tags
 # Steps: typecheck → test → build → npm publish --provenance
 ```
+
+---
+
+## Working with GitHub issues
+
+**Always read the actual GitHub issue before planning or implementing.**
+
+```bash
+gh issue view <number> --repo dharanish-v/omni-compress
+```
+
+CLAUDE.md issue summaries are abbreviated. The real issue contains the full action item list, research sources, subtasks, and context. Implementing from the summary alone guarantees missing work. Read the full issue body first — every time, no exceptions.
 
 ---
 

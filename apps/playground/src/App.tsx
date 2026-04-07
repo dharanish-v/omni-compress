@@ -5,7 +5,7 @@ import {
   isAudioFile,
   isVideoFile,
   MT_SUPPORTED
-} from "@dharanish/omni-compress";
+} from "omni-compress";
 import { triggerFeedback } from "./utils/feedback";
 
 // Hooks

@@ -13,15 +13,15 @@
     },
     "apps/playground": {
       "name": "playground",
-      "version": "2.1.0",
+      "version": "2.2.0",
       "dependencies": {
         "@astrojs/check": "^0.9.8",
         "@astrojs/react": "^5.0.1",
         "@astrojs/sitemap": "^3.7.1",
-        "@dharanish/omni-compress": "workspace:*",
         "astro": "^6.0.8",
         "browser-image-compression": "^2.0.2",
         "compressorjs": "^1.2.1",
+        "omni-compress": "workspace:*",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
       },
@@ -36,8 +36,8 @@
       },
     },
     "packages/omni-compress": {
-      "name": "@dharanish/omni-compress",
-      "version": "2.1.0",
+      "name": "omni-compress",
+      "version": "2.2.0",
       "dependencies": {
         "@ffmpeg/core": "^0.12.6",
         "@ffmpeg/core-mt": "^0.12.6",
@@ -57,6 +57,13 @@
       },
       "optionalDependencies": {
         "ffmpeg-static": "^5.3.0",
+      },
+    },
+    "packages/omni-compress-proxy": {
+      "name": "@dharanish/omni-compress",
+      "version": "2.2.0",
+      "dependencies": {
+        "omni-compress": "2.2.0",
       },
     },
   },
@@ -131,7 +138,7 @@
 
     "@derhuerst/http-basic": ["@derhuerst/http-basic@8.2.4", "", { "dependencies": { "caseless": "^0.12.0", "concat-stream": "^2.0.0", "http-response-object": "^3.0.1", "parse-cache-control": "^1.0.1" } }, "sha512-F9rL9k9Xjf5blCz8HsJRO4diy111cayL2vkY2XE4r4t3n0yPXVYy3KD3nJ1qbrSn9743UWSXH4IwuCa/HWlGFw=="],
 
-    "@dharanish/omni-compress": ["@dharanish/omni-compress@workspace:packages/omni-compress"],
+    "@dharanish/omni-compress": ["@dharanish/omni-compress@workspace:packages/omni-compress-proxy"],
 
     "@emmetio/abbreviation": ["@emmetio/abbreviation@2.3.3", "", { "dependencies": { "@emmetio/scanner": "^1.0.4" } }, "sha512-mgv58UrU3rh4YgbE/TzgLQwJ3pFsHHhCLqY20aJq+9comytTXUDNGG/SMtSeMJdkpxgXSXunBGLD8Boka3JyVA=="],
 
@@ -988,6 +995,8 @@
     "ofetch": ["ofetch@1.5.1", "", { "dependencies": { "destr": "^2.0.5", "node-fetch-native": "^1.6.7", "ufo": "^1.6.1" } }, "sha512-2W4oUZlVaqAPAil6FUg/difl6YhqhUR7x2eZY4bQCko22UXg3hptq9KLQdqFClV+Wu85UX7hNtdGTngi/1BxcA=="],
 
     "ohash": ["ohash@2.0.11", "", {}, "sha512-RdR9FQrFwNBNXAr4GixM8YaRZRJ5PUWbKYbE5eOsrwAjJW0q2REGcf79oYPsLyskQCZG1PLN+S/K1V00joZAoQ=="],
+
+    "omni-compress": ["omni-compress@workspace:packages/omni-compress"],
 
     "oniguruma-parser": ["oniguruma-parser@0.12.1", "", {}, "sha512-8Unqkvk1RYc6yq2WBYRj4hdnsAxVze8i7iPfQr8e4uSP3tRv0rpZcbGUDvxfQQcdwHt/e9PrMvGCsa8OqG9X3w=="],
 

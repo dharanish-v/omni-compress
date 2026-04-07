@@ -8,7 +8,7 @@ import {
   isImageFile,
   isAudioFile,
   isVideoFile
-} from "@dharanish/omni-compress";
+} from "omni-compress";
 import { triggerFeedback } from "../utils/feedback";
 import type { CompressionStats } from '../types';
 

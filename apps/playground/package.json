@@ -1,7 +1,7 @@
 {
   "name": "playground",
   "private": true,
-  "version": "2.2.0",
+  "version": "2.3.0",
   "type": "module",
   "scripts": {
     "dev": "node scripts/generate-llms-txt.js && astro dev",
@@ -15,7 +15,7 @@
     "@astrojs/check": "^0.9.8",
     "@astrojs/react": "^5.0.1",
     "@astrojs/sitemap": "^3.7.1",
-    "@dharanish/omni-compress": "workspace:*",
+    "omni-compress": "workspace:*",
     "astro": "^6.0.8",
     "browser-image-compression": "^2.0.2",
     "compressorjs": "^1.2.1",

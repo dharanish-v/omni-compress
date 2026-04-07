@@ -38,7 +38,21 @@ jobs:
       - name: Build Library
         working-directory: packages/omni-compress
         run: bun run build
-      - name: Publish to NPM
+      - name: Publish omni-compress to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w omni-compress --access public --provenance
+      - name: Sync @dharanish/omni-compress version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const version = require('./packages/omni-compress/package.json').version;
+            const proxy = JSON.parse(fs.readFileSync('./packages/omni-compress-proxy/package.json', 'utf8'));
+            proxy.version = version;
+            proxy.dependencies['omni-compress'] = version;
+            fs.writeFileSync('./packages/omni-compress-proxy/package.json', JSON.stringify(proxy, null, 2) + '\n');
+          "
+      - name: Publish @dharanish/omni-compress to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w @dharanish/omni-compress --access public --provenance

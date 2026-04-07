@@ -1,6 +1,6 @@
 import React from 'react';
 import { CustomSelect } from './CustomSelect';
-import { isImageFile, isAudioFile, isVideoFile } from '@dharanish/omni-compress';
+import { isImageFile, isAudioFile, isVideoFile } from 'omni-compress';
 import type { ThemeStrings, FeedbackType } from '../types';
 
 interface CompressionControlsProps {

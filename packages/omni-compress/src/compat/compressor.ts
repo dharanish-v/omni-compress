@@ -35,7 +35,7 @@ export interface CompressorOptions extends Omit<ImageOptions, 'format'> {
  * 
  * @example
  * ```ts
- * import Compressor from '@dharanish/omni-compress/compat';
+ * import Compressor from 'omni-compress/compat';
  * 
  * new Compressor(file, {
  *   quality: 0.6,
