@@ -1,6 +1,7 @@
 import type { CompressorOptions } from '../../core/router.js';
 import { AbortError } from '../../core/errors.js';
 import { logger } from '../../core/logger.js';
+import { WorkerConfig } from '../../core/config.js';
 
 let workerIdCounter = 0;
 
@@ -12,18 +13,6 @@ interface WorkerJob {
 }
 
 const pendingJobs = new Map<number, WorkerJob>();
-
-export const WorkerConfig = {
-  imageWorkerUrl: '',
-  audioWorkerUrl: '',
-  videoWorkerUrl: '',
-  /** URL to ffmpeg-core.js (or ffmpeg-core-mt.js if MT_SUPPORTED is true) */
-  ffmpegCoreUrl: '',
-  /** URL to ffmpeg-core.wasm */
-  ffmpegWasmUrl: '',
-  /** URL to ffmpeg-core.worker.js (required for multi-threading) */
-  ffmpegWorkerUrl: '',
-};
 
 /**
  * Indicates if the current environment supports multi-threaded WebAssembly

@@ -258,6 +258,7 @@ export * from './core/router.js';
 export * from './core/utils.js';
 export * from './core/logger.js';
 export * from './core/errors.js';
-export { WorkerConfig, MT_SUPPORTED } from './adapters/browser/workerPool.js';
+export { WorkerConfig } from './core/config.js';
+export { MT_SUPPORTED } from './adapters/browser/workerPool.js';
 export { archive, archiveStream } from './archive.js';
 export { default as Compressor } from './compat/compressor.js';

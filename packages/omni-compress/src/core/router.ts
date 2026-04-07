@@ -1,3 +1,5 @@
+import { WorkerConfig } from './config.js';
+
 // ---------------------------------------------------------------------------
 // v1.x legacy types — kept for the deprecated OmniCompressor.process() shim
 // ---------------------------------------------------------------------------
@@ -183,13 +185,6 @@ const FAST_PATH_AUDIO_FORMATS = new Set(['aac', 'opus']);
 // WebCodecs VideoEncoder supports H.264 and AV1.
 const FAST_PATH_VIDEO_FORMATS = new Set(['mp4', 'webm']);
 
-/**
- * Threshold for bypassing Web Workers to avoid communication overhead.
- * 4MB is a safe limit for most mobile/desktop browsers to process
- * OffscreenCanvas or WebCodecs tasks without noticeable UI stutter.
- */
-const MAIN_THREAD_THRESHOLD = 4 * 1024 * 1024;
-
 export class Router {
   static getEnvironment(): Environment {
     if (typeof process !== 'undefined' && process.versions != null && process.versions.node) {
@@ -228,7 +223,7 @@ export class Router {
       // eliminate worker communication overhead (~50-150ms).
       const isMainThreadEligible = isFastPath || format === 'avif';
       
-      if (isMainThreadEligible && fileSize < MAIN_THREAD_THRESHOLD) {
+      if (isMainThreadEligible && fileSize < WorkerConfig.mainThreadThreshold) {
         shouldUseWorker = false;
       }
     }
