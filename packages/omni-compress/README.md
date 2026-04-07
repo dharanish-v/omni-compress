@@ -124,7 +124,8 @@ const result = await compressImage(file, {
 | `maxWidth`         | `number`                          | —       | Max output width in px (aspect ratio preserved)          |
 | `maxHeight`        | `number`                          | —       | Max output height in px (aspect ratio preserved)         |
 | `preserveMetadata` | `boolean`                         | `false` | Keep EXIF data in the output                             |
-| `onProgress`       | `(percent: number) => void`       | —       | Progress callback `0` – `100` (FFmpeg path only)         |
+| `useWorker`        | `boolean`                         | Auto    | Force Web Worker (true) or Main Thread (false)           |
+| `onProgress`       | `(percent: number) => void`       | —       | Progress callback `0` – `100`                            |
 | `signal`           | `AbortSignal`                     | —       | Cancel the operation — throws `AbortError` when signalled |
 
 #### `compressAudio(input, options): Promise<CompressResult>`
@@ -140,6 +141,7 @@ Compresses an audio file via WebCodecs (fast path) or FFmpeg Wasm (heavy path).
 | `channels`         | `1 \| 2`                          | Auto     | Output channel count (1 = mono, 2 = stereo)              |
 | `sampleRate`       | `number`                          | Auto     | Output sample rate in Hz, e.g. `48000`                   |
 | `preserveMetadata` | `boolean`                         | `false`  | Keep audio tags in the output                            |
+| `useWorker`        | `boolean`                         | Auto     | Force Web Worker (true) or Main Thread (false)           |
 | `onProgress`       | `(percent: number) => void`       | —        | Progress callback `0` – `100`                            |
 | `signal`           | `AbortSignal`                     | —        | Cancel the operation — throws `AbortError` when signalled |
 
@@ -157,6 +159,7 @@ Compresses a video file via WebCodecs (fast path foundation) or FFmpeg Wasm (hea
 | `maxWidth`         | `number`                    | —       | Max output width in px                                   |
 | `maxHeight`        | `number`                    | —       | Max output height in px                                  |
 | `preserveMetadata` | `boolean`                   | `false` | Keep metadata in the output                              |
+| `useWorker`        | `boolean`                   | Auto    | Force Web Worker (true) or Main Thread (false)           |
 | `onProgress`       | `(percent: number) => void` | —       | Progress callback `0` – `100`                            |
 | `signal`           | `AbortSignal`               | —       | Cancel the operation — throws `AbortError` when signalled |
 
@@ -376,8 +379,9 @@ WebCodecs (A/V)    Multi-threaded    Via ffmpeg-static
 
 `omni-compress` includes a smart switching engine that dynamically chooses between the **Main Thread** and **Web Workers**:
 
-*   **Main Thread Path:** Standard web files (< 4MB) using native Fast Paths or the standalone AVIF encoder run directly on the main thread. This eliminates `postMessage` communication latency (~50-150ms), matching the performance of legacy main-thread-only libraries like `compressorjs`.
-*   **Web Worker Path:** Large files (> 4MB) and all FFmpeg Heavy Path tasks are automatically dispatched to background workers. This ensures that long-running operations never freeze your application's UI.
+*   **Main Thread Path:** Standard web files (< 4MB) using native Fast Paths run directly on the main thread. This eliminates `postMessage` communication latency (~50-150ms), matching the performance of legacy main-thread-only libraries like `compressorjs`.
+    *   *Note: AVIF uses a lower 512KB threshold due to higher CPU intensity.*
+*   **Web Worker Path:** Large files and all FFmpeg Heavy Path tasks are automatically dispatched to background workers. This ensures that long-running operations never freeze your application's UI.
 
 
 ---
