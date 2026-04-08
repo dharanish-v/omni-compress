@@ -33,13 +33,11 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Create Release Pull Request or Publish
+      - name: Create Release Pull Request
         uses: changesets/action@v1
         with:
-          publish: bun run release
           version: bun run version-packages
           commit: "chore: version packages"
           title: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
