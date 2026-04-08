@@ -6,7 +6,7 @@ test.describe('Responsive Layout', () => {
   test('no horizontal overflow on mobile (375px)', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
     const viewportWidth = await page.evaluate(() => window.innerWidth);
@@ -16,7 +16,7 @@ test.describe('Responsive Layout', () => {
   test('no horizontal overflow on tablet (768px)', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     const bodyWidth = await page.evaluate(() => document.body.scrollWidth);
     const viewportWidth = await page.evaluate(() => window.innerWidth);

@@ -16,10 +16,14 @@ test.describe('Navigation & Home Page', () => {
       if (msg.type() === 'error') errors.push(msg.text());
     });
     await page.goto(BASE);
-    await page.waitForLoadState('networkidle');
-    // Filter out known non-critical messages (service worker, etc.)
+    await page.waitForLoadState('domcontentloaded');
+    // Filter out known non-critical messages (service worker, SharedArrayBuffer, blocked SW)
     const critical = errors.filter(
-      (e) => !e.includes('coi-serviceworker') && !e.includes('SharedArrayBuffer'),
+      (e) =>
+        !e.includes('coi-serviceworker') &&
+        !e.includes('SharedArrayBuffer') &&
+        !e.includes('service-worker') &&
+        !e.includes('ServiceWorker'),
     );
     expect(critical).toHaveLength(0);
   });

@@ -10,6 +10,10 @@ export default defineConfig({
   use: {
     baseURL: 'http://localhost:4321',
     trace: 'on-first-retry',
+    // Block service workers so coi-serviceworker.js doesn't trigger
+    // a reload loop in CI (it calls location.reload() after installing
+    // to apply COOP/COEP headers, which Playwright sees as infinite navigation)
+    serviceWorkers: 'block',
   },
   projects: [
     {
