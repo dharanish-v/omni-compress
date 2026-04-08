@@ -34,7 +34,11 @@ jobs:
 
       - name: Install Playwright Browsers
         working-directory: packages/omni-compress
-        run: bunx playwright install --with-deps chromium
+        run: bunx playwright install --with-deps chromium firefox webkit
+
+      - name: Lint
+        working-directory: packages/omni-compress
+        run: bun run lint
 
       - name: Type Check
         working-directory: packages/omni-compress
@@ -43,14 +47,24 @@ jobs:
       - name: Run Tests
         working-directory: packages/omni-compress
         run: bun run test --coverage
-        
+
       - name: Build Library
         run: cd packages/omni-compress && bun run build
+
+      - name: Check Bundle Size
+        working-directory: packages/omni-compress
+        run: bun run size
 
       - name: Build Playground
         run: cd apps/playground && bun run build
         env:
           NODE_ENV: production
+
+      - name: Run Playground E2E Tests
+        working-directory: apps/playground
+        run: |
+          bunx playwright install --with-deps chromium
+          bun run test:e2e
 
       - name: Upload artifact
         if: github.ref == 'refs/heads/master' && github.event_name == 'push'

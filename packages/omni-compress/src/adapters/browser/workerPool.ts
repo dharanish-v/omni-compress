@@ -30,7 +30,10 @@ const workerPools = new Map<'image' | 'audio' | 'video', Worker[]>();
 const workerIdleTimers = new Map<Worker, ReturnType<typeof setTimeout>>();
 
 const WORKER_IDLE_TIMEOUT_MS = 60_000; // 60 seconds
-const MAX_CONCURRENT_PER_TYPE = Math.min(4, typeof navigator !== 'undefined' ? (navigator.hardwareConcurrency || 2) : 2);
+const MAX_CONCURRENT_PER_TYPE = Math.min(
+  4,
+  typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2,
+);
 
 function resetWorkerIdleTimer(worker: Worker, type: 'image' | 'audio' | 'video') {
   const existing = workerIdleTimers.get(worker);
@@ -38,14 +41,15 @@ function resetWorkerIdleTimer(worker: Worker, type: 'image' | 'audio' | 'video')
 
   const timer = setTimeout(() => {
     // Check if this worker has any pending jobs
-    const isBusy = Array.from(pendingJobs.values()).some(
-      (job) => job.worker === worker,
-    );
-    
+    const isBusy = Array.from(pendingJobs.values()).some((job) => job.worker === worker);
+
     if (!isBusy) {
       worker.terminate();
       const pool = workerPools.get(type) || [];
-      workerPools.set(type, pool.filter(w => w !== worker));
+      workerPools.set(
+        type,
+        pool.filter((w) => w !== worker),
+      );
       workerIdleTimers.delete(worker);
     } else {
       resetWorkerIdleTimer(worker, type);
@@ -57,11 +61,11 @@ function resetWorkerIdleTimer(worker: Worker, type: 'image' | 'audio' | 'video')
 
 function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
   const pool = workerPools.get(type) || [];
-  
+
   // 1. Try to find an idle worker
-  const busyWorkers = new Set(Array.from(pendingJobs.values()).map(j => j.worker));
-  const idleWorker = pool.find(w => !busyWorkers.has(w));
-  
+  const busyWorkers = new Set(Array.from(pendingJobs.values()).map((j) => j.worker));
+  const idleWorker = pool.find((w) => !busyWorkers.has(w));
+
   if (idleWorker) {
     resetWorkerIdleTimer(idleWorker, type);
     return idleWorker;
@@ -71,15 +75,18 @@ function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
   if (pool.length < MAX_CONCURRENT_PER_TYPE) {
     let workerUrl = '';
     if (type === 'image') {
-      workerUrl = WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
+      workerUrl =
+        WorkerConfig.imageWorkerUrl || new URL('./workers/image.worker.js', import.meta.url).href;
     } else if (type === 'audio') {
-      workerUrl = WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
+      workerUrl =
+        WorkerConfig.audioWorkerUrl || new URL('./workers/audio.worker.js', import.meta.url).href;
     } else {
-      workerUrl = WorkerConfig.videoWorkerUrl || new URL('./workers/video.worker.js', import.meta.url).href;
+      workerUrl =
+        WorkerConfig.videoWorkerUrl || new URL('./workers/video.worker.js', import.meta.url).href;
     }
 
     const worker = new Worker(workerUrl, { type: 'module' });
-    
+
     worker.onmessage = (event: MessageEvent) => {
       const { id, type: msgType, buffer, error, progress } = event.data;
       const job = pendingJobs.get(id);
@@ -105,7 +112,10 @@ function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
     worker.onerror = (error) => {
       logger.error('Worker error:', error);
       const currentPool = workerPools.get(type) || [];
-      workerPools.set(type, currentPool.filter(w => w !== worker));
+      workerPools.set(
+        type,
+        currentPool.filter((w) => w !== worker),
+      );
       workerIdleTimers.delete(worker);
       worker.terminate();
     };
@@ -156,8 +166,16 @@ function drainQueue(type: 'image' | 'audio' | 'video') {
       return;
     }
 
-    dispatchToWorker(worker, next.data, next.options, next.isFastPath, next.resolve, next.reject, next.signal);
-  } catch (e) {
+    dispatchToWorker(
+      worker,
+      next.data,
+      next.options,
+      next.isFastPath,
+      next.resolve,
+      next.reject,
+      next.signal,
+    );
+  } catch (_e) {
     // No worker available yet, stay in queue
   }
 }
@@ -192,7 +210,10 @@ function dispatchToWorker(
       pendingJobs.delete(id);
       worker.terminate();
       const pool = workerPools.get(type) || [];
-      workerPools.set(type, pool.filter(w => w !== worker));
+      workerPools.set(
+        type,
+        pool.filter((w) => w !== worker),
+      );
       workerIdleTimers.delete(worker);
       finalReject(new AbortError('Compression aborted'));
       drainQueue(type);

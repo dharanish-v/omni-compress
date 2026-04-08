@@ -4,8 +4,6 @@ import {
   arrayBufferToBlob,
   getMimeType,
   assertFileSizeWithinLimit,
-  isImageFile,
-  isAudioFile,
 } from './utils.js';
 import { processWithBrowserWorker } from '../adapters/browser/workerPool.js';
 import { logger } from './logger.js';
@@ -51,73 +49,71 @@ export async function _compress(
   // Resolve 'auto' format before routing
   const originalFormat = options.format;
   options.format = resolveAutoFormat(input, options);
-  
+
   if (originalFormat === 'auto') {
     logger.info(`Auto-format resolved: ${options.format}`, { type: options.type });
   }
-logger.info('Starting compression', { type: options.type, format: options.format });
-const route = Router.evaluate(options, input.size);
-logger.debug('Route evaluated', route);
+  logger.info('Starting compression', { type: options.type, format: options.format });
+  const route = Router.evaluate(options, input.size);
+  logger.debug('Route evaluated', route);
 
-const fileSize = input.size;
-assertFileSizeWithinLimit(fileSize, route.env);
+  const fileSize = input.size;
+  assertFileSizeWithinLimit(fileSize, route.env);
 
-const mimeType = getMimeType(options.type, options.format);
+  const mimeType = getMimeType(options.type, options.format);
 
-if ('name' in input) {
-  options.originalFileName = input.name;
-  logger.debug(`Extracted original filename: ${options.originalFileName}`);
-}
-
-options.onProgress?.(0);
-
-let processedBlob: Blob;
-
-if (route.env === 'node') {
-  logger.info('Executing via Node.js native adapter');
-  if (!processWithNode) {
-    logger.debug('Dynamically loading Node child_process adapter');
-    const adapter = await import('../adapters/node/childProcess.js');
-    processWithNode = adapter.processWithNode;
+  if ('name' in input) {
+    options.originalFileName = input.name;
+    logger.debug(`Extracted original filename: ${options.originalFileName}`);
   }
-  processedBlob = await processWithNode!(input, options, signal);
-} else {
-  let processedBuffer: ArrayBuffer;
 
-  if (!route.shouldUseWorker) {
-    // 1. High-speed Main Thread Path
-    // We still need the buffer here as native APIs on main thread expect it
-    logger.debug('Converting File/Blob to ArrayBuffer for main-thread execution');
-    const buffer = await fileToArrayBuffer(input);
+  options.onProgress?.(0);
 
-    try {
-      logger.info('Executing via Main Thread (High-speed path)');
-      const adapter = await import('../adapters/browser/mainThread.js');
-      processedBuffer = await adapter.processOnMainThread(
-        buffer,
-        options,
-        route.isFastPath,
-        options.onProgress,
-      );
-    } catch (mainThreadError: any) {
-      logger.warn(
-        `Main thread execution failed: ${mainThreadError.message}. Falling back to Worker.`,
-      );
-      // Worker path can take the original File/Blob directly
+  let processedBlob: Blob;
+
+  if (route.env === 'node') {
+    logger.info('Executing via Node.js native adapter');
+    if (!processWithNode) {
+      logger.debug('Dynamically loading Node child_process adapter');
+      const adapter = await import('../adapters/node/childProcess.js');
+      processWithNode = adapter.processWithNode;
+    }
+    processedBlob = await processWithNode!(input, options, signal);
+  } else {
+    let processedBuffer: ArrayBuffer;
+
+    if (!route.shouldUseWorker) {
+      // 1. High-speed Main Thread Path
+      // We still need the buffer here as native APIs on main thread expect it
+      logger.debug('Converting File/Blob to ArrayBuffer for main-thread execution');
+      const buffer = await fileToArrayBuffer(input);
+
+      try {
+        logger.info('Executing via Main Thread (High-speed path)');
+        const adapter = await import('../adapters/browser/mainThread.js');
+        processedBuffer = await adapter.processOnMainThread(
+          buffer,
+          options,
+          route.isFastPath,
+          options.onProgress,
+        );
+      } catch (mainThreadError: any) {
+        logger.warn(
+          `Main thread execution failed: ${mainThreadError.message}. Falling back to Worker.`,
+        );
+        // Worker path can take the original File/Blob directly
+        processedBuffer = await processWithBrowserWorker(input, options, route.isFastPath, signal);
+      }
+    } else {
+      // 2. Background Worker Path
+      // Performance optimization: pass the raw File/Blob to the worker and let it read it
+      // off the main thread. postMessage(blob) is instantaneous.
+      logger.info(`Executing via Browser Worker pool. Fast path: ${route.isFastPath}`);
       processedBuffer = await processWithBrowserWorker(input, options, route.isFastPath, signal);
     }
-  } else {
-    // 2. Background Worker Path
-    // Performance optimization: pass the raw File/Blob to the worker and let it read it
-    // off the main thread. postMessage(blob) is instantaneous.
-    logger.info(`Executing via Browser Worker pool. Fast path: ${route.isFastPath}`);
-    processedBuffer = await processWithBrowserWorker(input, options, route.isFastPath, signal);
+
+    processedBlob = arrayBufferToBlob(processedBuffer, mimeType);
   }
-
-  processedBlob = arrayBufferToBlob(processedBuffer, mimeType);
-}
-
-
 
   logger.info('Processing complete');
   options.onProgress?.(100);

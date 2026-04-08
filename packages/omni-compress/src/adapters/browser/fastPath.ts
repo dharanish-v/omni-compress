@@ -7,10 +7,10 @@ import { getMimeType } from '../../core/utils.js';
  */
 export async function processImageFastPath(
   buffer: ArrayBuffer,
-  options: CompressorOptions
+  options: CompressorOptions,
 ): Promise<ArrayBuffer> {
   const blob = new Blob([buffer]);
-  
+
   let targetWidth: number | undefined;
   let targetHeight: number | undefined;
 
@@ -29,7 +29,7 @@ export async function processImageFastPath(
       targetWidth = options.maxWidth;
       targetHeight = targetWidth / ratio;
     }
-    
+
     if (options.maxHeight && targetHeight > options.maxHeight) {
       targetHeight = options.maxHeight;
       targetWidth = targetHeight * ratio;
@@ -45,7 +45,7 @@ export async function processImageFastPath(
     resizeHeight: targetHeight,
     resizeQuality: 'high',
   });
-  
+
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
@@ -68,7 +68,7 @@ export async function processImageFastPath(
  */
 export async function processAudioFastPath(
   buffer: ArrayBuffer,
-  options: CompressorOptions
+  options: CompressorOptions,
 ): Promise<ArrayBuffer> {
   if (typeof AudioEncoder === 'undefined' || typeof AudioDecoder === 'undefined') {
     throw new Error('WebCodecs API not supported in this environment.');
@@ -86,14 +86,13 @@ export async function processAudioFastPath(
 
   // 2. Encode PCM data to target format
   const isAAC = options.format.toLowerCase() === 'aac';
-  const isOpus = options.format.toLowerCase() === 'opus';
-  
+
   // Note: Standard WebCodecs output format for AAC is raw frames (needing ADTS headers for playback)
   // For Opus, it typically outputs Ogg Opus packets.
-  
+
   return new Promise((resolve, reject) => {
     const encodedChunks: Uint8Array[] = [];
-    
+
     const encoder = new AudioEncoder({
       output: (chunk) => {
         const body = new Uint8Array(chunk.byteLength);
@@ -124,13 +123,13 @@ export async function processAudioFastPath(
 
     try {
       encoder.configure(encoderConfig);
-      
+
       for (const chunk of audioDataChunks) {
         encoder.encode(chunk);
         chunk.close(); // Critical: Free memory immediately
       }
-      
-      encoder.flush().then(() => {
+
+      void encoder.flush().then(() => {
         encoder.close();
         const totalLength = encodedChunks.reduce((acc, c) => acc + c.length, 0);
         const finalBuffer = new Uint8Array(totalLength);
@@ -150,13 +149,13 @@ export async function processAudioFastPath(
 /**
  * FAST PATH: Video Processing (WebCodecs)
  * Hardware-accelerated video encoding via VideoEncoder.
- * 
+ *
  * Note: Video processing is complex due to container muxing (MP4/WebM).
  * Full implementation pending. Currently routes to Heavy Path.
  */
 export async function processVideoFastPath(
   _buffer: ArrayBuffer,
-  _options: CompressorOptions
+  _options: CompressorOptions,
 ): Promise<ArrayBuffer> {
   if (typeof VideoEncoder === 'undefined') {
     throw new Error('WebCodecs Video API not supported in this environment.');
@@ -167,8 +166,10 @@ export async function processVideoFastPath(
   // 2. Decode video stream to VideoFrame objects
   // 3. Re-encode VideoFrames via VideoEncoder
   // 4. Mux encoded chunks back into target container
-  
-  throw new Error('Video Fast Path (WebCodecs) pending implementation. Routing to Heavy Path (FFmpeg).');
+
+  throw new Error(
+    'Video Fast Path (WebCodecs) pending implementation. Routing to Heavy Path (FFmpeg).',
+  );
 }
 
 /**
@@ -180,19 +181,21 @@ async function decodeAudio(buffer: ArrayBuffer): Promise<AudioData[]> {
   // For raw bitstreams, we'd need a demuxer.
   // HOWEVER, many browsers allow decoding via AudioContext.decodeAudioData
   // but AudioContext is not available in Workers.
-  
+
   // Strategy: If input is WAV, use our demuxer. Otherwise, throw to fallback.
   // Full cross-format decoding in Workers is usually best handled by FFmpeg (Heavy Path).
   const info = isWav(buffer) ? demuxWav(buffer) : null;
   if (!info) {
-    throw new Error('Worker-side decoding only supported for WAV in Fast Path. Redirecting to Heavy Path.');
+    throw new Error(
+      'Worker-side decoding only supported for WAV in Fast Path. Redirecting to Heavy Path.',
+    );
   }
 
   // For WAV, we can skip decoding and create AudioData directly from PCM
   // This implementation assumes 16-bit integer PCM (standard WAV)
   const pcmData = new Int16Array(buffer, info.dataOffset);
   const totalSamples = pcmData.length / info.channels;
-  
+
   const audioData = new AudioData({
     format: 's16', // Signed 16-bit
     sampleRate: info.sampleRate,
@@ -208,8 +211,18 @@ async function decodeAudio(buffer: ArrayBuffer): Promise<AudioData[]> {
 function isWav(buffer: ArrayBuffer): boolean {
   const view = new DataView(buffer);
   if (buffer.byteLength < 12) return false;
-  const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
-  const wave = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11));
+  const riff = String.fromCharCode(
+    view.getUint8(0),
+    view.getUint8(1),
+    view.getUint8(2),
+    view.getUint8(3),
+  );
+  const wave = String.fromCharCode(
+    view.getUint8(8),
+    view.getUint8(9),
+    view.getUint8(10),
+    view.getUint8(11),
+  );
   return riff === 'RIFF' && wave === 'WAVE';
 }
 
@@ -227,11 +240,21 @@ function parseBitrate(bitrate?: string): number | null {
  */
 function demuxWav(buffer: ArrayBuffer) {
   const view = new DataView(buffer);
-  
+
   // Verify RIFF/WAVE signature
-  const riff = String.fromCharCode(view.getUint8(0), view.getUint8(1), view.getUint8(2), view.getUint8(3));
-  const wave = String.fromCharCode(view.getUint8(8), view.getUint8(9), view.getUint8(10), view.getUint8(11));
-  
+  const riff = String.fromCharCode(
+    view.getUint8(0),
+    view.getUint8(1),
+    view.getUint8(2),
+    view.getUint8(3),
+  );
+  const wave = String.fromCharCode(
+    view.getUint8(8),
+    view.getUint8(9),
+    view.getUint8(10),
+    view.getUint8(11),
+  );
+
   if (riff !== 'RIFF' || wave !== 'WAVE') {
     throw new Error('Invalid WAV file structure');
   }
@@ -250,18 +273,20 @@ function demuxWav(buffer: ArrayBuffer) {
  * Reference: ISO/IEC 13818-7
  */
 function createAdtsHeader(sampleRate: number, channels: number, frameLength: number): Uint8Array {
-  const samplingFrequencies = [96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350];
+  const samplingFrequencies = [
+    96000, 88200, 64000, 48000, 44100, 32000, 24000, 22050, 16000, 12000, 11025, 8000, 7350,
+  ];
   const freqIdx = samplingFrequencies.indexOf(sampleRate);
   const fullLength = frameLength + 7;
   const header = new Uint8Array(7);
 
-  header[0] = 0xFF; // Sync word (12 bits)
-  header[1] = 0xF1; // Sync word + Layer + Protection
-  header[2] = ((1 << 6) | (freqIdx << 2) | (channels >> 2));
-  header[3] = (((channels & 3) << 6) | (fullLength >> 11));
-  header[4] = ((fullLength & 0x7FF) >> 3);
-  header[5] = (((fullLength & 7) << 5) | 0x1F);
-  header[6] = 0xFC;
+  header[0] = 0xff; // Sync word (12 bits)
+  header[1] = 0xf1; // Sync word + Layer + Protection
+  header[2] = (1 << 6) | (freqIdx << 2) | (channels >> 2);
+  header[3] = ((channels & 3) << 6) | (fullLength >> 11);
+  header[4] = (fullLength & 0x7ff) >> 3;
+  header[5] = ((fullLength & 7) << 5) | 0x1f;
+  header[6] = 0xfc;
 
   return header;
 }

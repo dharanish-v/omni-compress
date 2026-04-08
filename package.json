@@ -8,13 +8,40 @@
   "scripts": {
     "build": "cd packages/omni-compress && bun run build && cd ../../apps/playground && bun run build",
     "dev": "cd apps/playground && bun run dev",
-    "clean": "rm -rf node_modules && rm -rf packages/*/node_modules && rm -rf apps/*/node_modules && rm -rf packages/*/dist && rm -rf apps/*/dist"
+    "changeset": "changeset",
+    "version-packages": "changeset version",
+    "release": "bun run build && npm publish -w omni-compress --access public --provenance",
+    "lint": "eslint packages/omni-compress/src apps/playground/src",
+    "format": "prettier --write .",
+    "clean": "rm -rf node_modules && rm -rf packages/*/node_modules && rm -rf apps/*/node_modules && rm -rf packages/*/dist && rm -rf apps/*/dist",
+    "prepare": "husky"
   },
   "devDependencies": {
-    "typescript": "^5.4.5"
+    "@changesets/cli": "^2.30.0",
+    "@typescript-eslint/eslint-plugin": "^8.58.1",
+    "@typescript-eslint/parser": "^8.58.1",
+    "eslint": "^10.2.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.4.5",
+    "typescript-eslint": "^8.58.1"
   },
   "dependencies": {
     "@tailwindcss/vite": "4.0.0",
     "tailwindcss": "4.0.0"
+  },
+  "lint-staged": {
+    "packages/omni-compress/src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "apps/playground/src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
   }
 }

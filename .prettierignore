@@ -1,0 +1,9 @@
+dist
+node_modules
+coverage
+bun.lock
+*.cjs
+*.js
+public/coi-serviceworker.js
+public/llms.txt
+public/llms-full.txt

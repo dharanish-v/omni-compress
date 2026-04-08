@@ -1,20 +1,13 @@
 import {
-  Router,
   type CompressorOptions,
   type CompressResult,
   type ImageOptions,
   type AudioOptions,
   type VideoOptions,
 } from './core/router.js';
-import {
-  fileToArrayBuffer,
-  arrayBufferToBlob,
-  getMimeType,
-  assertFileSizeWithinLimit,
-} from './core/utils.js';
 import { _compress } from './core/processor.js';
 import { logger } from './core/logger.js';
-import { InvalidOptionsError, FormatNotSupportedError, AbortError } from './core/errors.js';
+import { InvalidOptionsError, FormatNotSupportedError } from './core/errors.js';
 
 const VALID_IMAGE_FORMATS = new Set(['webp', 'avif', 'jpeg', 'jpg', 'png', 'auto']);
 const VALID_AUDIO_FORMATS = new Set(['opus', 'mp3', 'flac', 'wav', 'aac', 'ogg', 'auto']);
@@ -204,13 +197,22 @@ function validateLegacyOptions(options: CompressorOptions): void {
   }
   const knownFormats = options.type === 'image' ? VALID_IMAGE_FORMATS : VALID_AUDIO_FORMATS;
   if (!knownFormats.has(options.format.toLowerCase())) {
-    logger.warn(`Format "${options.format}" is not a recognized ${options.type} format. Proceeding via Heavy Path.`);
+    logger.warn(
+      `Format "${options.format}" is not a recognized ${options.type} format. Proceeding via Heavy Path.`,
+    );
   }
   if (options.quality !== undefined && (options.quality < 0 || options.quality > 1)) {
-    throw new InvalidOptionsError(`Quality must be between 0.0 and 1.0. Received: ${options.quality}`);
+    throw new InvalidOptionsError(
+      `Quality must be between 0.0 and 1.0. Received: ${options.quality}`,
+    );
   }
-  if (options.maxSizeMB !== undefined && (typeof options.maxSizeMB !== 'number' || options.maxSizeMB <= 0)) {
-    throw new InvalidOptionsError(`maxSizeMB must be a positive number. Received: ${options.maxSizeMB}`);
+  if (
+    options.maxSizeMB !== undefined &&
+    (typeof options.maxSizeMB !== 'number' || options.maxSizeMB <= 0)
+  ) {
+    throw new InvalidOptionsError(
+      `maxSizeMB must be a positive number. Received: ${options.maxSizeMB}`,
+    );
   }
 }
 

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-// @ts-ignore
+// @ts-expect-error — ffmpeg-static has no bundled type declarations
 import ffmpegPath from 'ffmpeg-static';
 
 import type { CompressorOptions } from '../../core/router.js';
@@ -34,7 +34,7 @@ export async function processWithNode(
   if (signal?.aborted) throw new AbortError('Compression aborted');
   const buffer = await ensureBuffer(file);
   const tempId = randomUUID();
-  
+
   // We use the OS temp directory for processing
   const inputPath = join(tmpdir(), `input_${tempId}`);
   const outputPath = join(tmpdir(), `output_${tempId}.${options.format}`);
@@ -65,7 +65,10 @@ export async function processWithNode(
         // Use FFmpeg scale filter with 'min' to prevent upscaling
         // scale='min(iw,w):min(ih,h):force_original_aspect_ratio=decrease'
         if (w !== -1 && h !== -1) {
-          args.push('-vf', `scale='min(${w},iw):min(${h},ih):force_original_aspect_ratio=decrease'`);
+          args.push(
+            '-vf',
+            `scale='min(${w},iw):min(${h},ih):force_original_aspect_ratio=decrease'`,
+          );
         } else {
           args.push('-vf', `scale=${w}:${h}`);
         }
@@ -78,9 +81,10 @@ export async function processWithNode(
         }
       } else if (options.format === 'avif') {
         // -b:v 0 required for CRF constrained-quality mode; -still-picture 1 for valid AVIF.
-        const crf = options.quality !== undefined
-          ? Math.max(0, Math.min(63, Math.round((1 - options.quality) * 63)))
-          : 32;
+        const crf =
+          options.quality !== undefined
+            ? Math.max(0, Math.min(63, Math.round((1 - options.quality) * 63)))
+            : 32;
         args.push('-vcodec', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-still-picture', '1');
       }
     } else if (options.type === 'audio') {
@@ -105,7 +109,10 @@ export async function processWithNode(
         const w = options.maxWidth || -1;
         const h = options.maxHeight || -1;
         if (w !== -1 && h !== -1) {
-          args.push('-vf', `scale='min(${w},iw):min(${h},ih):force_original_aspect_ratio=decrease'`);
+          args.push(
+            '-vf',
+            `scale='min(${w},iw):min(${h},ih):force_original_aspect_ratio=decrease'`,
+          );
         } else {
           args.push('-vf', `scale=${w}:${h}`);
         }
@@ -172,7 +179,11 @@ export async function processWithNode(
 
       child.on('error', (err) => {
         signal?.removeEventListener('abort', onAbort);
-        reject(new Error(`Failed to start FFmpeg child process: ${err.message}. Ensure ffmpeg is installed or ffmpeg-static is bundled.`));
+        reject(
+          new Error(
+            `Failed to start FFmpeg child process: ${err.message}. Ensure ffmpeg is installed or ffmpeg-static is bundled.`,
+          ),
+        );
       });
     });
 
@@ -192,11 +203,10 @@ export async function processWithNode(
     // Convert Buffer to ArrayBuffer to Blob for standard web API compliance
     const arrayBuffer = resultBuffer.buffer.slice(
       resultBuffer.byteOffset,
-      resultBuffer.byteOffset + resultBuffer.byteLength
+      resultBuffer.byteOffset + resultBuffer.byteLength,
     );
 
     return new Blob([arrayBuffer], { type: mimeType });
-
   } finally {
     // 6. Cleanup temporary files regardless of success/failure
     try {

@@ -29,14 +29,14 @@ export interface CompressorOptions extends Omit<ImageOptions, 'format'> {
 
 /**
  * Compatibility shim for `compressorjs`.
- * 
+ *
  * Provides an API identical to the `Compressor` class from the `compressorjs` package,
  * but uses `omni-compress` under the hood to support AVIF and faster Web Workers.
- * 
+ *
  * @example
  * ```ts
  * import Compressor from 'omni-compress/compat';
- * 
+ *
  * new Compressor(file, {
  *   quality: 0.6,
  *   success(result) {
@@ -50,7 +50,7 @@ export interface CompressorOptions extends Omit<ImageOptions, 'format'> {
  */
 export default class Compressor {
   constructor(file: File | Blob, options: CompressorOptions = {}) {
-    this.compress(file, options);
+    void this.compress(file, options);
   }
 
   private async compress(file: File | Blob, options: CompressorOptions) {
@@ -66,7 +66,7 @@ export default class Compressor {
     try {
       let targetFormat = mimeType.replace('image/', '');
       if (targetFormat === 'jpg') targetFormat = 'jpeg';
-      
+
       // Handle convertSize (compressorjs feature)
       if (file.size > convertSize && targetFormat !== 'jpeg') {
         targetFormat = 'jpeg';
@@ -90,6 +90,7 @@ export default class Compressor {
         error(errorObj);
       } else {
         // Surface the error to console if no callback provided to avoid silent failure
+        // eslint-disable-next-line no-console
         console.error('[OmniCompress:Compat] Compression failed:', errorObj);
       }
     }
