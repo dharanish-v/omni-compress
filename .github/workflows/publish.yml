@@ -59,4 +59,5 @@ jobs:
       - name: Deprecate @dharanish/omni-compress
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm deprecate "@dharanish/omni-compress" "Renamed to 'omni-compress'. Please update: npm install omni-compress"
+        run: |
+          npm deprecate "@dharanish/omni-compress" "Renamed to 'omni-compress'. Please update: npm install omni-compress"
