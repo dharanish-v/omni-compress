@@ -142,7 +142,7 @@ See [SECURITY.md](SECURITY.md) for our vulnerability reporting policy.
 
 | Problem                                        | How omni-compress solves it                                                      |
 | ---------------------------------------------- | -------------------------------------------------------------------------------- |
-| Browser and Node need different code paths     | Single Isomorphic API — environment detection is automatic                        |
+| Browser and Node need different code paths     | Single Isomorphic API — environment detection is automatic                       |
 | Archiving or batching needs separate libs      | **Built-in ZIP** `archive()` and `archiveStream()` for any file type             |
 | FFmpeg Wasm is heavy (~30 MB) and slow to load | Uses native `OffscreenCanvas`/`WebCodecs` for standard formats (0 KB Wasm)       |
 | Media processing freezes the UI                | **ALL** browser work runs in Web Workers with zero-copy `Transferable` transfers |
@@ -179,11 +179,11 @@ yarn add omni-compress
 ## Quick Start
 
 ```typescript
-import { compressImage, compressAudio, compressVideo } from "omni-compress";
+import { compressImage, compressAudio, compressVideo } from 'omni-compress';
 
 // Image → WebP
 const { blob, ratio } = await compressImage(imageFile, {
-  format: "webp",
+  format: 'webp',
   quality: 0.8,
 });
 console.log(`Saved ${Math.round((1 - ratio) * 100)}%`);
@@ -191,24 +191,24 @@ console.log(`Saved ${Math.round((1 - ratio) * 100)}%`);
 // Audio → Opus (with cancellation)
 const controller = new AbortController();
 const { blob: audio } = await compressAudio(audioFile, {
-  format: "opus",
-  bitrate: "96k",
+  format: 'opus',
+  bitrate: '96k',
   onProgress: (p) => console.log(`${p}%`),
   signal: controller.signal,
 });
 
 // Video → MP4
 const { blob: video } = await compressVideo(videoFile, {
-  format: "mp4",
-  bitrate: "1M",
+  format: 'mp4',
+  bitrate: '1M',
 });
 
 // Archive multiple files into a ZIP
-import { archive } from "omni-compress";
+import { archive } from 'omni-compress';
 const { blob: zip } = await archive([
-  { name: "photo.webp", data: blob },
-  { name: "audio.opus", data: audio },
-  { name: "video.mp4", data: video },
+  { name: 'photo.webp', data: blob },
+  { name: 'audio.opus', data: audio },
+  { name: 'video.mp4', data: video },
 ]);
 ```
 
@@ -221,10 +221,10 @@ const { blob: zip } = await archive([
 Compresses an image using the fastest available engine (OffscreenCanvas fast path, FFmpeg Wasm heavy path, or native ffmpeg on Node).
 
 ```typescript
-import { compressImage } from "omni-compress";
+import { compressImage } from 'omni-compress';
 
 const result = await compressImage(file, {
-  format: "webp",
+  format: 'webp',
   quality: 0.8,
   maxWidth: 1920,
   signal: controller.signal,
@@ -236,16 +236,16 @@ const result = await compressImage(file, {
 
 **`ImageOptions`**
 
-| Property           | Type                              | Default | Description                                              |
-| ------------------ | --------------------------------- | ------- | -------------------------------------------------------- |
-| `format`           | `'webp' \| 'avif' \| 'jpeg' \| 'png'` | —   | Target output format                                     |
-| `quality`          | `number`                          | `0.8`   | Lossy quality `0.0` – `1.0`                              |
-| `maxWidth`         | `number`                          | —       | Max output width in px (aspect ratio preserved)          |
-| `maxHeight`        | `number`                          | —       | Max output height in px (aspect ratio preserved)         |
-| `preserveMetadata` | `boolean`                         | `false` | Keep EXIF data in the output                             |
-| `useWorker`        | `boolean`                         | Auto    | Force Web Worker (true) or Main Thread (false)           |
-| `onProgress`       | `(percent: number) => void`       | —       | Progress callback `0` – `100`                            |
-| `signal`           | `AbortSignal`                     | —       | Cancel the operation — throws `AbortError` when signalled |
+| Property           | Type                                  | Default | Description                                               |
+| ------------------ | ------------------------------------- | ------- | --------------------------------------------------------- |
+| `format`           | `'webp' \| 'avif' \| 'jpeg' \| 'png'` | —       | Target output format                                      |
+| `quality`          | `number`                              | `0.8`   | Lossy quality `0.0` – `1.0`                               |
+| `maxWidth`         | `number`                              | —       | Max output width in px (aspect ratio preserved)           |
+| `maxHeight`        | `number`                              | —       | Max output height in px (aspect ratio preserved)          |
+| `preserveMetadata` | `boolean`                             | `false` | Keep EXIF data in the output                              |
+| `useWorker`        | `boolean`                             | Auto    | Force Web Worker (true) or Main Thread (false)            |
+| `onProgress`       | `(percent: number) => void`           | —       | Progress callback `0` – `100`                             |
+| `signal`           | `AbortSignal`                         | —       | Cancel the operation — throws `AbortError` when signalled |
 
 #### `compressAudio(input, options): Promise<CompressResult>`
 
@@ -253,16 +253,16 @@ Compresses an audio file via WebCodecs (fast path) or FFmpeg Wasm (heavy path).
 
 **`AudioOptions`**
 
-| Property           | Type                              | Default  | Description                                              |
-| ------------------ | --------------------------------- | -------- | -------------------------------------------------------- |
-| `format`           | `'opus' \| 'mp3' \| 'flac' \| 'wav' \| 'aac'` | — | Target output format                          |
-| `bitrate`          | `string`                          | `'128k'` | Target bitrate, e.g. `'96k'`, `'192k'`                  |
-| `channels`         | `1 \| 2`                          | Auto     | Output channel count (1 = mono, 2 = stereo)              |
-| `sampleRate`       | `number`                          | Auto     | Output sample rate in Hz, e.g. `48000`                   |
-| `preserveMetadata` | `boolean`                         | `false`  | Keep audio tags in the output                            |
-| `useWorker`        | `boolean`                         | Auto     | Force Web Worker (true) or Main Thread (false)           |
-| `onProgress`       | `(percent: number) => void`       | —        | Progress callback `0` – `100`                            |
-| `signal`           | `AbortSignal`                     | —        | Cancel the operation — throws `AbortError` when signalled |
+| Property           | Type                                          | Default  | Description                                               |
+| ------------------ | --------------------------------------------- | -------- | --------------------------------------------------------- |
+| `format`           | `'opus' \| 'mp3' \| 'flac' \| 'wav' \| 'aac'` | —        | Target output format                                      |
+| `bitrate`          | `string`                                      | `'128k'` | Target bitrate, e.g. `'96k'`, `'192k'`                    |
+| `channels`         | `1 \| 2`                                      | Auto     | Output channel count (1 = mono, 2 = stereo)               |
+| `sampleRate`       | `number`                                      | Auto     | Output sample rate in Hz, e.g. `48000`                    |
+| `preserveMetadata` | `boolean`                                     | `false`  | Keep audio tags in the output                             |
+| `useWorker`        | `boolean`                                     | Auto     | Force Web Worker (true) or Main Thread (false)            |
+| `onProgress`       | `(percent: number) => void`                   | —        | Progress callback `0` – `100`                             |
+| `signal`           | `AbortSignal`                                 | —        | Cancel the operation — throws `AbortError` when signalled |
 
 #### `compressVideo(input, options): Promise<CompressResult>`
 
@@ -270,16 +270,16 @@ Compresses a video file via WebCodecs (fast path foundation) or FFmpeg Wasm (hea
 
 **`VideoOptions`**
 
-| Property           | Type                        | Default | Description                                              |
-| ------------------ | --------------------------- | ------- | -------------------------------------------------------- |
-| `format`           | `'mp4' \| 'webm'`           | —       | Target output format                                     |
-| `bitrate`          | `string`                    | `'1M'`  | Target video bitrate, e.g. `'500k'`, `'2M'`              |
-| `fps`              | `number`                    | Auto    | Output frame rate                                        |
-| `maxWidth`         | `number`                    | —       | Max output width in px                                   |
-| `maxHeight`        | `number`                    | —       | Max output height in px                                  |
-| `preserveMetadata` | `boolean`                   | `false` | Keep metadata in the output                              |
-| `useWorker`        | `boolean`                   | Auto    | Force Web Worker (true) or Main Thread (false)           |
-| `onProgress`       | `(percent: number) => void` | —       | Progress callback `0` – `100`                            |
+| Property           | Type                        | Default | Description                                               |
+| ------------------ | --------------------------- | ------- | --------------------------------------------------------- |
+| `format`           | `'mp4' \| 'webm'`           | —       | Target output format                                      |
+| `bitrate`          | `string`                    | `'1M'`  | Target video bitrate, e.g. `'500k'`, `'2M'`               |
+| `fps`              | `number`                    | Auto    | Output frame rate                                         |
+| `maxWidth`         | `number`                    | —       | Max output width in px                                    |
+| `maxHeight`        | `number`                    | —       | Max output height in px                                   |
+| `preserveMetadata` | `boolean`                   | `false` | Keep metadata in the output                               |
+| `useWorker`        | `boolean`                   | Auto    | Force Web Worker (true) or Main Thread (false)            |
+| `onProgress`       | `(percent: number) => void` | —       | Progress callback `0` – `100`                             |
 | `signal`           | `AbortSignal`               | —       | Cancel the operation — throws `AbortError` when signalled |
 
 #### `CompressResult`
@@ -288,11 +288,11 @@ Compresses a video file via WebCodecs (fast path foundation) or FFmpeg Wasm (hea
 
 ```typescript
 interface CompressResult {
-  blob: Blob;           // The compressed output
+  blob: Blob; // The compressed output
   originalSize: number; // Input size in bytes
   compressedSize: number; // Output size in bytes
-  ratio: number;        // compressedSize / originalSize (< 1.0 = smaller)
-  format: string;       // Target format used (e.g. 'webp')
+  ratio: number; // compressedSize / originalSize (< 1.0 = smaller)
+  format: string; // Target format used (e.g. 'webp')
 }
 ```
 
@@ -301,14 +301,14 @@ interface CompressResult {
 Compresses an array of files into a ZIP archive. Works identically in browser and Node.js.
 
 ```typescript
-import { archive } from "omni-compress";
+import { archive } from 'omni-compress';
 
 const result = await archive(
   [
-    { name: "images/photo.webp", data: imageBlob },
-    { name: "audio/track.opus", data: audioBlob },
+    { name: 'images/photo.webp', data: imageBlob },
+    { name: 'audio/track.opus', data: audioBlob },
   ],
-  { level: 6, signal: controller.signal }
+  { level: 6, signal: controller.signal },
 );
 // result.blob       → the ZIP Blob (application/zip)
 // result.ratio      → compression ratio
@@ -319,29 +319,29 @@ const result = await archive(
 Streaming ZIP output — prefer this for large archives where you want to start sending bytes before all entries are compressed.
 
 ```typescript
-import { archiveStream } from "omni-compress";
+import { archiveStream } from 'omni-compress';
 
 const stream = archiveStream(entries, { level: 6 });
 const response = new Response(stream, {
-  headers: { "Content-Type": "application/zip" },
+  headers: { 'Content-Type': 'application/zip' },
 });
 ```
 
 **`ArchiveOptions`**
 
-| Property     | Type                        | Default | Description                                    |
-| ------------ | --------------------------- | ------- | ---------------------------------------------- |
-| `format`     | `'zip'`                     | `'zip'` | Archive format (only ZIP supported currently)  |
+| Property     | Type                        | Default | Description                                           |
+| ------------ | --------------------------- | ------- | ----------------------------------------------------- |
+| `format`     | `'zip'`                     | `'zip'` | Archive format (only ZIP supported currently)         |
 | `level`      | `0` – `9`                   | `6`     | fflate deflate level (0 = store, 9 = max compression) |
-| `onProgress` | `(percent: number) => void` | —       | Progress callback `0` – `100`                  |
-| `signal`     | `AbortSignal`               | —       | Cancel — throws `AbortError`                   |
+| `onProgress` | `(percent: number) => void` | —       | Progress callback `0` – `100`                         |
+| `signal`     | `AbortSignal`               | —       | Cancel — throws `AbortError`                          |
 
 #### `detectFormat(buffer): string | null`
 
 Reads the first 16 bytes of a buffer and returns the file's actual format from its magic bytes — not its extension.
 
 ```typescript
-import { detectFormat } from "omni-compress";
+import { detectFormat } from 'omni-compress';
 
 const buffer = await file.arrayBuffer();
 const format = detectFormat(buffer);
@@ -357,12 +357,12 @@ Supported signatures: `jpeg`, `png`, `gif`, `webp`, `wav`, `avif`, `flac`, `ogg`
 > **`OmniCompressor.process()` is deprecated** as of v2.0. It will continue to work until v3.0 but returns a raw `Blob` instead of the richer `CompressResult`. Migrate to `compressImage()` or `compressAudio()`.
 
 ```typescript
-import { OmniCompressor } from "omni-compress";
+import { OmniCompressor } from 'omni-compress';
 
 /** @deprecated Use compressImage() or compressAudio() instead */
 const blob = await OmniCompressor.process(file, {
-  type: "image",
-  format: "webp",
+  type: 'image',
+  format: 'webp',
   quality: 0.8,
 });
 ```
@@ -381,12 +381,12 @@ setTimeout(() => controller.abort(), 5000);
 
 try {
   const result = await compressImage(file, {
-    format: "avif",
+    format: 'avif',
     signal: controller.signal,
   });
 } catch (err) {
   if (err instanceof AbortError) {
-    console.log("Compression was cancelled");
+    console.log('Compression was cancelled');
   }
 }
 ```
@@ -407,29 +407,29 @@ import {
   InvalidOptionsError,
   AbortError,
   EncoderError,
-} from "omni-compress";
+} from 'omni-compress';
 
 try {
-  await compressImage(file, { format: "webp" });
+  await compressImage(file, { format: 'webp' });
 } catch (err) {
   if (err instanceof FileTooLargeError) {
     console.log(err.fileSize, err.maxSize); // bytes
   } else if (err instanceof AbortError) {
-    console.log("Cancelled"); // err.code === 'ABORTED'
+    console.log('Cancelled'); // err.code === 'ABORTED'
   } else if (err instanceof FormatNotSupportedError) {
     console.log(err.format); // e.g. 'hevc'
   }
 }
 ```
 
-| Error Class              | Code                  | When Thrown                                                       |
-| ------------------------ | --------------------- | ----------------------------------------------------------------- |
-| `OmniCompressError`      | —                     | Base class for all library errors                                 |
-| `FileTooLargeError`      | `FILE_TOO_LARGE`      | Input exceeds 250 MB (browser) — prevents Wasm OOM               |
-| `FormatNotSupportedError`| `FORMAT_NOT_SUPPORTED`| Requested format is not valid for the given media type            |
-| `InvalidOptionsError`    | `INVALID_OPTIONS`     | Options object is missing required fields or contains invalid values |
-| `AbortError`             | `ABORTED`             | `AbortSignal` fired before or during processing                   |
-| `EncoderError`           | `ENCODER_FAILED`      | FFmpeg or fflate encoder threw — wraps the underlying cause       |
+| Error Class               | Code                   | When Thrown                                                          |
+| ------------------------- | ---------------------- | -------------------------------------------------------------------- |
+| `OmniCompressError`       | —                      | Base class for all library errors                                    |
+| `FileTooLargeError`       | `FILE_TOO_LARGE`       | Input exceeds 250 MB (browser) — prevents Wasm OOM                   |
+| `FormatNotSupportedError` | `FORMAT_NOT_SUPPORTED` | Requested format is not valid for the given media type               |
+| `InvalidOptionsError`     | `INVALID_OPTIONS`      | Options object is missing required fields or contains invalid values |
+| `AbortError`              | `ABORTED`              | `AbortSignal` fired before or during processing                      |
+| `EncoderError`            | `ENCODER_FAILED`       | FFmpeg or fflate encoder threw — wraps the underlying cause          |
 
 ---
 
@@ -437,14 +437,14 @@ try {
 
 ### Images
 
-| Format | Fast Path (OffscreenCanvas) | Heavy Path (FFmpeg Wasm) | Node (OS binary) |
-| ------ | --------------------------- | ------------------------ | ---------------- |
-| WebP   | ✅                          | ✅ libwebp               | ✅ ffmpeg        |
+| Format | Fast Path (OffscreenCanvas)           | Heavy Path (FFmpeg Wasm)      | Node (OS binary) |
+| ------ | ------------------------------------- | ----------------------------- | ---------------- |
+| WebP   | ✅                                    | ✅ libwebp                    | ✅ ffmpeg        |
 | AVIF   | ❌ (not supported by OffscreenCanvas) | ✅ @jsquash/avif (libaom-av1) | ✅ ffmpeg        |
-| JPEG   | ✅                          | ✅                       | ✅ ffmpeg        |
-| PNG    | ✅                          | ✅                       | ✅ ffmpeg        |
-| HEIC   | —                           | ✅                       | ✅ ffmpeg        |
-| TIFF   | —                           | ✅                       | ✅ ffmpeg        |
+| JPEG   | ✅                                    | ✅                            | ✅ ffmpeg        |
+| PNG    | ✅                                    | ✅                            | ✅ ffmpeg        |
+| HEIC   | —                                     | ✅                            | ✅ ffmpeg        |
+| TIFF   | —                                     | ✅                            | ✅ ffmpeg        |
 
 ### Audio
 
@@ -498,10 +498,9 @@ WebCodecs (A/V)    Multi-threaded    Via ffmpeg-static
 
 `omni-compress` includes a smart switching engine that dynamically chooses between the **Main Thread** and **Web Workers**:
 
-*   **Main Thread Path:** Standard web files (< 4MB) using native Fast Paths run directly on the main thread. This eliminates `postMessage` communication latency (~50-150ms), matching the performance of legacy main-thread-only libraries like `compressorjs`.
-    *   *Note: AVIF uses a lower 512KB threshold due to higher CPU intensity.*
-*   **Web Worker Path:** Large files and all FFmpeg Heavy Path tasks are automatically dispatched to background workers. This ensures that long-running operations never freeze your application's UI.
-
+- **Main Thread Path:** Standard web files (< 4MB) using native Fast Paths run directly on the main thread. This eliminates `postMessage` communication latency (~50-150ms), matching the performance of legacy main-thread-only libraries like `compressorjs`.
+  - _Note: AVIF uses a lower 512KB threshold due to higher CPU intensity._
+- **Web Worker Path:** Large files and all FFmpeg Heavy Path tasks are automatically dispatched to background workers. This ensures that long-running operations never freeze your application's UI.
 
 ---
 
@@ -513,14 +512,14 @@ WebCodecs (A/V)    Multi-threaded    Via ffmpeg-static
 
 ### Migration guides
 
-| From | Guide |
-|---|---|
+| From                        | Guide                                                                                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `browser-image-compression` | [Migrate from browser-image-compression](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-browser-image-compression.md) |
-| `compressorjs` | [Migrate from compressorjs](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-compressorjs.md) |
-| `jimp` | [Migrate from jimp](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-jimp.md) |
-| `lamejs` | [Migrate from lamejs](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-lamejs.md) |
-| `heic2any` | [Migrate from heic2any](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-heic2any.md) |
-| `@ffmpeg/ffmpeg` | [Migrate from @ffmpeg/ffmpeg](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-ffmpeg.md) |
+| `compressorjs`              | [Migrate from compressorjs](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-compressorjs.md)                           |
+| `jimp`                      | [Migrate from jimp](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-jimp.md)                                           |
+| `lamejs`                    | [Migrate from lamejs](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-lamejs.md)                                       |
+| `heic2any`                  | [Migrate from heic2any](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-heic2any.md)                                   |
+| `@ffmpeg/ffmpeg`            | [Migrate from @ffmpeg/ffmpeg](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-ffmpeg.md)                               |
 
 ---
 

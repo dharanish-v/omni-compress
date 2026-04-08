@@ -1,0 +1,54 @@
+{
+  "name": "vite-plugin-omni-compress",
+  "version": "1.0.0",
+  "description": "Vite plugin to compress image and audio assets at build time using omni-compress",
+  "author": "Dharanish V",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dharanish-v/omni-compress.git",
+    "directory": "packages/vite-plugin-omni-compress"
+  },
+  "homepage": "https://github.com/dharanish-v/omni-compress/tree/master/packages/vite-plugin-omni-compress#readme",
+  "bugs": {
+    "url": "https://github.com/dharanish-v/omni-compress/issues"
+  },
+  "keywords": [
+    "vite-plugin",
+    "vite",
+    "image-compression",
+    "image-optimizer",
+    "audio-compression",
+    "webp",
+    "avif",
+    "opus",
+    "build-tool",
+    "asset-optimization"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "vite": ">=4.0.0"
+  },
+  "dependencies": {
+    "omni-compress": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.5",
+    "vite": "^6.0.0"
+  }
+}

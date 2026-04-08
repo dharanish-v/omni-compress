@@ -1,0 +1,52 @@
+{
+  "name": "astro-omni-compress",
+  "version": "1.0.0",
+  "description": "Astro image service powered by omni-compress — works where sharp cannot (Docker, serverless, edge)",
+  "author": "Dharanish V",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dharanish-v/omni-compress.git",
+    "directory": "packages/astro-omni-compress"
+  },
+  "homepage": "https://github.com/dharanish-v/omni-compress/tree/master/packages/astro-omni-compress#readme",
+  "bugs": {
+    "url": "https://github.com/dharanish-v/omni-compress/issues"
+  },
+  "keywords": [
+    "astro",
+    "astro-integration",
+    "astro-image-service",
+    "image-compression",
+    "image-optimizer",
+    "webp",
+    "avif",
+    "sharp-alternative"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "astro": ">=4.0.0"
+  },
+  "dependencies": {
+    "omni-compress": "workspace:*"
+  },
+  "devDependencies": {
+    "astro": "^4.0.0",
+    "tsup": "^8.0.0",
+    "typescript": "^5.4.5"
+  }
+}

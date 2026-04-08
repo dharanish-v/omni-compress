@@ -42,6 +42,20 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npm publish -w omni-compress --access public --provenance
+      - name: Build vite-plugin-omni-compress
+        working-directory: packages/vite-plugin-omni-compress
+        run: bun run build
+      - name: Publish vite-plugin-omni-compress to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w vite-plugin-omni-compress --access public --provenance
+      - name: Build astro-omni-compress
+        working-directory: packages/astro-omni-compress
+        run: bun run build
+      - name: Publish astro-omni-compress to NPM
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npm publish -w astro-omni-compress --access public --provenance
       - name: Sync @dharanish/omni-compress version
         run: |
           node -e "
