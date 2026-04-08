@@ -3,7 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-// @ts-expect-error — ffmpeg-static has no bundled type declarations
 import ffmpegPath from 'ffmpeg-static';
 
 import type { CompressorOptions } from '../../core/router.js';
