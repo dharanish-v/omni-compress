@@ -1,0 +1,191 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout themeId="en">
+  <div class="min-h-screen py-16 px-4 sm:px-8 lg:px-12 pb-32 font-sans transition-colors duration-500 flex flex-col items-center selection:bg-[var(--theme-accent)] selection:text-[var(--theme-accent-text)] overflow-x-hidden">
+
+    {/* Navigation */}
+    <div class="fixed top-4 right-4 sm:top-6 sm:right-6 z-[200]">
+      <a
+        href="/omni-compress/"
+        class="p-3 sm:p-4 border-2 font-black uppercase text-[10px] sm:text-sm bg-[var(--theme-card-bg)] text-[var(--theme-text)] border-[var(--theme-border)] shadow-[4px_4px_0px_0px_var(--theme-shadow)] sm:shadow-[6px_6px_0px_0px_var(--theme-shadow)] transition-all hover:shadow-none hover:translate-x-[4px] hover:translate-y-[4px] sm:hover:translate-x-[6px] sm:hover:translate-y-[6px] inline-flex items-center gap-2 group"
+      >
+        <svg class="w-4 h-4 sm:w-5 sm:h-5 transition-transform group-hover:-translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+        Back to App
+      </a>
+    </div>
+
+    <div class="max-w-5xl w-full relative">
+      {/* Decorative background shapes */}
+      <div class="fixed -top-20 -left-20 w-96 h-96 rounded-full mix-blend-multiply opacity-20 blur-3xl bg-[var(--theme-shape1)] pointer-events-none animate-pulse"></div>
+      <div class="fixed -bottom-20 -right-20 w-[500px] h-[500px] mix-blend-multiply opacity-15 blur-3xl transform rotate-12 bg-[var(--theme-shape2)] pointer-events-none"></div>
+      <div class="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pattern-grid opacity-[0.03] pointer-events-none"></div>
+
+      {/* Hero */}
+      <div class="relative z-10 text-center mb-16 sm:mb-24 space-y-6">
+        <div class="inline-block px-4 sm:px-6 py-1 sm:py-2 border-4 border-[var(--theme-border)] bg-[var(--theme-accent)] text-[var(--theme-accent-text)] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[10px] sm:text-sm shadow-[4px_4px_0px_0px_var(--theme-shadow)] sm:shadow-[6px_6px_0px_0px_var(--theme-shadow)] mb-2">
+          One Library. All Media.
+        </div>
+        <h1 class="text-5xl sm:text-8xl lg:text-[9rem] font-black tracking-tighter uppercase leading-[0.85] text-[var(--theme-text)] break-words hyphens-auto">
+          Why<br />
+          <span class="text-[var(--theme-primary)] italic">omni</span>&#8209;<span class="text-[var(--theme-primary)] italic">compress</span>
+        </h1>
+        <p class="text-lg sm:text-2xl font-black opacity-80 max-w-2xl mx-auto leading-tight pt-6 border-t-4 border-[var(--theme-border)] border-dashed">
+          Replace 7 libraries with one.<br class="hidden sm:block" />
+          Images. Audio. Video. Browser. Node.
+        </p>
+      </div>
+
+      <div class="relative z-10 space-y-16 pr-6 pb-6 sm:pr-8 sm:pb-8">
+
+        {/* Replace 7 libraries */}
+        <section>
+          <h2 class="text-3xl sm:text-5xl font-black uppercase tracking-tight mb-8 flex items-center gap-4">
+            <span class="w-2 h-10 bg-[var(--theme-primary)] inline-block"></span>
+            One Install
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[
+              { name: 'browser-image-compression', dl: '778K/wk', replaces: 'Browser image compression' },
+              { name: 'compressorjs', dl: '296K/wk', replaces: 'Browser image compression' },
+              { name: 'jimp', dl: '2.25M/wk', replaces: 'Node.js image resize + compress' },
+              { name: 'lamejs', dl: '61K/wk', replaces: 'Browser MP3 encoding' },
+              { name: 'heic2any', dl: '544K/wk', replaces: 'HEIC → JPEG/PNG conversion' },
+              { name: '@ffmpeg/ffmpeg', dl: '377K/wk', replaces: 'Raw FFmpeg Wasm wrapper' },
+              { name: 'pica', dl: '111K/wk', replaces: 'High-quality browser resize' },
+            ].map(lib => (
+              <div class="border-4 border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-4 shadow-[4px_4px_0px_0px_var(--theme-shadow)]">
+                <div class="font-black text-sm font-mono text-[var(--theme-primary)] mb-1 break-all">{lib.name}</div>
+                <div class="text-xs font-bold opacity-60 mb-2">{lib.dl}</div>
+                <div class="text-xs uppercase tracking-widest font-black opacity-80">{lib.replaces}</div>
+              </div>
+            ))}
+          </div>
+          <div class="mt-6 border-4 border-[var(--theme-border)] bg-[var(--theme-primary)] text-[var(--theme-primary-text)] p-6 shadow-[6px_6px_0px_0px_var(--theme-shadow)]">
+            <div class="text-4xl font-black">~4.4M</div>
+            <div class="font-black uppercase tracking-widest text-sm">Combined weekly downloads — your potential users</div>
+          </div>
+        </section>
+
+        {/* Feature matrix */}
+        <section>
+          <h2 class="text-3xl sm:text-5xl font-black uppercase tracking-tight mb-8 flex items-center gap-4">
+            <span class="w-2 h-10 bg-[var(--theme-secondary)] inline-block"></span>
+            Feature Matrix
+          </h2>
+          <div class="overflow-x-auto border-4 border-[var(--theme-border)] shadow-[6px_6px_0px_0px_var(--theme-shadow)]">
+            <table class="w-full text-xs sm:text-sm font-bold border-collapse">
+              <thead>
+                <tr class="bg-[var(--theme-primary)] text-[var(--theme-primary-text)]">
+                  <th class="p-3 text-left border-r-2 border-[var(--theme-border)] uppercase tracking-widest min-w-[140px]">Feature</th>
+                  <th class="p-3 text-center border-r-2 border-[var(--theme-border)] bg-[var(--theme-accent)] text-[var(--theme-accent-text)] uppercase tracking-widest">omni-compress</th>
+                  <th class="p-3 text-center border-r-2 border-[var(--theme-border)] uppercase tracking-wider whitespace-nowrap">bic</th>
+                  <th class="p-3 text-center border-r-2 border-[var(--theme-border)] uppercase tracking-wider">compressorjs</th>
+                  <th class="p-3 text-center border-r-2 border-[var(--theme-border)] uppercase tracking-wider">sharp</th>
+                  <th class="p-3 text-center border-r-2 border-[var(--theme-border)] uppercase tracking-wider">jimp</th>
+                  <th class="p-3 text-center border-r-2 border-[var(--theme-border)] uppercase tracking-wider">lamejs</th>
+                  <th class="p-3 text-center uppercase tracking-wider">heic2any</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['Browser', '✅', '✅', '✅', '❌', '⚠️', '✅', '✅'],
+                  ['Node.js', '✅', '❌', '❌', '✅', '✅', '❌', '❌'],
+                  ['Web Workers', '✅ auto', '✅ opt-in', '❌', '—', '❌', '❌', '❌'],
+                  ['Images', '✅', '✅', '✅', '✅', '✅', '❌', '❌'],
+                  ['Audio', '✅', '❌', '❌', '❌', '❌', 'MP3', '❌'],
+                  ['Video', '✅', '❌', '❌', '❌', '❌', '❌', '❌'],
+                  ['AVIF output', '✅', '❌', '❌', '✅', '❌', '❌', '❌'],
+                  ['HEIC input', '✅', '❌', '❌', '✅*', '❌', '❌', '✅'],
+                  ['AbortSignal', '✅', '✅', '❌', '✅', '❌', '❌', '❌'],
+                  ['Progress', '✅', '✅', '❌', '❌', '❌', '❌', '❌'],
+                  ['Zero-copy', '✅', '❌', '❌', '—', '❌', '❌', '❌'],
+                  ['Size guard', '✅', '❌', '❌', '✅', '❌', '❌', '❌'],
+                  ['TypeScript', '✅', '✅', 'basic', '✅', '✅', '❌', 'basic'],
+                  ['License', 'MIT', 'MIT', 'MIT', 'Apache-2', 'MIT', '⚠️ LGPL', 'MIT'],
+                  ['Maintained', '✅', '❌ 3yr', '❌ 3yr', '✅', '✅', '❌', '❌ 4yr'],
+                ].map((row, i) => (
+                  <tr class={i % 2 === 0 ? 'bg-[var(--theme-card-bg)]' : 'bg-[var(--theme-bg)]'}>
+                    {row.map((cell, j) => (
+                      <td class={`p-3 border-t-2 border-[var(--theme-border)] ${j === 0 ? 'text-left font-black border-r-2 uppercase tracking-widest text-xs' : 'text-center'} ${j === 1 ? 'bg-[var(--theme-accent)] text-[var(--theme-accent-text)] font-black border-r-2' : ''} ${cell === '❌' ? 'opacity-30' : ''} ${cell.startsWith('⚠️') ? 'opacity-70' : ''}`}>
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs opacity-50 mt-2 font-bold">bic = browser-image-compression &nbsp;|&nbsp; * sharp supports HEIC with optional plugin</p>
+        </section>
+
+        {/* Quality benchmarks */}
+        <section>
+          <h2 class="text-3xl sm:text-5xl font-black uppercase tracking-tight mb-8 flex items-center gap-4">
+            <span class="w-2 h-10 bg-[var(--theme-shape3)] inline-block"></span>
+            Quality Proof
+          </h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {[
+              { stat: '40–54%', label: 'smaller than JPEG', sub: 'AVIF at the same visual quality', source: 'Google, Cloudflare, Meta' },
+              { stat: '20–33%', label: 'smaller than WebP', sub: 'AVIF vs WebP comparison', source: 'Cloudflare blog' },
+              { stat: '5–16%', label: 'better JPEG compression', sub: 'FFmpeg MozJPEG vs Canvas JPEG', source: 'Mozilla Research' },
+              { stat: '25%', label: 'smaller audio files', sub: 'Opus 96kbps vs MP3 128kbps', source: 'IETF listening tests' },
+            ].map(item => (
+              <div class="border-4 border-[var(--theme-border)] bg-[var(--theme-card-bg)] p-6 shadow-[6px_6px_0px_0px_var(--theme-shadow)]">
+                <div class="text-5xl font-black text-[var(--theme-primary)]">{item.stat}</div>
+                <div class="font-black uppercase tracking-widest text-sm mt-1">{item.label}</div>
+                <div class="text-xs opacity-70 font-bold mt-2">{item.sub}</div>
+                <div class="text-xs opacity-40 font-bold mt-1 uppercase tracking-wider">Source: {item.source}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* CTA */}
+        <section class="border-4 border-[var(--theme-border)] bg-[var(--theme-primary)] text-[var(--theme-primary-text)] p-8 sm:p-12 shadow-[8px_8px_0px_0px_var(--theme-shadow)] text-center">
+          <h2 class="text-3xl sm:text-5xl font-black uppercase tracking-tight mb-4">Get started</h2>
+          <pre class="bg-[var(--theme-card-alt)] text-[var(--theme-card-alt-text)] p-4 font-mono text-sm sm:text-base font-black border-4 border-[var(--theme-border)] inline-block mb-6 text-left">npm install omni-compress</pre>
+          <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <a href="/omni-compress/" class="border-4 border-[var(--theme-primary-text)] px-6 py-3 font-black uppercase tracking-widest text-sm hover:bg-[var(--theme-primary-text)] hover:text-[var(--theme-primary)] transition-colors">
+              Live Demo
+            </a>
+            <a href="https://github.com/dharanish-v/omni-compress" target="_blank" rel="noopener" class="border-4 border-[var(--theme-primary-text)] px-6 py-3 font-black uppercase tracking-widest text-sm hover:bg-[var(--theme-primary-text)] hover:text-[var(--theme-primary)] transition-colors">
+              GitHub →
+            </a>
+          </div>
+        </section>
+
+      </div>
+    </div>
+
+    {/* Footer */}
+    <footer class="fixed bottom-0 left-0 w-full p-4 border-t-2 border-[var(--theme-border)] bg-[var(--theme-card-bg)] text-[var(--theme-text)] z-50 flex justify-center items-center">
+      <div class="text-xs font-black uppercase tracking-[0.3em] flex items-center gap-4 opacity-60">
+        <span>&copy; {new Date().getFullYear()} Omni-Compress</span>
+        <span class="w-1.5 h-1.5 bg-[var(--theme-accent)] rounded-full"></span>
+        <a href="/omni-compress/benchmark" class="hover:opacity-100 transition-opacity">Benchmarks</a>
+      </div>
+    </footer>
+  </div>
+</Layout>
+
+<style is:global>
+  body {
+    background-color: var(--theme-bg);
+    color: var(--theme-text);
+    overflow-x: hidden;
+  }
+
+  .pattern-grid {
+    background-image:
+      linear-gradient(to right, var(--theme-border) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--theme-border) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  ::-webkit-scrollbar { width: 16px; }
+  ::-webkit-scrollbar-track { background: var(--theme-bg); border-left: 4px solid var(--theme-border); }
+  ::-webkit-scrollbar-thumb { background: var(--theme-primary); border: 4px solid var(--theme-border); box-shadow: 4px 4px 0px 0px var(--theme-shadow); }
+</style>

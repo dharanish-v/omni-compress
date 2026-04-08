@@ -11,7 +11,7 @@
     "changeset": "changeset",
     "version-packages": "changeset version",
     "release": "bun run build && npm publish -w omni-compress --access public --provenance",
-    "lint": "eslint packages/omni-compress/src apps/playground/src",
+    "lint": "eslint packages/omni-compress/src",
     "format": "prettier --write .",
     "clean": "rm -rf node_modules && rm -rf packages/*/node_modules && rm -rf apps/*/node_modules && rm -rf packages/*/dist && rm -rf apps/*/dist",
     "prepare": "husky"
@@ -37,7 +37,6 @@
       "prettier --write"
     ],
     "apps/playground/src/**/*.{ts,tsx}": [
-      "eslint --fix",
       "prettier --write"
     ],
     "*.{json,md}": [

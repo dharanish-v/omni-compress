@@ -505,6 +505,25 @@ WebCodecs (A/V)    Multi-threaded    Via ffmpeg-static
 
 ---
 
+## Documentation
+
+### Why omni-compress?
+
+[Why omni-compress](https://dharanish-v.github.io/omni-compress/why) — feature matrix vs 7 competitors, quality benchmarks, architecture overview.
+
+### Migration guides
+
+| From | Guide |
+|---|---|
+| `browser-image-compression` | [Migrate from browser-image-compression](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-browser-image-compression.md) |
+| `compressorjs` | [Migrate from compressorjs](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-compressorjs.md) |
+| `jimp` | [Migrate from jimp](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-jimp.md) |
+| `lamejs` | [Migrate from lamejs](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-lamejs.md) |
+| `heic2any` | [Migrate from heic2any](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-heic2any.md) |
+| `@ffmpeg/ffmpeg` | [Migrate from @ffmpeg/ffmpeg](https://github.com/dharanish-v/omni-compress/blob/master/docs/migrate-from-ffmpeg.md) |
+
+---
+
 ## Playground & Themes
 
 The [Live Demo](https://dharanish-v.github.io/omni-compress/) features a **Neo-Brutalist "Laboratory" UI** with 25 distinct persona-based themes (Shakespeare, Picasso, Aryabhata, etc.) supporting multiple languages with culturally relevant quotes and accurate technical terminology.
