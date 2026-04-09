@@ -4,8 +4,8 @@
   "version": "2.3.0",
   "type": "module",
   "scripts": {
-    "dev": "node scripts/generate-llms-txt.js && astro dev",
-    "prebuild": "node scripts/generate-llms-txt.js && node scripts/generate-coverage-badge.js",
+    "dev": "node scripts/generate-llms-txt.js && (cd ../../packages/omni-compress && bun run docs) && astro dev",
+    "prebuild": "node scripts/generate-llms-txt.js && node scripts/generate-coverage-badge.js && (cd ../../packages/omni-compress && bun run docs)",
     "build": "astro check && astro build",
     "preview": "astro preview",
     "astro": "astro",

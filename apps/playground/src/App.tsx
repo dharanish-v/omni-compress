@@ -355,9 +355,7 @@ export default function App({ initialTheme = 'en' }: AppProps) {
           </a>
           <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
           <a
-            href="https://dharanish-v.github.io/omni-compress/api/"
-            target="_blank"
-            rel="noopener noreferrer"
+            href="/omni-compress/api/"
             className="hover:text-[var(--theme-primary)] transition-colors underline decoration-2 underline-offset-4"
           >
             API Docs
