@@ -1,0 +1,139 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" fill="none">
+  <defs>
+    <pattern id="dots" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="2" r="1.5" fill="#d4c8f0"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1280" height="640" fill="#f5f0ff"/>
+  <rect width="1280" height="640" fill="url(#dots)"/>
+
+  <!-- Left accent block (neo-brutalist) -->
+  <rect x="56" y="56" width="520" height="528" fill="#863bff" rx="0"/>
+  <rect x="60" y="60" width="520" height="528" fill="#1a0533" rx="0" stroke="#000" stroke-width="3"/>
+
+  <!-- Logo in left block -->
+  <!-- Lightning bolt icon redrawn at scale -->
+  <g transform="translate(80, 88) scale(1.9)">
+    <path fill="#863bff" d="M25.946 44.938c-.664.845-2.021.375-2.021-.698V33.937a2.26 2.26 0 0 0-2.262-2.262H10.287c-.92 0-1.456-1.04-.92-1.788l7.48-10.471c1.07-1.497 0-3.578-1.842-3.578H1.237c-.92 0-1.456-1.04-.92-1.788L10.013.474c.214-.297.556-.474.92-.474h28.894c.92 0 1.456 1.04.92 1.788l-7.48 10.471c-1.07 1.498 0 3.579 1.842 3.579h11.377c.943 0 1.473 1.088.89 1.83L25.947 44.94z"/>
+  </g>
+
+  <!-- Package name -->
+  <text x="80" y="200" font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace" font-size="58" font-weight="700" fill="#ffffff" letter-spacing="-1">omni-compress</text>
+
+  <!-- Tagline -->
+  <text x="80" y="252" font-family="'SF Mono', 'Fira Code', 'Cascadia Code', monospace" font-size="19" fill="#c4a8ff" letter-spacing="0.5">Universal Media Compression</text>
+
+  <!-- Divider -->
+  <rect x="80" y="276" width="460" height="3" fill="#863bff"/>
+
+  <!-- Feature rows -->
+  <!-- Images -->
+  <rect x="80" y="302" width="140" height="38" fill="#863bff" rx="0"/>
+  <rect x="83" y="305" width="140" height="38" fill="#1a0533" rx="0" stroke="#863bff" stroke-width="2"/>
+  <text x="93" y="330" font-family="'SF Mono', 'Fira Code', monospace" font-size="15" font-weight="600" fill="#c4a8ff">Images</text>
+
+  <rect x="234" y="302" width="130" height="38" fill="#863bff" rx="0"/>
+  <rect x="237" y="305" width="130" height="38" fill="#1a0533" rx="0" stroke="#863bff" stroke-width="2"/>
+  <text x="247" y="330" font-family="'SF Mono', 'Fira Code', monospace" font-size="15" font-weight="600" fill="#c4a8ff">Audio</text>
+
+  <rect x="378" y="302" width="130" height="38" fill="#863bff" rx="0"/>
+  <rect x="381" y="305" width="130" height="38" fill="#1a0533" rx="0" stroke="#863bff" stroke-width="2"/>
+  <text x="391" y="330" font-family="'SF Mono', 'Fira Code', monospace" font-size="15" font-weight="600" fill="#c4a8ff">Video</text>
+
+  <!-- Row 2: environments -->
+  <rect x="80" y="356" width="202" height="38" fill="#47bfff" rx="0"/>
+  <rect x="83" y="359" width="202" height="38" fill="#1a0533" rx="0" stroke="#47bfff" stroke-width="2"/>
+  <text x="93" y="384" font-family="'SF Mono', 'Fira Code', monospace" font-size="15" font-weight="600" fill="#47bfff">Browser</text>
+
+  <rect x="297" y="356" width="213" height="38" fill="#47bfff" rx="0"/>
+  <rect x="300" y="359" width="213" height="38" fill="#1a0533" rx="0" stroke="#47bfff" stroke-width="2"/>
+  <text x="310" y="384" font-family="'SF Mono', 'Fira Code', monospace" font-size="15" font-weight="600" fill="#47bfff">Node.js</text>
+
+  <!-- Row 3: engines -->
+  <text x="80" y="430" font-family="'SF Mono', 'Fira Code', monospace" font-size="13" fill="#8e6cc4" letter-spacing="0.3">OffscreenCanvas  →  FFmpeg Wasm  →  native ffmpeg</text>
+
+  <!-- Row 4: format chips -->
+  <g transform="translate(80, 450)">
+    <!-- AVIF chip -->
+    <rect x="0" y="0" width="62" height="28" fill="#ff6b6b" rx="0"/>
+    <rect x="2" y="2" width="62" height="28" fill="#1a0533" rx="0" stroke="#ff6b6b" stroke-width="1.5"/>
+    <text x="10" y="21" font-family="'SF Mono', monospace" font-size="13" font-weight="700" fill="#ff6b6b">AVIF</text>
+
+    <!-- WebP chip -->
+    <rect x="76" y="0" width="70" height="28" fill="#ffcc47" rx="0"/>
+    <rect x="78" y="2" width="70" height="28" fill="#1a0533" rx="0" stroke="#ffcc47" stroke-width="1.5"/>
+    <text x="86" y="21" font-family="'SF Mono', monospace" font-size="13" font-weight="700" fill="#ffcc47">WebP</text>
+
+    <!-- AV1 chip -->
+    <rect x="162" y="0" width="58" height="28" fill="#47ff8a" rx="0"/>
+    <rect x="164" y="2" width="58" height="28" fill="#1a0533" rx="0" stroke="#47ff8a" stroke-width="1.5"/>
+    <text x="172" y="21" font-family="'SF Mono', monospace" font-size="13" font-weight="700" fill="#47ff8a">AV1</text>
+
+    <!-- Opus chip -->
+    <rect x="234" y="0" width="68" height="28" fill="#47bfff" rx="0"/>
+    <rect x="236" y="2" width="68" height="28" fill="#1a0533" rx="0" stroke="#47bfff" stroke-width="1.5"/>
+    <text x="244" y="21" font-family="'SF Mono', monospace" font-size="13" font-weight="700" fill="#47bfff">Opus</text>
+
+    <!-- ZIP chip -->
+    <rect x="316" y="0" width="58" height="28" fill="#c4a8ff" rx="0"/>
+    <rect x="318" y="2" width="58" height="28" fill="#1a0533" rx="0" stroke="#c4a8ff" stroke-width="1.5"/>
+    <text x="326" y="21" font-family="'SF Mono', monospace" font-size="13" font-weight="700" fill="#c4a8ff">ZIP</text>
+  </g>
+
+  <!-- npm install command -->
+  <rect x="76" y="506" width="458" height="54" fill="#863bff" rx="0"/>
+  <rect x="80" y="510" width="458" height="54" fill="#0d001f" rx="0" stroke="#863bff" stroke-width="2"/>
+  <text x="100" y="543" font-family="'SF Mono', 'Fira Code', monospace" font-size="20" fill="#c4a8ff">$</text>
+  <text x="122" y="543" font-family="'SF Mono', 'Fira Code', monospace" font-size="20" fill="#ffffff">npm install omni-compress</text>
+
+  <!-- ===== RIGHT PANEL ===== -->
+
+  <!-- Right panel background -->
+  <rect x="620" y="56" width="604" height="528" fill="#ffffff" rx="0" stroke="#000000" stroke-width="3"/>
+  <!-- Offset shadow -->
+  <rect x="616" y="52" width="604" height="528" fill="none" stroke="#863bff" stroke-width="3"/>
+
+  <!-- "One API. Three Engines." headline -->
+  <text x="656" y="132" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="40" font-weight="800" fill="#1a0533" letter-spacing="-1">One API. Three Engines.</text>
+
+  <!-- Subtext -->
+  <text x="656" y="170" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="18" fill="#5c4b7a">Zero main-thread blocking.</text>
+
+  <!-- Divider -->
+  <rect x="656" y="190" width="530" height="3" fill="#863bff"/>
+
+  <!-- Engine cards -->
+  <!-- Card 1: Fast Path -->
+  <rect x="652" y="210" width="510" height="84" fill="#863bff" rx="0"/>
+  <rect x="656" y="214" width="510" height="84" fill="#faf7ff" rx="0" stroke="#1a0533" stroke-width="2"/>
+  <text x="676" y="248" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="700" fill="#1a0533">Fast Path</text>
+  <text x="676" y="270" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#5c4b7a">OffscreenCanvas + WebCodecs — sub-100ms, no Wasm</text>
+  <rect x="1108" y="230" width="54" height="28" fill="#47ff8a" rx="0"/>
+  <rect x="1110" y="232" width="54" height="28" fill="#1a0533" rx="0" stroke="#47ff8a" stroke-width="1.5"/>
+  <text x="1118" y="251" font-family="'SF Mono', monospace" font-size="12" font-weight="700" fill="#47ff8a">FAST</text>
+
+  <!-- Card 2: AVIF Path -->
+  <rect x="652" y="310" width="510" height="84" fill="#863bff" rx="0"/>
+  <rect x="656" y="314" width="510" height="84" fill="#faf7ff" rx="0" stroke="#1a0533" stroke-width="2"/>
+  <text x="676" y="348" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="700" fill="#1a0533">AVIF Encoder</text>
+  <text x="676" y="370" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#5c4b7a">@jsquash/avif — libaom-AV1 Wasm, 1.1 MB, no COOP/COEP</text>
+  <rect x="1098" y="330" width="68" height="28" fill="#ff6b6b" rx="0"/>
+  <rect x="1100" y="332" width="68" height="28" fill="#1a0533" rx="0" stroke="#ff6b6b" stroke-width="1.5"/>
+  <text x="1108" y="351" font-family="'SF Mono', monospace" font-size="12" font-weight="700" fill="#ff6b6b">AVIF</text>
+
+  <!-- Card 3: Heavy Path -->
+  <rect x="652" y="410" width="510" height="84" fill="#863bff" rx="0"/>
+  <rect x="656" y="414" width="510" height="84" fill="#faf7ff" rx="0" stroke="#1a0533" stroke-width="2"/>
+  <text x="676" y="448" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="16" font-weight="700" fill="#1a0533">Heavy Path</text>
+  <text x="676" y="470" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="14" fill="#5c4b7a">FFmpeg Wasm (multi-threaded) + native ffmpeg on Node.js</text>
+  <rect x="1086" y="430" width="80" height="28" fill="#47bfff" rx="0"/>
+  <rect x="1088" y="432" width="80" height="28" fill="#1a0533" rx="0" stroke="#47bfff" stroke-width="1.5"/>
+  <text x="1096" y="451" font-family="'SF Mono', monospace" font-size="12" font-weight="700" fill="#47bfff">WASM</text>
+
+  <!-- Bottom row: stats -->
+  <rect x="652" y="516" width="510" height="52" fill="#1a0533" rx="0"/>
+  <text x="676" y="548" font-family="-apple-system, 'Helvetica Neue', Arial, sans-serif" font-size="14" font-weight="600" fill="#c4a8ff">TypeScript  •  ESM + CJS  •  Web Workers  •  MIT License</text>
+
+</svg>
