@@ -355,7 +355,7 @@ export default function App({ initialTheme = 'en' }: AppProps) {
           </a>
           <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
           <a
-            href="/omni-compress/api/"
+            href="/omni-compress/api/index.html"
             className="hover:text-[var(--theme-primary)] transition-colors underline decoration-2 underline-offset-4"
           >
             API Docs
