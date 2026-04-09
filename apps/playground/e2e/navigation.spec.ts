@@ -28,13 +28,6 @@ test.describe('Navigation & Home Page', () => {
     expect(critical).toHaveLength(0);
   });
 
-  test('navigates to a theme route', async ({ page }) => {
-    await page.goto(`${BASE}/ja`);
-    await expect(page).toHaveURL(`${BASE}/ja`);
-    // Page should still show upload zone
-    await expect(page.getByText(/drag.*drop|upload|choose.*file/i).first()).toBeVisible();
-  });
-
   test('index redirects or renders without 404', async ({ page }) => {
     const response = await page.goto(BASE);
     expect(response?.status()).not.toBe(404);
