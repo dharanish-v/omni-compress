@@ -6,5 +6,5 @@ export default defineConfig({
   dts: true,
   clean: true,
   sourcemap: false,
-  external: ['vite', 'omni-compress'],
+  external: ['vite', 'omni-compress', 'glob', 'minimatch'],
 });
