@@ -52,6 +52,15 @@ const compressed = await OmniCompressor.process(file, {
 - **Isomorphic Testing** — Comprehensive test suite using Vitest and Playwright across all execution environments
 - **Tree-shakeable** — ESM + CJS dual build, no side effects, ~84 KB unpacked
 
+## Documentation
+
+| Resource | URL |
+|---|---|
+| **API Reference** | [dharanish-v.github.io/omni-compress/api/](https://dharanish-v.github.io/omni-compress/api/) |
+| **Playground** | [dharanish-v.github.io/omni-compress/](https://dharanish-v.github.io/omni-compress/) |
+| **Package README** | [packages/omni-compress/README.md](packages/omni-compress/README.md) |
+| **Why omni-compress?** | [dharanish-v.github.io/omni-compress/why](https://dharanish-v.github.io/omni-compress/why) |
+
 ## Monorepo Structure
 
 ```
@@ -74,7 +83,9 @@ The project includes an interactive playground built with a **Neo-Brutalist** de
 
 | Package | Description | Links |
 |---|---|---|
-| `omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/omni-compress) |
+| `omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/omni-compress) · [API Docs](https://dharanish-v.github.io/omni-compress/api/) |
+| `vite-plugin-omni-compress` | Build-time asset compression | [README](packages/vite-plugin-omni-compress/README.md) · [npm](https://www.npmjs.com/package/vite-plugin-omni-compress) |
+| `astro-omni-compress` | Astro image service (sharp alternative) | [README](packages/astro-omni-compress/README.md) · [npm](https://www.npmjs.com/package/astro-omni-compress) |
 | `playground` | Live demo UI | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/) |
 
 ## Quick Start
@@ -83,7 +94,7 @@ The project includes an interactive playground built with a **Neo-Brutalist** de
 npm install omni-compress
 ```
 
-For full API reference, supported formats, architecture details, and framework examples, see the **[package README](packages/omni-compress/README.md)**.
+For the full API reference see **[dharanish-v.github.io/omni-compress/api/](https://dharanish-v.github.io/omni-compress/api/)** — supported formats, options, types, and error classes. For architecture details and framework guides see the **[package README](packages/omni-compress/README.md)**.
 
 ## Development
 
@@ -594,6 +605,17 @@ bun run dev
 
 The playground is built with **Astro**, **React**, and **Tailwind CSS v4**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.
 
+---
+
+## Links
+
+| Resource | URL |
+|---|---|
+| Live playground | https://dharanish-v.github.io/omni-compress/ |
+| API Docs | https://dharanish-v.github.io/omni-compress/api/ |
+| Why omni-compress? | https://dharanish-v.github.io/omni-compress/why |
+| npm package | https://www.npmjs.com/package/omni-compress |
+
 
 ---
 
@@ -637,6 +659,10 @@ bun run test
 # Type-check the library
 bun run typecheck
 
+# Generate API docs (output: apps/playground/public/api/)
+cd packages/omni-compress
+bun run docs
+
 # Clean all build artifacts and node_modules
 bun run clean
 ```
@@ -644,16 +670,24 @@ bun run clean
 ## Project Structure
 
 ```
-├── packages/omni-compress/   → Core library (published to npm)
-│   ├── src/
-│   │   ├── adapters/         → Environment-specific adapters (browser / node)
-│   │   ├── core/             → Router, utils, logger, errors
-│   │   ├── workers/          → Web Worker entry points (with Fast→Heavy fallback)
-│   │   └── index.ts          → Public API
-│   ├── tests/                → Vitest test suites (node + browser)
-│   └── tsup.config.ts        → Build config (source maps disabled in production)
+├── packages/
+│   ├── omni-compress/              → Core library (published to npm as `omni-compress`)
+│   │   ├── src/
+│   │   │   ├── adapters/           → Browser (OffscreenCanvas/WebCodecs/FFmpeg Wasm) + Node (ffmpeg binary)
+│   │   │   ├── core/               → Router, utils, logger, errors
+│   │   │   ├── workers/            → Web Worker entry points (Fast→Heavy fallback)
+│   │   │   └── index.ts            → Public API
+│   │   ├── tests/                  → Vitest test suites (node + browser)
+│   │   ├── typedoc.json            → TypeDoc config (outputs to apps/playground/public/api/)
+│   │   └── tsup.config.ts          → Build config
+│   ├── vite-plugin-omni-compress/  → Build-time asset compression Vite plugin
+│   ├── astro-omni-compress/        → Astro image service (sharp alternative)
+│   └── omni-compress-proxy/        → Deprecated @dharanish/omni-compress shim
 │
-└── apps/playground/          → Astro + React interactive demo
+├── apps/playground/                → Astro + React interactive demo
+│   └── public/api/                 → Generated TypeDoc site (gitignored, built in CI)
+│
+└── docs/                           → Migration guides + framework integration guides
 ```
 
 ## Architecture Rules

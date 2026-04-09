@@ -1,8 +1,13 @@
 # vite-plugin-omni-compress
 
+[![npm](https://img.shields.io/npm/v/vite-plugin-omni-compress?style=flat-square)](https://www.npmjs.com/package/vite-plugin-omni-compress)
+[![license](https://img.shields.io/npm/l/vite-plugin-omni-compress?style=flat-square)](https://github.com/dharanish-v/omni-compress/blob/master/LICENSE)
+
 Compress image and audio assets at build time using [omni-compress](https://www.npmjs.com/package/omni-compress).
 
 Vite has no built-in image/audio optimization — this plugin fills that gap.
+
+**[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Playground](https://dharanish-v.github.io/omni-compress/)** · **[GitHub](https://github.com/dharanish-v/omni-compress)**
 
 ## Install
 

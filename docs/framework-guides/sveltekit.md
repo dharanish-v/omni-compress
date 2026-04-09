@@ -166,3 +166,7 @@ export const actions: Actions = {
 - `omni-compress` is a browser-only library. SvelteKit runs `+page.server.ts` and `+layout.server.ts` in Node.js — never import `omni-compress` there. If you need server-side compression, import it inside an API route or `+server.ts` handler that is only reachable from the client.
 - The `DataTransfer` trick (replacing `input.files`) is the standard way to programmatically set a file input's value before form submission. It works in all modern browsers.
 - SvelteKit's `use:enhance` progressive enhancement submits the form without a full navigation, giving you `form.result` for optimistic UI updates without additional JavaScript.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

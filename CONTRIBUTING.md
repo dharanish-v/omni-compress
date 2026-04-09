@@ -36,6 +36,10 @@ bun run test
 # Type-check the library
 bun run typecheck
 
+# Generate API docs (output: apps/playground/public/api/)
+cd packages/omni-compress
+bun run docs
+
 # Clean all build artifacts and node_modules
 bun run clean
 ```
@@ -43,16 +47,24 @@ bun run clean
 ## Project Structure
 
 ```
-├── packages/omni-compress/   → Core library (published to npm)
-│   ├── src/
-│   │   ├── adapters/         → Environment-specific adapters (browser / node)
-│   │   ├── core/             → Router, utils, logger, errors
-│   │   ├── workers/          → Web Worker entry points (with Fast→Heavy fallback)
-│   │   └── index.ts          → Public API
-│   ├── tests/                → Vitest test suites (node + browser)
-│   └── tsup.config.ts        → Build config (source maps disabled in production)
+├── packages/
+│   ├── omni-compress/              → Core library (published to npm as `omni-compress`)
+│   │   ├── src/
+│   │   │   ├── adapters/           → Browser (OffscreenCanvas/WebCodecs/FFmpeg Wasm) + Node (ffmpeg binary)
+│   │   │   ├── core/               → Router, utils, logger, errors
+│   │   │   ├── workers/            → Web Worker entry points (Fast→Heavy fallback)
+│   │   │   └── index.ts            → Public API
+│   │   ├── tests/                  → Vitest test suites (node + browser)
+│   │   ├── typedoc.json            → TypeDoc config (outputs to apps/playground/public/api/)
+│   │   └── tsup.config.ts          → Build config
+│   ├── vite-plugin-omni-compress/  → Build-time asset compression Vite plugin
+│   ├── astro-omni-compress/        → Astro image service (sharp alternative)
+│   └── omni-compress-proxy/        → Deprecated @dharanish/omni-compress shim
 │
-└── apps/playground/          → Astro + React interactive demo
+├── apps/playground/                → Astro + React interactive demo
+│   └── public/api/                 → Generated TypeDoc site (gitignored, built in CI)
+│
+└── docs/                           → Migration guides + framework integration guides
 ```
 
 ## Architecture Rules
@@ -60,6 +72,7 @@ bun run clean
 When contributing code, please maintain these design invariants:
 
 ### Core Library (`packages/omni-compress/`):
+
 1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
 2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` in a `finally` block to clean the Virtual File System. The FFmpeg singleton self-terminates after an idle timeout — do not call `ffmpeg.terminate()` manually after each operation. Workers are cached and self-terminate when idle.
 3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
@@ -68,6 +81,7 @@ When contributing code, please maintain these design invariants:
 6. **Size guards** — Always validate file size against `SAFE_SIZE_LIMITS` before passing data to Wasm. Throw `FileTooLargeError` for oversized inputs.
 
 ### Playground (`apps/playground/`):
+
 1. **Neo-Brutalist Aesthetic** — Maintain high-contrast `4px`/`2px` borders and sharp `6px`/`4px` offset shadows.
 2. **Haptic Feedback** — Standardize `active:translate` behavior to match the 1:1 shadow translation pattern.
 3. **Persona-First** — New UI components should adapt to the theme's `primary`, `secondary`, and `accent` color variables.

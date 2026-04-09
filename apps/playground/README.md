@@ -8,19 +8,22 @@ The **Omni-Compress Playground** is an interactive, high-performance web applica
 
 ## 🏛️ Design Thinking: Neo-Brutalism
 
-The playground is built on a **Neo-Brutalist** (or *New Brutalist*) design philosophy. This approach rejects the "softness" and over-polishing of modern SaaS interfaces in favor of something more raw, honest, and mechanical.
+The playground is built on a **Neo-Brutalist** (or _New Brutalist_) design philosophy. This approach rejects the "softness" and over-polishing of modern SaaS interfaces in favor of something more raw, honest, and mechanical.
 
 ### Key Pillars:
+
 - **Raw Functionality:** High-contrast `4px` and `2px` borders define every element. There are no gradients or subtle blurs—only solid colors and sharp lines.
-- **Mechanical UI:** Every component is designed to feel like a physical machine. 
-    - The **Audio Player** features a "digital readout" for duration and a tactile "mechanical knob" for seeking.
-    - **Select Dropdowns** use heavy shadows and sharp corners instead of floating native menus.
+- **Mechanical UI:** Every component is designed to feel like a physical machine.
+  - The **Audio Player** features a "digital readout" for duration and a tactile "mechanical knob" for seeking.
+  - **Select Dropdowns** use heavy shadows and sharp corners instead of floating native menus.
 - **Haptic Feedback:** To simulate physical interaction, elements use a consistent `6px` or `4px` offset shadow. On hover/active states, the element translates `1:1` into its shadow, creating a satisfying "press" effect. This is paired with actual **Haptic Vibrations** (`navigator.vibrate`) for a truly tactile experience.
 - **Mechanical Sound Synthesis:** Utilizing the **Web Audio API**, the playground synthesizes "engine-like" click, shift, and success sounds in real-time. No sound files are downloaded; the audio is generated on-the-fly to ensure zero latency and a mechanical feel.
 - **Intentional Chaos:** Diagonal background patterns, oversized typography, and overlapping decorative shapes create a sense of raw energy and "construction."
 
 ### 🎭 Persona-Driven Themes
-The playground features **26 unique themes**, each tied to a historical persona (from *Leonardo da Vinci* to *Aryabhata*). 
+
+The playground features **26 unique themes**, each tied to a historical persona (from _Leonardo da Vinci_ to _Aryabhata_).
+
 - **Cultural Color Theory:** Each theme uses a palette inspired by the persona's era or art style (e.g., Monet's soft saturations vs. Picasso's bold blues).
 - **Localized Context:** Themes include localized strings and quotes that reflect the persona's philosophy on "brevity" and "simplicity."
 - **Seamless Transitions:** Leveraging the modern **View Transitions API**, switching personas morphs the entire UI—from background patterns to button shapes—seamlessly.
@@ -45,3 +48,14 @@ bun run dev
 ```
 
 The playground is built with **Astro**, **React**, and **Tailwind CSS v4**. It serves as both a testing ground for the core library and a reference implementation for high-performance media processing in the browser.
+
+---
+
+## Links
+
+| Resource           | URL                                              |
+| ------------------ | ------------------------------------------------ |
+| Live playground    | https://dharanish-v.github.io/omni-compress/     |
+| API Docs           | https://dharanish-v.github.io/omni-compress/api/ |
+| Why omni-compress? | https://dharanish-v.github.io/omni-compress/why  |
+| npm package        | https://www.npmjs.com/package/omni-compress      |

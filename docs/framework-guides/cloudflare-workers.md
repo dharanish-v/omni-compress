@@ -88,3 +88,7 @@ app.post('/compress', async (req, res) => {
 - Cloudflare Workers support **Wasm modules** but impose strict CPU time limits (10 ms burst on the free plan, 30s on paid). FFmpeg Wasm encoding typically takes 100ms–5s depending on file size and format — this exceeds the free plan limits.
 - For build-time asset optimization (not runtime), use [`vite-plugin-omni-compress`](https://www.npmjs.com/package/vite-plugin-omni-compress) to compress your static assets before deploying to Cloudflare Pages.
 - omni-compress is fully supported in **Cloudflare Pages Functions** only when used as a client-side library loaded in the browser — not in the server-side function handler.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

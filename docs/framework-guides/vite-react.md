@@ -173,3 +173,7 @@ export default function App() {
 - Vite pre-bundles dependencies by default. Add `@jsquash/avif` to `optimizeDeps.exclude` in `vite.config.ts` to prevent Wasm fetch failures when encoding AVIF.
 - For HEIC input or video compression, the dev server needs COOP/COEP headers. In `vite.config.ts` add a `configureServer` plugin (not `server.headers`) to avoid the dep-optimisation reload loop.
 - `strict: true` ensures the original file is returned when compression would make it larger — useful for already-optimised PNGs.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

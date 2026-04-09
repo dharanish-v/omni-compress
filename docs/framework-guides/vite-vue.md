@@ -157,3 +157,7 @@ function handleChange(e: Event) {
 - Vite pre-bundles dependencies; add `@jsquash/avif` to `optimizeDeps.exclude` in `vite.config.ts` to prevent Wasm fetch failures when encoding AVIF.
 - `URL.createObjectURL` in the template is safe because it is evaluated at render time (client-side). The blob URL leaks until the component unmounts — call `URL.revokeObjectURL` in `onUnmounted` for long-lived components.
 - For video/HEIC support in development, add a `configureServer` Vite plugin to inject COOP/COEP headers; do not use `server.headers` directly to avoid the dep-optimisation reload loop.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

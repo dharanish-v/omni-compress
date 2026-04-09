@@ -161,3 +161,7 @@ app.post('/photos', upload.single('photo'), async (req, res) => {
 4. Replace `heic2any({ blob: file, toType: 'image/jpeg', quality: 0.8 })` with `compressImage(file, { format: 'jpeg', quality: 0.8 })`
 5. Switch `toType: 'image/jpeg'` → `format: 'webp'` to get 20-30% smaller output for free
 6. Access the blob via `result.blob` instead of using the returned value directly
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

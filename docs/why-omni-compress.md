@@ -159,3 +159,7 @@ The router picks the fastest engine that can handle the request:
 - [SvelteKit](./framework-guides/sveltekit.md)
 - [Express / Node.js](./framework-guides/express.md)
 - [Cloudflare Workers](./framework-guides/cloudflare-workers.md)
+
+## API Reference
+
+Full TypeDoc-generated reference for all functions, types, and options: **[omni-compress API Docs](https://dharanish-v.github.io/omni-compress/api/)**

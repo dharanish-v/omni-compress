@@ -113,3 +113,7 @@ export default function UploadRoute() {
 - Compression happens in the browser before the form data ever leaves the client — your server receives an already-compressed WebP, not the original.
 - The action runs in Node.js where `omni-compress` also works natively (uses ffmpeg binary). If you want to re-compress on the server side, import and call `compressImage` directly inside the action.
 - `useFetcher` keeps the UI reactive without a full page navigation. If you prefer a full-page form flow, replace `useFetcher` with a regular `<Form>` and intercept `submit` the same way.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

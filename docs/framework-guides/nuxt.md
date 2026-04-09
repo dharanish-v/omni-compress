@@ -117,3 +117,7 @@ export default defineEventHandler(async (event) => {
 - `omni-compress` is a browser-only library. Nuxt auto-detects the environment — importing it in `server/` routes will fail. Use `import.meta.client` guards if you import it in a shared file.
 - Nuxt's auto-import does **not** cover `omni-compress` exports. Always import explicitly in composables and components.
 - For HEIC/video support the browser needs Cross-Origin Isolation. Add `Cross-Origin-Opener-Policy` and `Cross-Origin-Embedder-Policy` response headers via Nitro's `routeRules` in `nuxt.config.ts`.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

@@ -42,6 +42,15 @@ const compressed = await OmniCompressor.process(file, {
 - **Isomorphic Testing** — Comprehensive test suite using Vitest and Playwright across all execution environments
 - **Tree-shakeable** — ESM + CJS dual build, no side effects, ~84 KB unpacked
 
+## Documentation
+
+| Resource               | URL                                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| **API Reference**      | [dharanish-v.github.io/omni-compress/api/](https://dharanish-v.github.io/omni-compress/api/) |
+| **Playground**         | [dharanish-v.github.io/omni-compress/](https://dharanish-v.github.io/omni-compress/)         |
+| **Package README**     | [packages/omni-compress/README.md](packages/omni-compress/README.md)                         |
+| **Why omni-compress?** | [dharanish-v.github.io/omni-compress/why](https://dharanish-v.github.io/omni-compress/why)   |
+
 ## Monorepo Structure
 
 ```
@@ -53,7 +62,7 @@ const compressed = await OmniCompressor.process(file, {
 
 The project includes an interactive playground built with a **Neo-Brutalist** design system. This isn't just a compression tool—it's a cultural and visual exploration of **brevity**.
 
-- **26 Historical Personas:** Switch between themes ranging from *Leonardo da Vinci* to *Aryabhata*, each with unique cultural quotes and color palettes.
+- **26 Historical Personas:** Switch between themes ranging from _Leonardo da Vinci_ to _Aryabhata_, each with unique cultural quotes and color palettes.
 - **Advanced Engineering:** Exposes granular compression controls (Bitrate, Sample Rate, Dimensions, Metadata stripping) inside a tactile UI.
 - **Mechanical UI:** Custom-built components (Mechanical Audio Player, Brutalist Selects) that prioritize raw functionality.
 - **Sensory Feedback:** Experience the app through synthesized mechanical sounds (Web Audio API) and tactile haptic vibrations synced with UI interactions.
@@ -62,10 +71,12 @@ The project includes an interactive playground built with a **Neo-Brutalist** de
 
 [**Explore the Playground 🚀**](https://dharanish-v.github.io/omni-compress/)
 
-| Package | Description | Links |
-|---|---|---|
-| `omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/omni-compress) |
-| `playground` | Live demo UI | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/) |
+| Package                     | Description                             | Links                                                                                                                                                          |
+| --------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `omni-compress`             | The compression library                 | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/omni-compress) · [API Docs](https://dharanish-v.github.io/omni-compress/api/) |
+| `vite-plugin-omni-compress` | Build-time asset compression            | [README](packages/vite-plugin-omni-compress/README.md) · [npm](https://www.npmjs.com/package/vite-plugin-omni-compress)                                        |
+| `astro-omni-compress`       | Astro image service (sharp alternative) | [README](packages/astro-omni-compress/README.md) · [npm](https://www.npmjs.com/package/astro-omni-compress)                                                    |
+| `playground`                | Live demo UI                            | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/)                                                                              |
 
 ## Quick Start
 
@@ -73,7 +84,7 @@ The project includes an interactive playground built with a **Neo-Brutalist** de
 npm install omni-compress
 ```
 
-For full API reference, supported formats, architecture details, and framework examples, see the **[package README](packages/omni-compress/README.md)**.
+For the full API reference see **[dharanish-v.github.io/omni-compress/api/](https://dharanish-v.github.io/omni-compress/api/)** — supported formats, options, types, and error classes. For architecture details and framework guides see the **[package README](packages/omni-compress/README.md)**.
 
 ## Development
 

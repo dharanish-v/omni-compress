@@ -107,3 +107,7 @@ app.post('/upload-audio', upload.single('audio'), async (req, res) => {
 - Install `ffmpeg-static` as a fallback if `ffmpeg` isn't on PATH: `npm install ffmpeg-static`. omni-compress detects it automatically.
 - `multer.memoryStorage()` holds the file in RAM — switch to `multer.diskStorage()` for very large files (>100 MB) to avoid OOM.
 - `strict: true` returns the original if the compressed output is larger — safe for already-optimised images.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

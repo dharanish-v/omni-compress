@@ -1,8 +1,13 @@
 # astro-omni-compress
 
+[![npm](https://img.shields.io/npm/v/astro-omni-compress?style=flat-square)](https://www.npmjs.com/package/astro-omni-compress)
+[![license](https://img.shields.io/npm/l/astro-omni-compress?style=flat-square)](https://github.com/dharanish-v/omni-compress/blob/master/LICENSE)
+
 Astro image service powered by [omni-compress](https://www.npmjs.com/package/omni-compress).
 
 A drop-in alternative to `sharp` for Astro's `<Image>` component that works wherever sharp's native binaries fail — Docker alpine images, serverless functions, Vercel Edge, Cloudflare Workers.
+
+**[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Playground](https://dharanish-v.github.io/omni-compress/)** · **[GitHub](https://github.com/dharanish-v/omni-compress)**
 
 ## Install
 

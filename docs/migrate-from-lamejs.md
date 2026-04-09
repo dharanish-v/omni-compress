@@ -174,3 +174,7 @@ try {
 3. Remove all PCM decoding boilerplate
 4. Replace the encoder loop with `await compressAudio(file, { format: 'mp3', bitrate: '128k' })`
 5. Use `blob` directly instead of assembling `Int8Array` chunks
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

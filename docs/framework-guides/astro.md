@@ -116,3 +116,7 @@ For **production** (e.g. GitHub Pages or Netlify) use a Service Worker to inject
 - Never import `omni-compress` in `.astro` frontmatter (`---` blocks) — that code runs at build time in Node.js with no browser globals. Keep all imports inside island components.
 - `client:load` is the safest directive. `client:visible` also works for below-the-fold uploaders.
 - Do **not** add `vite.server.headers` for COOP/COEP in `astro.config.mjs` — it triggers a Vite dep-optimisation reload loop. Use the `configure-response-headers` Vite plugin shown above.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

@@ -148,3 +148,7 @@ const { blob, ratio } = await compressImage(file, {
 2. `npm install omni-compress`
 3. **Quick path:** Replace `import Compressor from 'compressorjs'` with `import Compressor from 'omni-compress/compat'`
 4. **Modern path:** Wrap callback usage in `async/await` using the table above
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

@@ -200,3 +200,7 @@ const { blob, ratio } = await compressImage(file, {
 3. Replace `import imageCompression from 'browser-image-compression'` with `import { compressImage } from 'omni-compress'`
 4. Replace `imageCompression(file, opts)` with `compressImage(file, { format: 'webp', quality: opts.initialQuality ?? 0.8, maxWidth: opts.maxWidthOrHeight, maxHeight: opts.maxWidthOrHeight })`
 5. Update any code reading `.name`, `.size`, `.type` from the returned value — switch to `result.blob.size`, `result.compressedSize`, `result.ratio`
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

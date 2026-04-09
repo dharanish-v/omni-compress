@@ -162,3 +162,7 @@ app.post('/upload', upload.single('image'), async (req, res) => {
 2. Replace `Jimp.read(buffer)` → `new Blob([buffer], { type })`
 3. Replace `.resize({ w }).quality(q).getBuffer(mime)` → `compressImage(file, { format, quality: q/100, maxWidth: w })`
 4. Convert `blob` back to `Buffer`: `Buffer.from(await blob.arrayBuffer())`
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

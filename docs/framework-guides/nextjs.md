@@ -136,3 +136,7 @@ export default function UploadWithCancel() {
 - `omni-compress` is a client-only library. Keep it inside `'use client'` components — never import it in Server Components or API routes.
 - For HEIC/AVIF input or video compression, the browser needs Cross-Origin Isolation headers (`Cross-Origin-Opener-Policy: same-origin` + `Cross-Origin-Embedder-Policy: require-corp`). Add them in `next.config.ts` under `headers()`.
 - `strict: true` returns the original file if compression makes it larger — safe default for already-optimised PNGs or tiny files.
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

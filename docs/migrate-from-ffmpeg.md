@@ -172,3 +172,7 @@ omni-compress covers the most common compression operations. If you need to run 
 2. Replace `FFmpeg.load()` + `writeFile()` + `exec()` + `readFile()` + `deleteFile()` with one `compressImage()`, `compressAudio()`, or `compressVideo()` call
 3. Replace manual stderr progress parsing with `onProgress` callback
 4. Remove manual `ffmpeg.terminate()` calls — the singleton self-terminates after 30s idle
+
+---
+
+**[← npm](https://www.npmjs.com/package/omni-compress)** · **[API Docs](https://dharanish-v.github.io/omni-compress/api/)** · **[Why omni-compress?](../why-omni-compress.md)**

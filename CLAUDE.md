@@ -6,7 +6,7 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`omni-compress` (v2.3.0) — a universal, isomorphic compression and archiving library.
+`omni-compress` (v2.3.1) — a universal, isomorphic compression and archiving library.
 
 - **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`, `compressVideo`) work identically in browser and Node.js.
 - **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
