@@ -355,6 +355,13 @@ export default function App({ initialTheme = 'en' }: AppProps) {
           </a>
           <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
           <a
+            href="/omni-compress/api/"
+            className="hover:text-[var(--theme-primary)] transition-colors underline decoration-2 underline-offset-4"
+          >
+            API Docs
+          </a>
+          <span className="w-1 h-1 bg-[var(--theme-accent)] rounded-full"></span>
+          <a
             href="https://github.com/dharanish-v/omni-compress#migration-from-compressorjs"
             target="_blank"
             rel="noopener noreferrer"

@@ -506,6 +506,10 @@ WebCodecs (A/V)    Multi-threaded    Via ffmpeg-static
 
 ## Documentation
 
+### API Reference
+
+[**API Docs**](https://dharanish-v.github.io/omni-compress/api/) — full TypeDoc-generated reference for all functions, options, types, and error classes. Auto-regenerated on every release.
+
 ### Why omni-compress?
 
 [Why omni-compress](https://dharanish-v.github.io/omni-compress/why) — feature matrix vs 7 competitors, quality benchmarks, architecture overview.

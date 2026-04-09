@@ -55,6 +55,10 @@ jobs:
         working-directory: packages/omni-compress
         run: bun run size
 
+      - name: Generate API Docs
+        working-directory: packages/omni-compress
+        run: bun run docs
+
       - name: Build Playground
         run: cd apps/playground && bun run build
         env:

@@ -177,16 +177,18 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 ### P3: Low — DX / quality
 
-| #      | Area        | Summary                                                    |
-| ------ | ----------- | ---------------------------------------------------------- | -------------------------------------------------- |
-| ~~27~~ | ~~DX~~      | ~~ESLint + Prettier for core package~~                     | **Resolved**                                       |
-| ~~32~~ | ~~DX~~      | ~~Husky + lint-staged pre-commit hooks~~                   | **Resolved**                                       |
-| ~~28~~ | ~~DX~~      | ~~Bundle size tracking and regression prevention in CI~~   | **Resolved**                                       |
-| ~~24~~ | ~~Testing~~ | ~~Increase test coverage to 80%+~~                         | **Resolved**                                       |
-| ~~25~~ | ~~Testing~~ | ~~Cross-browser matrix (Firefox + WebKit)~~                | **Resolved**                                       |
-| ~~26~~ | ~~Testing~~ | ~~E2E tests for playground~~                               | **Resolved**                                       |
-| ~~5~~  | ~~DX~~      | ~~Automated release management (Changesets / Release-It)~~ | **Resolved**                                       |
-| ~~46~~ | ~~Docs~~    | ~~Framework integration guides (9 guides)~~                | **Resolved** — guides in `docs/framework-guides/`. |
+| #      | Area        | Summary                                                            |
+| ------ | ----------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| ~~27~~ | ~~DX~~      | ~~ESLint + Prettier for core package~~                             | **Resolved**                                                                              |
+| ~~32~~ | ~~DX~~      | ~~Husky + lint-staged pre-commit hooks~~                           | **Resolved**                                                                              |
+| ~~28~~ | ~~DX~~      | ~~Bundle size tracking and regression prevention in CI~~           | **Resolved**                                                                              |
+| ~~24~~ | ~~Testing~~ | ~~Increase test coverage to 80%+~~                                 | **Resolved**                                                                              |
+| ~~25~~ | ~~Testing~~ | ~~Cross-browser matrix (Firefox + WebKit)~~                        | **Resolved**                                                                              |
+| ~~26~~ | ~~Testing~~ | ~~E2E tests for playground~~                                       | **Resolved**                                                                              |
+| ~~5~~  | ~~DX~~      | ~~Automated release management (Changesets / Release-It)~~         | **Resolved**                                                                              |
+| ~~46~~ | ~~Docs~~    | ~~Framework integration guides (9 guides)~~                        | **Resolved** — guides in `docs/framework-guides/`.                                        |
+| ~~49~~ | ~~Docs~~    | ~~API Documentation Site (TypeDoc)~~                               | **Resolved** — TypeDoc at `/omni-compress/api/`, generated in CI before playground build. |
+| ~~50~~ | ~~Growth~~  | ~~GitHub repo optimization (topics, description, social preview)~~ | **Resolved** — topics set, OG image created, issues pinned, awesome-list PRs submitted.   |
 
 ### P4: Backlog — nice to have, no timeline
 

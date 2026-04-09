@@ -6,7 +6,19 @@ import { WorkerConfig } from './config.js';
 
 export interface CompressorOptions {
   type: 'image' | 'audio' | 'video';
-  format: 'webp' | 'avif' | 'jpeg' | 'png' | 'opus' | 'mp3' | 'flac' | 'wav' | 'auto' | 'mp4' | 'webm' | string;
+  format:
+    | 'webp'
+    | 'avif'
+    | 'jpeg'
+    | 'png'
+    | 'opus'
+    | 'mp3'
+    | 'flac'
+    | 'wav'
+    | 'auto'
+    | 'mp4'
+    | 'webm'
+    | string;
   maxSizeMB?: number;
   quality?: number; // 0.0 to 1.0
   onProgress?: (percent: number) => void;
@@ -195,7 +207,7 @@ export interface RouteContext {
   shouldUseWorker: boolean;
 }
 
-// AVIF intentionally excluded from OffscreenCanvas fast path: 
+// AVIF intentionally excluded from OffscreenCanvas fast path:
 // OffscreenCanvas cannot encode AVIF (issue #35).
 const FAST_PATH_IMAGE_FORMATS = new Set(['webp', 'jpeg', 'png', 'jpg']);
 // Note: Native browser encoding support for opus/mp3 varies.
@@ -204,7 +216,15 @@ const FAST_PATH_AUDIO_FORMATS = new Set(['aac', 'opus']);
 // WebCodecs VideoEncoder supports H.264 and AV1.
 const FAST_PATH_VIDEO_FORMATS = new Set(['mp4', 'webm']);
 
+/**
+ * Evaluates the execution environment and selects the optimal compression
+ * engine for each operation (fast path, AVIF encoder, heavy path / Node).
+ */
 export class Router {
+  /**
+   * Detects whether the current runtime is Node.js or a browser.
+   * Node.js is identified by the presence of `process.versions.node`.
+   */
   static getEnvironment(): Environment {
     if (typeof process !== 'undefined' && process.versions != null && process.versions.node) {
       return 'node';
@@ -212,11 +232,19 @@ export class Router {
     return 'browser';
   }
 
+  /**
+   * Returns `true` if the format can be encoded without FFmpeg Wasm in the browser.
+   * - Images: OffscreenCanvas → WebP, JPEG, PNG
+   * - Audio: WebCodecs AudioEncoder → AAC, Opus
+   * - Video: WebCodecs VideoEncoder → H.264 (MP4), VP8/VP9 (WebM)
+   *
+   * Always returns `false` in Node.js (which uses native child_process instead).
+   */
   static isFastPathSupported(options: CompressorOptions): boolean {
     if (this.getEnvironment() === 'node') return false; // Node delegates to native child_process
 
     const format = options.format.toLowerCase();
-    
+
     if (options.type === 'image') {
       // Browsers generally support OffscreenCanvas encoding to these formats
       return FAST_PATH_IMAGE_FORMATS.has(format);
@@ -229,6 +257,16 @@ export class Router {
     }
   }
 
+  /**
+   * Determines the full routing context for a compression job.
+   *
+   * Combines environment detection, fast-path eligibility, and file-size
+   * thresholds to decide whether to run on the main thread or in a Web Worker.
+   *
+   * @param options - The compression options including type and format.
+   * @param fileSize - Input file size in bytes (used for main-thread vs Worker routing).
+   * @returns A {@link RouteContext} describing the chosen execution path.
+   */
   static evaluate(options: CompressorOptions, fileSize: number): RouteContext {
     const env = this.getEnvironment();
     const isFastPath = this.isFastPathSupported(options);
@@ -246,10 +284,10 @@ export class Router {
         const isMainThreadEligible = isFastPath || isAVIF;
 
         if (isMainThreadEligible) {
-          const threshold = isAVIF 
-            ? WorkerConfig.avifMainThreadThreshold 
+          const threshold = isAVIF
+            ? WorkerConfig.avifMainThreadThreshold
             : WorkerConfig.mainThreadThreshold;
-          
+
           if (fileSize < threshold) {
             shouldUseWorker = false;
           }

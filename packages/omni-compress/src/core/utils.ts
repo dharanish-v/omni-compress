@@ -1,13 +1,36 @@
 import { FileTooLargeError } from './errors.js';
 
+/**
+ * Reads a `File` or `Blob` into an `ArrayBuffer`.
+ * Used internally before dispatching to the fast path, AVIF encoder, or FFmpeg.
+ *
+ * @param file - The file or blob to read.
+ * @returns A promise that resolves to the file's raw bytes.
+ */
 export async function fileToArrayBuffer(file: File | Blob): Promise<ArrayBuffer> {
   return await file.arrayBuffer();
 }
 
+/**
+ * Wraps a raw `ArrayBuffer` into a `Blob` with the given MIME type.
+ * Used to convert FFmpeg/OffscreenCanvas output back into a transferable blob.
+ *
+ * @param buffer - The raw bytes to wrap.
+ * @param mimeType - MIME type for the resulting blob (e.g. `'image/webp'`).
+ * @returns A `Blob` containing the given bytes.
+ */
 export function arrayBufferToBlob(buffer: ArrayBuffer, mimeType: string): Blob {
   return new Blob([buffer], { type: mimeType });
 }
 
+/**
+ * Maps a media type + format string to the canonical MIME type string.
+ * Handles special cases: `jpg` → `image/jpeg`, `opus` → `audio/ogg`.
+ *
+ * @param type - The media category: `'image'`, `'audio'`, or `'video'`.
+ * @param format - The target format (e.g. `'webp'`, `'opus'`, `'mp4'`).
+ * @returns The MIME type string (e.g. `'image/webp'`, `'audio/ogg'`).
+ */
 export function getMimeType(type: 'image' | 'audio' | 'video', format: string): string {
   if (type === 'image') {
     if (format === 'jpg') return 'image/jpeg';
@@ -35,10 +58,7 @@ export const SAFE_SIZE_LIMITS = {
 /**
  * Throws FileTooLargeError if the file exceeds the safe limit for the given environment.
  */
-export function assertFileSizeWithinLimit(
-  fileSize: number,
-  env: 'browser' | 'node',
-): void {
+export function assertFileSizeWithinLimit(fileSize: number, env: 'browser' | 'node'): void {
   const maxSize = SAFE_SIZE_LIMITS[env];
   if (fileSize > maxSize) {
     throw new FileTooLargeError(fileSize, maxSize);
@@ -110,8 +130,14 @@ export function detectFormat(buffer: ArrayBuffer): string | null {
 
   // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (
-    bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47 &&
-    bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47 &&
+    bytes[4] === 0x0d &&
+    bytes[5] === 0x0a &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0x0a
   ) {
     return 'png';
   }

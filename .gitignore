@@ -6,3 +6,6 @@ target/
 pkg/
 coverage/
 .envrc
+
+# TypeDoc generated API docs (regenerated in CI)
+apps/playground/public/api/

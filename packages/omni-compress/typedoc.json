@@ -1,0 +1,30 @@
+{
+  "entryPoints": ["src/index.ts"],
+  "out": "../../apps/playground/public/api",
+  "name": "omni-compress",
+  "readme": "README.md",
+  "includeVersion": true,
+  "navigationLinks": {
+    "Playground": "https://dharanish-v.github.io/omni-compress/",
+    "GitHub": "https://github.com/dharanish-v/omni-compress",
+    "npm": "https://www.npmjs.com/package/omni-compress"
+  },
+  "customCss": "../../apps/playground/public/api-theme.css",
+  "skipErrorChecking": true,
+  "excludePrivate": true,
+  "excludeInternal": true,
+  "excludeExternals": false,
+  "searchInComments": true,
+  "categorizeByGroup": true,
+  "defaultCategory": "API",
+  "categoryOrder": ["Functions", "Interfaces", "Classes", "Type Aliases", "Variables", "*"],
+  "sort": ["source-order"],
+  "visibilityFilters": {
+    "protected": false,
+    "private": false,
+    "inherited": true,
+    "external": false
+  },
+  "plugin": [],
+  "titleLink": "https://dharanish-v.github.io/omni-compress/"
+}

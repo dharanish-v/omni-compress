@@ -1,0 +1,36 @@
+/* omni-compress TypeDoc theme — purple brand accents */
+:root {
+  --color-accent: #863bff;
+  --color-accent-dark: #6b21e8;
+}
+
+a {
+  color: #863bff;
+}
+
+a:hover {
+  color: #6b21e8;
+}
+
+.tsd-kind-function > .tsd-anchor-icon svg,
+.tsd-kind-interface > .tsd-anchor-icon svg {
+  color: #863bff;
+}
+
+.tsd-navigation a.current {
+  color: #863bff;
+}
+
+/* Header bar */
+header.tsd-page-toolbar {
+  background: #1a0533;
+  border-bottom: 2px solid #863bff;
+}
+
+header.tsd-page-toolbar a {
+  color: #c4a8ff;
+}
+
+header.tsd-page-toolbar a:hover {
+  color: #ffffff;
+}
