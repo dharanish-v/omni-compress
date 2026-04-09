@@ -41,21 +41,42 @@ jobs:
       - name: Publish omni-compress to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish -w omni-compress --access public --provenance
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/omni-compress/package.json').version")
+          PUBLISHED=$(npm show omni-compress@$PKG_VERSION version 2>/dev/null || echo "")
+          if [ -z "$PUBLISHED" ]; then
+            npm publish -w omni-compress --access public --provenance
+          else
+            echo "omni-compress@$PKG_VERSION already published — skipping"
+          fi
       - name: Build vite-plugin-omni-compress
         working-directory: packages/vite-plugin-omni-compress
         run: bun run build
       - name: Publish vite-plugin-omni-compress to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish -w vite-plugin-omni-compress --access public --provenance
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/vite-plugin-omni-compress/package.json').version")
+          PUBLISHED=$(npm show vite-plugin-omni-compress@$PKG_VERSION version 2>/dev/null || echo "")
+          if [ -z "$PUBLISHED" ]; then
+            npm publish -w vite-plugin-omni-compress --access public --provenance
+          else
+            echo "vite-plugin-omni-compress@$PKG_VERSION already published — skipping"
+          fi
       - name: Build astro-omni-compress
         working-directory: packages/astro-omni-compress
         run: bun run build
       - name: Publish astro-omni-compress to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish -w astro-omni-compress --access public --provenance
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/astro-omni-compress/package.json').version")
+          PUBLISHED=$(npm show astro-omni-compress@$PKG_VERSION version 2>/dev/null || echo "")
+          if [ -z "$PUBLISHED" ]; then
+            npm publish -w astro-omni-compress --access public --provenance
+          else
+            echo "astro-omni-compress@$PKG_VERSION already published — skipping"
+          fi
       - name: Sync @dharanish/omni-compress version
         run: |
           node -e "
@@ -69,7 +90,14 @@ jobs:
       - name: Publish @dharanish/omni-compress to NPM
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: npm publish -w @dharanish/omni-compress --access public --provenance
+        run: |
+          PKG_VERSION=$(node -p "require('./packages/omni-compress-proxy/package.json').version")
+          PUBLISHED=$(npm show @dharanish/omni-compress@$PKG_VERSION version 2>/dev/null || echo "")
+          if [ -z "$PUBLISHED" ]; then
+            npm publish -w @dharanish/omni-compress --access public --provenance
+          else
+            echo "@dharanish/omni-compress@$PKG_VERSION already published — skipping"
+          fi
       - name: Deprecate @dharanish/omni-compress
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
