@@ -175,6 +175,21 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | 39     | Core     | Target file size with iterative quality search (enforce `maxSizeMB`)                             |
 | 16     | UX       | File reading latency + progress feedback for large files                                         |
 
+### Performance roadmap (Speed-to-#1 initiative)
+
+| #   | Area | Summary                                                                | Expected Gain                   |
+| --- | ---- | ---------------------------------------------------------------------- | ------------------------------- |
+| 55  | Perf | WebCodecs VideoEncoder — GPU-accelerated H.264/AV1                     | **10-100x faster video**        |
+| 56  | Perf | Parallel archive compression — Promise.all in archive.ts               | **5-10x faster batch ZIP**      |
+| 57  | Perf | WebCodecs AudioEncoder rewrite — AudioDecoder→AudioEncoder pipeline    | **3-10x faster audio**          |
+| 58  | Perf | @jsquash/jpeg MozJPEG Wasm — deterministic, smaller JPEG output        | **5-16% smaller JPEG**          |
+| 59  | Perf | Eliminate double bitmap decode in fast path                            | **15-25% faster images**        |
+| 60  | Perf | @jsquash/oxipng — lossless PNG optimization                            | **20-35% smaller PNG**          |
+| 61  | Perf | FFmpeg speed flags — `-method 0`, `-compression_level 9`, `-threads 0` | **15-30% faster heavy path**    |
+| 62  | Perf | Zero-copy ArrayBuffer transfer — pre-convert before worker dispatch    | **Lower memory, 10-20% faster** |
+| 63  | Perf | Adaptive worker count (cap 8) + format-aware routing thresholds        | **2x throughput on 8-core**     |
+| 64  | Perf | Optional sharp Node backend — libvips (26x faster than jimp)           | **26x faster Node images**      |
+
 ### P3: Low — DX / quality
 
 | #      | Area        | Summary                                                            |
@@ -192,14 +207,14 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 ### P4: Backlog — nice to have, no timeline
 
-| #   | Area | Summary                                                          |
-| --- | ---- | ---------------------------------------------------------------- |
-| 13  | UX   | Mobile layout                                                    |
-| 29  | UX   | Accessibility audit                                              |
-| 30  | UX   | Clipboard paste + URL import                                     |
-| 14  | Core | Streaming/chunking for files >250 MB (OPFS + JSPI long-term)     |
-| 18  | UX   | PWA / offline capabilities                                       |
-| 43  | Docs | Competitive landscape analysis & strategic positioning reference |
+| #      | Area     | Summary                                                              |
+| ------ | -------- | -------------------------------------------------------------------- | -------------------------------------------- |
+| 13     | UX       | Mobile layout                                                        |
+| 29     | UX       | Accessibility audit                                                  |
+| 30     | UX       | Clipboard paste + URL import                                         |
+| 14     | Core     | Streaming/chunking for files >250 MB (OPFS + JSPI long-term)         |
+| 18     | UX       | PWA / offline capabilities                                           |
+| ~~43~~ | ~~Docs~~ | ~~Competitive landscape analysis & strategic positioning reference~~ | **Closed** — synthesized into issues #55-64. |
 
 ### Recently resolved (v2.3.0)
 
@@ -223,7 +238,7 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 ## Key research findings (March 2026)
 
-Full research documented in issue #43 with sources. Summary:
+Research from issue #43 is closed — fully synthesized into actionable perf issues #55-64. Key findings below:
 
 ### Critical bugs
 
