@@ -87,7 +87,8 @@
     "size": "size-limit",
     "clean": "rm -rf dist",
     "docs": "typedoc",
-    "bench": "node bench/image-benchmark.mjs"
+    "bench": "node bench/image-benchmark.mjs",
+    "bench:browser": "node bench/browser-benchmark.mjs"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.6",
@@ -105,7 +106,9 @@
     "@types/node": "^20.12.7",
     "@vitest/browser": "^4.1.1",
     "@vitest/coverage-v8": "^4.1.1",
+    "jimp": "^1.6.1",
     "playwright": "^1.58.2",
+    "sharp": "^0.34.5",
     "size-limit": "^12.0.1",
     "tsup": "^8.0.2",
     "typedoc": "^0.28.18",

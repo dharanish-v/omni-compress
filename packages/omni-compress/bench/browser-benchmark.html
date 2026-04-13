@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>omni-compress Browser Benchmark</title>
+  <style>
+    body { font-family: monospace; background: #0d0d0d; color: #e0e0e0; padding: 24px; margin: 0; }
+    pre { font-size: 13px; line-height: 1.6; white-space: pre; }
+    #status { color: #888; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <div id="status">Initializing…</div>
+  <pre id="out"></pre>
+
+  <!--
+    Import map: resolves bare module specifiers used by the omni-compress dist.
+    fflate is a dependency of archive.ts but NOT needed for image fast path —
+    the browser resolves it lazily only if archive() is called.
+    We include it so module loading doesn't fail even if archive code is scanned.
+  -->
+  <script type="importmap">
+  {
+    "imports": {
+      "fflate": "https://cdn.jsdelivr.net/npm/fflate@0.8.2/esm/browser.js"
+    }
+  }
+  </script>
+
+  <!--
+    compressor.js 1.2.1  — the library the user is comparing against
+    browser-image-compression 2.0.2 — #2 competitor
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/compressorjs@1.2.1/dist/compressor.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
+
+  <script type="module">
+    import { compressImage, logger } from '/dist/index.js';
+
+    logger.setLevel('warn'); // silence INFO lines during benchmark
+
+    const RUNS = 3;
+    const QUALITY = 0.8;
+    const FORMATS = ['webp', 'jpeg'];
+    const SIZES = [
+      { label: 'tiny   ~100KB', path: '/bench/fixtures/test-tiny.jpg' },
+      { label: 'small  ~500KB', path: '/bench/fixtures/test-small.jpg' },
+      { label: 'medium   ~2MB', path: '/bench/fixtures/test-medium.jpg' },
+      { label: 'large    ~5MB', path: '/bench/fixtures/test-large.jpg' },
+    ];
+
+    const out = document.getElementById('out');
+    const status = document.getElementById('status');
+    function log(msg) { out.textContent += msg + '\n'; console.log(msg); }
+    function setStatus(msg) { status.textContent = msg; }
+
+    // ── Timing helper ───────────────────────────────────────────────────────
+    async function median(fn) {
+      const times = [];
+      let lastError;
+      for (let i = 0; i < RUNS; i++) {
+        try {
+          const t0 = performance.now();
+          await fn();
+          times.push(performance.now() - t0);
+        } catch (e) { lastError = e; }
+      }
+      if (!times.length) return { ms: null, error: lastError?.message ?? 'failed' };
+      times.sort((a, b) => a - b);
+      return { ms: times[Math.floor(RUNS / 2)] };
+    }
+
+    // ── Load fixture images ─────────────────────────────────────────────────
+    async function loadFixture(path) {
+      const res = await fetch(path);
+      if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
+      const blob = await res.blob();
+      return new File([blob], path.split('/').pop(), { type: 'image/jpeg' });
+    }
+
+    // ── Library implementations ─────────────────────────────────────────────
+
+    // 1. omni-compress (full library, main-thread fast path)
+    async function omniCompress(file, format) {
+      const result = await compressImage(file, {
+        format,
+        quality: QUALITY,
+        useWorker: false, // force main thread — same thread as all competitors
+      });
+      return result.blob;
+    }
+
+    // 2. compressor.js 1.x (canvas.toBlob)
+    async function compressorJsCompress(file, format) {
+      if (typeof Compressor === 'undefined') return null;
+      return new Promise((resolve, reject) => {
+        new Compressor(file, {
+          quality: QUALITY,
+          mimeType: `image/${format}`,
+          convertSize: Infinity, // don't convert to JPEG if webp
+          success: resolve,
+          error: reject,
+        });
+      });
+    }
+
+    // 3. browser-image-compression 2.x
+    async function bicCompress(file, format) {
+      if (typeof imageCompression === 'undefined') return null;
+      return imageCompression(file, {
+        useWebWorker: false,
+        initialQuality: QUALITY,
+        fileType: `image/${format}`,
+        alwaysKeepResolution: true,
+        preserveExif: false,
+      });
+    }
+
+    // 4. Raw OffscreenCanvas (what omni-compress calls internally — no library overhead)
+    async function rawOffscreenCanvas(blob, format) {
+      const bitmap = await createImageBitmap(blob);
+      const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+      canvas.getContext('2d').drawImage(bitmap, 0, 0);
+      bitmap.close();
+      return canvas.convertToBlob({ type: `image/${format}`, quality: QUALITY });
+    }
+
+    // 5. Raw HTMLCanvas (what compressor.js calls internally — no library overhead)
+    async function rawHTMLCanvas(blob, format) {
+      const img = new Image();
+      const url = URL.createObjectURL(blob);
+      await new Promise((res, rej) => { img.onload = res; img.onerror = rej; img.src = url; });
+      URL.revokeObjectURL(url);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      canvas.getContext('2d').drawImage(img, 0, 0);
+      return new Promise(resolve => canvas.toBlob(resolve, `image/${format}`, QUALITY));
+    }
+
+    // ── Benchmark runner ────────────────────────────────────────────────────
+    const allResults = [];
+
+    async function run() {
+      setStatus('Loading fixtures…');
+
+      // Pre-load all fixtures
+      const fixtures = {};
+      for (const { path } of SIZES) {
+        try {
+          fixtures[path] = await loadFixture(path);
+        } catch (e) {
+          console.error('Failed to load fixture', path, e);
+        }
+      }
+
+      // Warmup (avoids cold-start bias)
+      setStatus('Warming up…');
+      const warmFile = fixtures[SIZES[0].path];
+      if (warmFile) {
+        await omniCompress(warmFile, 'webp').catch(() => {});
+        await rawOffscreenCanvas(warmFile, 'webp').catch(() => {});
+        await rawHTMLCanvas(warmFile, 'webp').catch(() => {});
+        await compressorJsCompress(warmFile, 'webp').catch(() => {});
+      }
+
+      log('Format    Size               InputKB   omni-compress   raw-OffscreenCanvas   raw-HTMLCanvas   compressor.js   browser-img-comp');
+      log('─'.repeat(140));
+
+      for (const format of FORMATS) {
+        for (const { label, path } of SIZES) {
+          const file = fixtures[path];
+          if (!file) { log(`  [${format.toUpperCase()}] ${label}  SKIPPED (fixture missing)`); continue; }
+
+          setStatus(`Benchmarking [${format.toUpperCase()}] ${label}…`);
+          const inputKB = (file.size / 1024).toFixed(0);
+
+          const [omni, rawOC, rawHC, compJS, bic] = await Promise.all([
+            median(() => omniCompress(file, format)),
+            median(() => rawOffscreenCanvas(file, format)),
+            median(() => rawHTMLCanvas(file, format)),
+            median(() => compressorJsCompress(file, format)),
+            median(() => bicCompress(file, format)),
+          ]);
+
+          const row = {
+            format, label, inputKB: file.size,
+            omni: omni.ms, omni_err: omni.error,
+            rawOC: rawOC.ms, rawHC: rawHC.ms,
+            compJS: compJS.ms, compJS_err: compJS.error,
+            bic: bic.ms, bic_err: bic.error,
+          };
+          allResults.push(row);
+
+          const fmt = (ms, ref) => {
+            if (ms == null) return '    n/a ';
+            const s = ms.toFixed(0) + 'ms';
+            if (ms <= ref) return s.padStart(6) + '✓ ';
+            return s.padStart(6) + '  ';
+          };
+          const refMs = omni.ms ?? 9999;
+
+          log(
+            `[${format.toUpperCase()}] ${label.padEnd(15)}` +
+            `  ${inputKB.padStart(6)}KB` +
+            `   ${fmt(omni.ms, refMs)}` +
+            `      ${fmt(rawOC.ms, refMs)}` +
+            `         ${fmt(rawHC.ms, refMs)}` +
+            `      ${fmt(compJS.ms, refMs)}` +
+            `      ${fmt(bic.ms, refMs)}`
+          );
+        }
+        log('');
+      }
+
+      // Summary: how many scenarios does omni beat compressor.js?
+      const valid = allResults.filter(r => r.omni != null && r.compJS != null);
+      const omniWins = valid.filter(r => r.omni <= r.compJS).length;
+      log(`omni-compress vs compressor.js: ${omniWins}/${valid.length} scenarios where omni-compress is faster or tied`);
+      log('');
+
+      // Average ratio
+      if (valid.length > 0) {
+        const avgRatio = valid.reduce((sum, r) => sum + r.compJS / r.omni, 0) / valid.length;
+        log(`Average: omni-compress is ${avgRatio.toFixed(2)}x faster than compressor.js`);
+      }
+
+      const validOC = allResults.filter(r => r.omni != null && r.rawOC != null);
+      if (validOC.length > 0) {
+        const overhead = validOC.reduce((sum, r) => sum + (r.omni - r.rawOC), 0) / validOC.length;
+        log(`Library overhead vs raw OffscreenCanvas: +${overhead.toFixed(1)}ms average per call`);
+      }
+
+      setStatus('Done ✓');
+      window.__benchResults = allResults;
+      window.__benchDone = true;
+    }
+
+    run().catch(e => {
+      log(`\nERROR: ${e.message}\n${e.stack}`);
+      window.__benchError = e.message;
+      window.__benchDone = true;
+    });
+  </script>
+</body>
+</html>

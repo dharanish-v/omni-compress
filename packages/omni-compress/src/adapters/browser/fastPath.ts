@@ -4,12 +4,17 @@ import { getMimeType } from '../../core/utils.js';
 /**
  * FAST PATH: Image Processing
  * Uses OffscreenCanvas for hardware-accelerated image conversion.
+ *
+ * Accepts `Blob | ArrayBuffer` to avoid the unnecessary Blob→ArrayBuffer→Blob
+ * round-trip when the caller already has a Blob (main-thread zero-copy path).
+ * ArrayBuffer is only materialised when resize header parsing is required.
  */
 export async function processImageFastPath(
-  buffer: ArrayBuffer,
+  input: ArrayBuffer | Blob,
   options: CompressorOptions,
 ): Promise<ArrayBuffer> {
-  const blob = new Blob([buffer]);
+  // Use the Blob directly when available — avoids a full data copy.
+  const blob = input instanceof Blob ? input : new Blob([input]);
 
   let targetWidth: number | undefined;
   let targetHeight: number | undefined;
@@ -18,6 +23,8 @@ export async function processImageFastPath(
   // Read pixel dimensions from the raw file header (zero-decode, ~1µs) to avoid
   // the previous double-decode pattern (two createImageBitmap calls).
   if (options.maxWidth || options.maxHeight) {
+    // Header parsing needs an ArrayBuffer — materialise lazily only here.
+    const buffer = input instanceof ArrayBuffer ? input : await blob.arrayBuffer();
     const dims = getImageDimensionsFromHeader(buffer);
     if (dims) {
       const { width: origW, height: origH } = dims;
@@ -74,6 +81,69 @@ export async function processImageFastPath(
   });
 
   return await outBlob.arrayBuffer();
+}
+
+/**
+ * Zero-copy variant for main-thread use: returns the Blob directly from
+ * OffscreenCanvas.convertToBlob() without the Blob→ArrayBuffer→Blob round-trip
+ * that the worker path requires for postMessage transfer.
+ */
+export async function processImageFastPathToBlob(
+  input: ArrayBuffer | Blob,
+  options: CompressorOptions,
+): Promise<Blob> {
+  const blob = input instanceof Blob ? input : new Blob([input]);
+  let targetWidth: number | undefined;
+  let targetHeight: number | undefined;
+
+  if (options.maxWidth || options.maxHeight) {
+    const buffer = input instanceof ArrayBuffer ? input : await blob.arrayBuffer();
+    const dims = getImageDimensionsFromHeader(buffer);
+    if (dims) {
+      const { width: origW, height: origH } = dims;
+      const ratio = origW / origH;
+      targetWidth = origW;
+      targetHeight = origH;
+      if (options.maxWidth && targetWidth > options.maxWidth) {
+        targetWidth = options.maxWidth;
+        targetHeight = Math.floor(targetWidth / ratio);
+      }
+      if (options.maxHeight && targetHeight > options.maxHeight) {
+        targetHeight = options.maxHeight;
+        targetWidth = Math.floor(targetHeight * ratio);
+      }
+      targetWidth = Math.floor(targetWidth);
+    } else {
+      const tempBitmap = await createImageBitmap(blob);
+      const ratio = tempBitmap.width / tempBitmap.height;
+      targetWidth = tempBitmap.width;
+      targetHeight = tempBitmap.height;
+      tempBitmap.close();
+      if (options.maxWidth && targetWidth > options.maxWidth) {
+        targetWidth = options.maxWidth;
+        targetHeight = Math.floor(targetWidth / ratio);
+      }
+      if (options.maxHeight && targetHeight > options.maxHeight) {
+        targetHeight = options.maxHeight;
+        targetWidth = Math.floor(targetHeight * ratio);
+      }
+    }
+  }
+
+  const bitmap = await createImageBitmap(blob, {
+    resizeWidth: targetWidth,
+    resizeHeight: targetHeight,
+    resizeQuality: 'high',
+  });
+
+  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
+  ctx.drawImage(bitmap, 0, 0);
+  bitmap.close();
+
+  const mimeType = getMimeType(options.type, options.format);
+  return canvas.convertToBlob({ type: mimeType, quality: options.quality ?? 0.8 });
 }
 
 /**
