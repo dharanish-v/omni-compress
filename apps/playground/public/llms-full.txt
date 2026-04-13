@@ -54,12 +54,12 @@ const compressed = await OmniCompressor.process(file, {
 
 ## Documentation
 
-| Resource | URL |
-|---|---|
-| **API Reference** | [dharanish-v.github.io/omni-compress/api/](https://dharanish-v.github.io/omni-compress/api/) |
-| **Playground** | [dharanish-v.github.io/omni-compress/](https://dharanish-v.github.io/omni-compress/) |
-| **Package README** | [packages/omni-compress/README.md](packages/omni-compress/README.md) |
-| **Why omni-compress?** | [dharanish-v.github.io/omni-compress/why](https://dharanish-v.github.io/omni-compress/why) |
+| Resource               | URL                                                                                          |
+| ---------------------- | -------------------------------------------------------------------------------------------- |
+| **API Reference**      | [dharanish-v.github.io/omni-compress/api/](https://dharanish-v.github.io/omni-compress/api/) |
+| **Playground**         | [dharanish-v.github.io/omni-compress/](https://dharanish-v.github.io/omni-compress/)         |
+| **Package README**     | [packages/omni-compress/README.md](packages/omni-compress/README.md)                         |
+| **Why omni-compress?** | [dharanish-v.github.io/omni-compress/why](https://dharanish-v.github.io/omni-compress/why)   |
 
 ## Monorepo Structure
 
@@ -72,7 +72,7 @@ const compressed = await OmniCompressor.process(file, {
 
 The project includes an interactive playground built with a **Neo-Brutalist** design system. This isn't just a compression tool—it's a cultural and visual exploration of **brevity**.
 
-- **26 Historical Personas:** Switch between themes ranging from *Leonardo da Vinci* to *Aryabhata*, each with unique cultural quotes and color palettes.
+- **26 Historical Personas:** Switch between themes ranging from _Leonardo da Vinci_ to _Aryabhata_, each with unique cultural quotes and color palettes.
 - **Advanced Engineering:** Exposes granular compression controls (Bitrate, Sample Rate, Dimensions, Metadata stripping) inside a tactile UI.
 - **Mechanical UI:** Custom-built components (Mechanical Audio Player, Brutalist Selects) that prioritize raw functionality.
 - **Sensory Feedback:** Experience the app through synthesized mechanical sounds (Web Audio API) and tactile haptic vibrations synced with UI interactions.
@@ -81,12 +81,12 @@ The project includes an interactive playground built with a **Neo-Brutalist** de
 
 [**Explore the Playground 🚀**](https://dharanish-v.github.io/omni-compress/)
 
-| Package | Description | Links |
-|---|---|---|
-| `omni-compress` | The compression library | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/omni-compress) · [API Docs](https://dharanish-v.github.io/omni-compress/api/) |
-| `vite-plugin-omni-compress` | Build-time asset compression | [README](packages/vite-plugin-omni-compress/README.md) · [npm](https://www.npmjs.com/package/vite-plugin-omni-compress) |
-| `astro-omni-compress` | Astro image service (sharp alternative) | [README](packages/astro-omni-compress/README.md) · [npm](https://www.npmjs.com/package/astro-omni-compress) |
-| `playground` | Live demo UI | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/) |
+| Package                     | Description                             | Links                                                                                                                                                          |
+| --------------------------- | --------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `omni-compress`             | The compression library                 | [README](packages/omni-compress/README.md) · [npm](https://www.npmjs.com/package/omni-compress) · [API Docs](https://dharanish-v.github.io/omni-compress/api/) |
+| `vite-plugin-omni-compress` | Build-time asset compression            | [README](packages/vite-plugin-omni-compress/README.md) · [npm](https://www.npmjs.com/package/vite-plugin-omni-compress)                                        |
+| `astro-omni-compress`       | Astro image service (sharp alternative) | [README](packages/astro-omni-compress/README.md) · [npm](https://www.npmjs.com/package/astro-omni-compress)                                                    |
+| `playground`                | Live demo UI                            | [Source](apps/playground/) · [Live](https://dharanish-v.github.io/omni-compress/)                                                                              |
 
 ## Quick Start
 
@@ -567,19 +567,22 @@ The **Omni-Compress Playground** is an interactive, high-performance web applica
 
 ## 🏛️ Design Thinking: Neo-Brutalism
 
-The playground is built on a **Neo-Brutalist** (or *New Brutalist*) design philosophy. This approach rejects the "softness" and over-polishing of modern SaaS interfaces in favor of something more raw, honest, and mechanical.
+The playground is built on a **Neo-Brutalist** (or _New Brutalist_) design philosophy. This approach rejects the "softness" and over-polishing of modern SaaS interfaces in favor of something more raw, honest, and mechanical.
 
 ### Key Pillars:
+
 - **Raw Functionality:** High-contrast `4px` and `2px` borders define every element. There are no gradients or subtle blurs—only solid colors and sharp lines.
-- **Mechanical UI:** Every component is designed to feel like a physical machine. 
-    - The **Audio Player** features a "digital readout" for duration and a tactile "mechanical knob" for seeking.
-    - **Select Dropdowns** use heavy shadows and sharp corners instead of floating native menus.
+- **Mechanical UI:** Every component is designed to feel like a physical machine.
+  - The **Audio Player** features a "digital readout" for duration and a tactile "mechanical knob" for seeking.
+  - **Select Dropdowns** use heavy shadows and sharp corners instead of floating native menus.
 - **Haptic Feedback:** To simulate physical interaction, elements use a consistent `6px` or `4px` offset shadow. On hover/active states, the element translates `1:1` into its shadow, creating a satisfying "press" effect. This is paired with actual **Haptic Vibrations** (`navigator.vibrate`) for a truly tactile experience.
 - **Mechanical Sound Synthesis:** Utilizing the **Web Audio API**, the playground synthesizes "engine-like" click, shift, and success sounds in real-time. No sound files are downloaded; the audio is generated on-the-fly to ensure zero latency and a mechanical feel.
 - **Intentional Chaos:** Diagonal background patterns, oversized typography, and overlapping decorative shapes create a sense of raw energy and "construction."
 
 ### 🎭 Persona-Driven Themes
-The playground features **26 unique themes**, each tied to a historical persona (from *Leonardo da Vinci* to *Aryabhata*). 
+
+The playground features **26 unique themes**, each tied to a historical persona (from _Leonardo da Vinci_ to _Aryabhata_).
+
 - **Cultural Color Theory:** Each theme uses a palette inspired by the persona's era or art style (e.g., Monet's soft saturations vs. Picasso's bold blues).
 - **Localized Context:** Themes include localized strings and quotes that reflect the persona's philosophy on "brevity" and "simplicity."
 - **Seamless Transitions:** Leveraging the modern **View Transitions API**, switching personas morphs the entire UI—from background patterns to button shapes—seamlessly.
@@ -609,12 +612,12 @@ The playground is built with **Astro**, **React**, and **Tailwind CSS v4**. It s
 
 ## Links
 
-| Resource | URL |
-|---|---|
-| Live playground | https://dharanish-v.github.io/omni-compress/ |
-| API Docs | https://dharanish-v.github.io/omni-compress/api/ |
-| Why omni-compress? | https://dharanish-v.github.io/omni-compress/why |
-| npm package | https://www.npmjs.com/package/omni-compress |
+| Resource           | URL                                              |
+| ------------------ | ------------------------------------------------ |
+| Live playground    | https://dharanish-v.github.io/omni-compress/     |
+| API Docs           | https://dharanish-v.github.io/omni-compress/api/ |
+| Why omni-compress? | https://dharanish-v.github.io/omni-compress/why  |
+| npm package        | https://www.npmjs.com/package/omni-compress      |
 
 
 ---
@@ -695,6 +698,7 @@ bun run clean
 When contributing code, please maintain these design invariants:
 
 ### Core Library (`packages/omni-compress/`):
+
 1. **Zero-copy memory** — Always use `Transferable` objects for ArrayBuffer passing between threads.
 2. **Wasm memory safety** — Always call `ffmpeg.deleteFile()` in a `finally` block to clean the Virtual File System. The FFmpeg singleton self-terminates after an idle timeout — do not call `ffmpeg.terminate()` manually after each operation. Workers are cached and self-terminate when idle.
 3. **Lazy imports** — Heavy dependencies (`@ffmpeg/ffmpeg`) must be dynamically imported, never at module top level.
@@ -703,6 +707,7 @@ When contributing code, please maintain these design invariants:
 6. **Size guards** — Always validate file size against `SAFE_SIZE_LIMITS` before passing data to Wasm. Throw `FileTooLargeError` for oversized inputs.
 
 ### Playground (`apps/playground/`):
+
 1. **Neo-Brutalist Aesthetic** — Maintain high-contrast `4px`/`2px` borders and sharp `6px`/`4px` offset shadows.
 2. **Haptic Feedback** — Standardize `active:translate` behavior to match the 1:1 shadow translation pattern.
 3. **Persona-First** — New UI components should adapt to the theme's `primary`, `secondary`, and `accent` color variables.
