@@ -98,6 +98,8 @@ async function time(fn) {
     try {
       const t0 = performance.now();
       lastResult = await fn();
+      // Treat null return as "not supported" — don't count the time
+      if (lastResult === null) return { ms: null, result: null };
       times.push(performance.now() - t0);
     } catch (e) {
       lastError = e;
@@ -111,7 +113,8 @@ async function time(fn) {
 // ── libraries ─────────────────────────────────────────────────────────────────
 
 async function omniNode(inputPath, format, quality) {
-  const { compressImage } = await import('../dist/index.js');
+  const { compressImage, logger } = await import('../dist/index.js');
+  logger.setLevel('warn'); // suppress INFO noise in benchmark output
   const data = readFileSync(inputPath);
   const blob = new Blob([data], { type: 'image/jpeg' });
   const res  = await compressImage(blob, {
@@ -196,11 +199,9 @@ async function main() {
   console.log(bold(cyan('  omni-compress Image Benchmark')) + dim('  Node.js path  ·  ffmpeg-static  ·  3-run median'));
   console.log(bold('═'.repeat(100)));
 
-  // Build
-  if (!existsSync(join(__dirname, '../dist/index.js'))) {
-    console.log(cyan('\n  Building omni-compress...'));
-    spawnSync('bun', ['run', 'build'], { cwd: join(__dirname, '..'), stdio: 'inherit' });
-  }
+  // Build (always rebuild to pick up latest source changes)
+  console.log(cyan('\n  Building omni-compress...'));
+  spawnSync('bun', ['run', 'build'], { cwd: join(__dirname, '..'), stdio: 'inherit' });
 
   // Fixtures
   process.stdout.write('\n  Generating test images (rgbtestsrc — realistic gradients)...');
