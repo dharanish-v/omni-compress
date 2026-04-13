@@ -84,9 +84,16 @@ export async function processImageFastPath(
 }
 
 /**
- * Zero-copy variant for main-thread use: returns the Blob directly from
- * OffscreenCanvas.convertToBlob() without the Blob→ArrayBuffer→Blob round-trip
- * that the worker path requires for postMessage transfer.
+ * Zero-copy, main-thread-optimised variant.
+ *
+ * Key optimisations over the worker path:
+ *  1. No Blob→ArrayBuffer→Blob round-trips (returns Blob directly).
+ *  2. Uses HTMLCanvasElement + canvas.toBlob() when DOM is available (main thread).
+ *     HTMLCanvas has a direct CPU-backed pixel store; OffscreenCanvas routes
+ *     pixel readback through an async GPU IPC call — measurably slower, especially
+ *     for JPEG (no hardware encoder in Chrome's OffscreenCanvas path).
+ *  3. Opaque context (alpha:false) for JPEG — skips alpha channel blending.
+ *  4. createImageBitmap with premultiplyAlpha:'none' avoids an extra multiply pass.
  */
 export async function processImageFastPathToBlob(
   input: ArrayBuffer | Blob,
@@ -130,20 +137,52 @@ export async function processImageFastPathToBlob(
     }
   }
 
+  const mimeType = getMimeType(options.type, options.format);
+  const quality = options.quality ?? 0.8;
+
+  // Optimisation: skip premultiplied-alpha pass when encoding to JPEG/WebP from
+  // an opaque source (premultiplyAlpha:'none' avoids an extra per-pixel multiply).
   const bitmap = await createImageBitmap(blob, {
     resizeWidth: targetWidth,
     resizeHeight: targetHeight,
     resizeQuality: 'high',
+    premultiplyAlpha: 'none',
   });
 
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const w = bitmap.width;
+  const h = bitmap.height;
+
+  // Main thread has DOM access → HTMLCanvasElement is faster because its pixel
+  // store is CPU-backed (no GPU→CPU IPC round-trip before encoding).
+  // Workers have no `document` → fall back to OffscreenCanvas.
+  const hasDom = typeof document !== 'undefined';
+
+  if (hasDom) {
+    // JPEG can skip alpha channel entirely (opaque context = one less blend pass).
+    // alpha:false for JPEG — skips alpha channel blending (JPEG has no transparency).
+    const isJpeg = mimeType === 'image/jpeg';
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d', { alpha: !isJpeg })!;
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    return new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob(
+        (b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+        mimeType,
+        quality,
+      );
+    });
+  }
+
+  // Worker fallback: OffscreenCanvas
+  const canvas = new OffscreenCanvas(w, h);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
   ctx.drawImage(bitmap, 0, 0);
   bitmap.close();
-
-  const mimeType = getMimeType(options.type, options.format);
-  return canvas.convertToBlob({ type: mimeType, quality: options.quality ?? 0.8 });
+  return canvas.convertToBlob({ type: mimeType, quality });
 }
 
 /**
