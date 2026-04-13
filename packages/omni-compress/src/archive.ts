@@ -30,64 +30,95 @@ export async function archive(
   const total = entries.length;
   const level = (options.level ?? 6) as AsyncZipOptions['level'];
 
-  for (let i = 0; i < total; i++) {
-    if (options.signal?.aborted) throw new AbortError('Archive aborted');
+  // Track per-entry progress for smooth aggregate reporting (0-50% = media compress, 50-100% = zip)
+  const entryProgress = new Array<number>(total).fill(0);
+  const reportProgress = () => {
+    if (!options.onProgress) return;
+    const avg = entryProgress.reduce((a, b) => a + b, 0) / total;
+    options.onProgress(Math.round(avg * 0.5)); // first 50% = media phase
+  };
 
-    const entry = entries[i];
-    let data: Uint8Array;
-    let entryName = entry.name;
+  // Process all entries in parallel — fast path (OffscreenCanvas/WebCodecs) and Node.js
+  // native ffmpeg both support concurrency. The worker pool serialises Wasm jobs internally.
+  const processed = await Promise.all(
+    entries.map(async (entry, i) => {
+      if (options.signal?.aborted) throw new AbortError('Archive aborted');
 
-    // Convert File/Blob to Blob/Uint8Array if needed
-    const entryData = (entry.data instanceof Uint8Array) 
-      ? new Blob([entry.data.buffer as ArrayBuffer]) 
-      : entry.data;
+      let data: Uint8Array;
+      let entryName = entry.name;
 
-    originalSize += entryData.size;
+      const entryData =
+        entry.data instanceof Uint8Array
+          ? new Blob([entry.data.buffer as ArrayBuffer])
+          : entry.data;
 
-    if (options.smartOptimize && (isImageFile(entryData) || isAudioFile(entryData))) {
-      // 1. Pre-compress media
-      const isImage = isImageFile(entryData);
-      
-      const updateEntryProgress = (p: number) => {
-        const baseProgress = (i / total) * 50;
-        const itemProgress = (p / 100) * (50 / total);
-        options.onProgress?.(Math.round(baseProgress + itemProgress));
-      };
+      const entrySize = entryData.size;
 
-      const resultBlob = isImage 
-        ? await _compress(entryData, { 
-            type: 'image', 
-            format: (entryData as File).type === 'image/webp' ? 'avif' : 'webp',
-            quality: 0.8,
-            onProgress: updateEntryProgress
-          }, options.signal)
-        : await _compress(entryData, { 
-            type: 'audio', 
-            format: (entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3',
-            bitrate: '128k',
-            onProgress: updateEntryProgress
-          }, options.signal);
+      if (options.smartOptimize && (isImageFile(entryData) || isAudioFile(entryData))) {
+        const isImage = isImageFile(entryData);
 
-      data = new Uint8Array(await resultBlob.arrayBuffer());
-      
-      // Update extension if it changed
-      const format = isImage 
-        ? ((entryData as File).type === 'image/webp' ? 'avif' : 'webp')
-        : ((entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3');
-      
-      const parts = entryName.split('.');
-      if (parts.length > 1) {
-        parts.pop();
-        entryName = parts.join('.') + '.' + format;
+        const updateEntryProgress = (p: number) => {
+          entryProgress[i] = p;
+          reportProgress();
+        };
+
+        const resultBlob = isImage
+          ? await _compress(
+              entryData,
+              {
+                type: 'image',
+                format: (entryData as File).type === 'image/webp' ? 'avif' : 'webp',
+                quality: 0.8,
+                onProgress: updateEntryProgress,
+              },
+              options.signal,
+            )
+          : await _compress(
+              entryData,
+              {
+                type: 'audio',
+                format:
+                  (entryData as File).type === 'audio/mpeg' ||
+                  (entryData as File).type === 'audio/mp3'
+                    ? 'opus'
+                    : 'mp3',
+                bitrate: '128k',
+                onProgress: updateEntryProgress,
+              },
+              options.signal,
+            );
+
+        data = new Uint8Array(await resultBlob.arrayBuffer());
+        entryProgress[i] = 100;
+        reportProgress();
+
+        const format = isImage
+          ? (entryData as File).type === 'image/webp'
+            ? 'avif'
+            : 'webp'
+          : (entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3'
+            ? 'opus'
+            : 'mp3';
+
+        const parts = entryName.split('.');
+        if (parts.length > 1) {
+          parts.pop();
+          entryName = parts.join('.') + '.' + format;
+        } else {
+          entryName = entryName + '.' + format;
+        }
       } else {
-        entryName = entryName + '.' + format;
+        data = new Uint8Array(await entryData.arrayBuffer());
+        entryProgress[i] = 100;
+        reportProgress();
       }
-    } else {
-      // 2. Raw pass-through
-      data = new Uint8Array(await entryData.arrayBuffer());
-      options.onProgress?.(Math.round(((i + 1) / total) * 50));
-    }
 
+      return { entryName, data, entrySize };
+    }),
+  );
+
+  for (const { entryName, data, entrySize } of processed) {
+    originalSize += entrySize;
     files[entryName] = [data, { level }];
   }
 
@@ -109,7 +140,10 @@ export async function archive(
 
   options.onProgress?.(100);
 
-  const zipBuffer = zipped.buffer.slice(zipped.byteOffset, zipped.byteOffset + zipped.byteLength) as ArrayBuffer;
+  const zipBuffer = zipped.buffer.slice(
+    zipped.byteOffset,
+    zipped.byteOffset + zipped.byteLength,
+  ) as ArrayBuffer;
   const blob = new Blob([zipBuffer], { type: 'application/zip' });
 
   return {
@@ -160,41 +194,59 @@ export function archiveStream(
 
           const entry = entries[i];
           let entryName = entry.name;
-          const entryData = (entry.data instanceof Uint8Array) 
-            ? new Blob([entry.data.buffer as ArrayBuffer]) 
-            : entry.data;
+          const entryData =
+            entry.data instanceof Uint8Array
+              ? new Blob([entry.data.buffer as ArrayBuffer])
+              : entry.data;
 
           let data: Uint8Array;
 
           if (options.smartOptimize && (isImageFile(entryData) || isAudioFile(entryData))) {
             const isImage = isImageFile(entryData);
-            
+
             const updateEntryProgress = (p: number) => {
               const baseProgress = (i / total) * 100;
               const itemProgress = (p / 100) * (100 / total);
               options.onProgress?.(Math.round(baseProgress + itemProgress));
             };
 
-            const resultBlob = isImage 
-              ? await _compress(entryData, { 
-                  type: 'image', 
-                  format: (entryData as File).type === 'image/webp' ? 'avif' : 'webp',
-                  quality: 0.8,
-                  onProgress: updateEntryProgress
-                }, options.signal)
-              : await _compress(entryData, { 
-                  type: 'audio', 
-                  format: (entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3',
-                  bitrate: '128k',
-                  onProgress: updateEntryProgress
-                }, options.signal);
+            const resultBlob = isImage
+              ? await _compress(
+                  entryData,
+                  {
+                    type: 'image',
+                    format: (entryData as File).type === 'image/webp' ? 'avif' : 'webp',
+                    quality: 0.8,
+                    onProgress: updateEntryProgress,
+                  },
+                  options.signal,
+                )
+              : await _compress(
+                  entryData,
+                  {
+                    type: 'audio',
+                    format:
+                      (entryData as File).type === 'audio/mpeg' ||
+                      (entryData as File).type === 'audio/mp3'
+                        ? 'opus'
+                        : 'mp3',
+                    bitrate: '128k',
+                    onProgress: updateEntryProgress,
+                  },
+                  options.signal,
+                );
 
             data = new Uint8Array(await resultBlob.arrayBuffer());
 
-            const format = isImage 
-              ? ((entryData as File).type === 'image/webp' ? 'avif' : 'webp')
-              : ((entryData as File).type === 'audio/mpeg' || (entryData as File).type === 'audio/mp3' ? 'opus' : 'mp3');
-            
+            const format = isImage
+              ? (entryData as File).type === 'image/webp'
+                ? 'avif'
+                : 'webp'
+              : (entryData as File).type === 'audio/mpeg' ||
+                  (entryData as File).type === 'audio/mp3'
+                ? 'opus'
+                : 'mp3';
+
             const parts = entryName.split('.');
             if (parts.length > 1) {
               parts.pop();

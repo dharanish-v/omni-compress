@@ -47,7 +47,8 @@ export async function processWithNode(
     await fs.writeFile(inputPath, buffer);
 
     // 2. Construct FFmpeg arguments based on type and options
-    const args = ['-y', '-i', inputPath];
+    // -threads 0 = use all available CPU cores for all codec operations
+    const args = ['-y', '-threads', '0', '-i', inputPath];
 
     // Metadata preservation
     if (options.preserveMetadata) {
@@ -78,13 +79,28 @@ export async function processWithNode(
         if (options.quality !== undefined) {
           args.push('-q:v', Math.floor(options.quality * 100).toString());
         }
+        // method 0 = fastest WebP encoding (speed vs compression tradeoff)
+        // compression_level 0 = skip lossy pre-analysis passes (~2-3x speedup)
+        args.push('-compression_level', '0', '-method', '0');
       } else if (options.format === 'avif') {
         // -b:v 0 required for CRF constrained-quality mode; -still-picture 1 for valid AVIF.
         const crf =
           options.quality !== undefined
             ? Math.max(0, Math.min(63, Math.round((1 - options.quality) * 63)))
             : 32;
-        args.push('-vcodec', 'libaom-av1', '-crf', String(crf), '-b:v', '0', '-still-picture', '1');
+        // cpu-used 8 = fastest libaom-av1 encoding (10-12x speedup vs default cpu-used 1)
+        args.push(
+          '-vcodec',
+          'libaom-av1',
+          '-crf',
+          String(crf),
+          '-b:v',
+          '0',
+          '-still-picture',
+          '1',
+          '-cpu-used',
+          '8',
+        );
       }
     } else if (options.type === 'audio') {
       if (options.channels) {

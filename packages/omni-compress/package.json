@@ -86,7 +86,8 @@
     "lint": "eslint src/",
     "size": "size-limit",
     "clean": "rm -rf dist",
-    "docs": "typedoc"
+    "docs": "typedoc",
+    "bench": "node bench/image-benchmark.mjs"
   },
   "dependencies": {
     "@ffmpeg/core": "^0.12.6",
