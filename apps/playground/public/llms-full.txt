@@ -247,16 +247,28 @@ const result = await compressImage(file, {
 
 **`ImageOptions`**
 
-| Property           | Type                                  | Default | Description                                               |
-| ------------------ | ------------------------------------- | ------- | --------------------------------------------------------- |
-| `format`           | `'webp' \| 'avif' \| 'jpeg' \| 'png'` | —       | Target output format                                      |
-| `quality`          | `number`                              | `0.8`   | Lossy quality `0.0` – `1.0`                               |
-| `maxWidth`         | `number`                              | —       | Max output width in px (aspect ratio preserved)           |
-| `maxHeight`        | `number`                              | —       | Max output height in px (aspect ratio preserved)          |
-| `preserveMetadata` | `boolean`                             | `false` | Keep EXIF data in the output                              |
-| `useWorker`        | `boolean`                             | Auto    | Force Web Worker (true) or Main Thread (false)            |
-| `onProgress`       | `(percent: number) => void`           | —       | Progress callback `0` – `100`                             |
-| `signal`           | `AbortSignal`                         | —       | Cancel the operation — throws `AbortError` when signalled |
+| Property           | Type                                                   | Default | Description                                                                             |
+| ------------------ | ------------------------------------------------------ | ------- | --------------------------------------------------------------------------------------- |
+| `format`           | `'webp' \| 'avif' \| 'jpeg' \| 'png' \| 'auto'`       | `'auto'`| Target output format                                                                    |
+| `quality`          | `number`                                               | `0.8`   | Lossy quality `0.0` – `1.0`                                                             |
+| `maxWidth`         | `number`                                               | —       | Max output width in px (aspect ratio preserved, downscale only)                         |
+| `maxHeight`        | `number`                                               | —       | Max output height in px (aspect ratio preserved, downscale only)                        |
+| `minWidth`         | `number`                                               | —       | Min output width in px — upscales if below this value (aspect ratio preserved)          |
+| `minHeight`        | `number`                                               | —       | Min output height in px — upscales if below this value (aspect ratio preserved)         |
+| `width`            | `number`                                               | —       | Exact canvas width in px. Use with `resize` to control how the image fits               |
+| `height`           | `number`                                               | —       | Exact canvas height in px. Use with `resize` to control how the image fits              |
+| `resize`           | `'contain' \| 'cover' \| 'none'`                       | `'contain'` | Fitting mode when `width`/`height` are set. `contain`: letterbox. `cover`: crop-fill. `none`: draw at current size, canvas clips |
+| `convertTypes`     | `string \| string[]`                                   | `[]`    | MIME types (e.g. `'image/png'`) that are locked to their original format when below `convertSize` |
+| `convertSize`      | `number`                                               | `5242880` | Minimum file size (bytes) above which `convertTypes` conversion applies (default 5 MB) |
+| `beforeDraw`       | `(canvas, ctx) => void`                                | —       | Hook called after canvas creation, before drawing the image. Browser fast path only     |
+| `drew`             | `(canvas, ctx) => void`                                | —       | Hook called after drawing, before encoding. Browser fast path only                      |
+| `checkOrientation` | `boolean`                                              | `true`  | Auto-rotate image based on EXIF orientation. Set `false` to preserve raw pixel order    |
+| `retainExif`       | `boolean`                                              | `false` | Re-inject original EXIF into JPEG output. Browser fast path only (JPEG→JPEG)            |
+| `preserveMetadata` | `boolean`                                              | `false` | Keep EXIF data in the output (FFmpeg / Node paths)                                      |
+| `strict`           | `boolean`                                              | `false` | Return the original if the compressed output is larger                                  |
+| `useWorker`        | `boolean`                                              | Auto    | Force Web Worker (true) or Main Thread (false)                                          |
+| `onProgress`       | `(percent: number) => void`                            | —       | Progress callback `0` – `100`                                                           |
+| `signal`           | `AbortSignal`                                          | —       | Cancel the operation — throws `AbortError` when signalled                               |
 
 #### `compressAudio(input, options): Promise<CompressResult>`
 
@@ -299,12 +311,28 @@ Compresses a video file via WebCodecs (fast path foundation) or FFmpeg Wasm (hea
 
 ```typescript
 interface CompressResult {
-  blob: Blob; // The compressed output
-  originalSize: number; // Input size in bytes
-  compressedSize: number; // Output size in bytes
-  ratio: number; // compressedSize / originalSize (< 1.0 = smaller)
-  format: string; // Target format used (e.g. 'webp')
+  blob: Blob;            // The compressed output
+  originalSize: number;  // Input size in bytes
+  compressedSize: number;// Output size in bytes
+  ratio: number;         // compressedSize / originalSize (< 1.0 = smaller)
+  format: string;        // Target format used (e.g. 'webp')
+  file: File | null;     // File with corrected extension; null when input was a plain Blob
 }
+```
+
+#### `setDefaults(options) / resetDefaults()`
+
+Set module-level defaults applied to every `compressImage()` call. Per-call options override these.
+
+```typescript
+import { setDefaults, resetDefaults } from 'omni-compress';
+
+setDefaults({ quality: 0.75, maxWidth: 1920 });
+
+// Now every compressImage() call uses quality=0.75 and maxWidth=1920 unless overridden
+const result = await compressImage(file, { format: 'webp' });
+
+resetDefaults(); // Remove all defaults
 ```
 
 #### `archive(entries, options?): Promise<ArchiveResult>`

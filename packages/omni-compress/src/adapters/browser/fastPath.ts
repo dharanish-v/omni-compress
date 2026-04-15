@@ -1,6 +1,228 @@
 import type { CompressorOptions } from '../../core/router.js';
 import { getMimeType } from '../../core/utils.js';
 
+// ---------------------------------------------------------------------------
+// Dimension computation (Gaps #1-3: minWidth/minHeight, width/height, resize)
+// ---------------------------------------------------------------------------
+
+interface DrawParams {
+  canvasW: number;
+  canvasH: number;
+  // Source rectangle in bitmap (original pixel) coordinates
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  // Destination rectangle in canvas coordinates
+  dx: number;
+  dy: number;
+  dw: number;
+  dh: number;
+}
+
+/**
+ * Computes canvas dimensions and drawImage source/dest rectangles from
+ * the original image dimensions and all constraint options.
+ *
+ * Processing order:
+ *  1. maxWidth / maxHeight — ceiling downscale (aspect-ratio preserving)
+ *  2. minWidth / minHeight — floor upscale (aspect-ratio preserving)
+ *  3. width / height + resize mode — exact canvas dimensions with fitting
+ */
+function computeDrawParams(origW: number, origH: number, opts: CompressorOptions): DrawParams {
+  let tw = origW;
+  let th = origH;
+
+  // Step 1: ceiling downscale
+  if (opts.maxWidth && tw > opts.maxWidth) {
+    th = Math.round((th * opts.maxWidth) / tw);
+    tw = opts.maxWidth;
+  }
+  if (opts.maxHeight && th > opts.maxHeight) {
+    tw = Math.round((tw * opts.maxHeight) / th);
+    th = opts.maxHeight;
+  }
+
+  // Step 2: floor upscale
+  if (opts.minWidth && tw < opts.minWidth) {
+    th = Math.round((th * opts.minWidth) / tw);
+    tw = opts.minWidth;
+  }
+  if (opts.minHeight && th < opts.minHeight) {
+    tw = Math.round((tw * opts.minHeight) / th);
+    th = opts.minHeight;
+  }
+
+  // Step 3: exact canvas size with resize mode
+  if (opts.width || opts.height) {
+    const cW = opts.width ?? tw;
+    const cH = opts.height ?? th;
+    const mode = opts.resize ?? 'contain';
+
+    if (mode === 'none') {
+      // Canvas is cW×cH; image drawn at current (tw×th) size from top-left, may clip
+      return {
+        canvasW: cW,
+        canvasH: cH,
+        sx: 0,
+        sy: 0,
+        sw: origW,
+        sh: origH,
+        dx: 0,
+        dy: 0,
+        dw: tw,
+        dh: th,
+      };
+    }
+
+    if (mode === 'contain') {
+      // Scale tw×th to fit inside cW×cH, centred
+      const scale = Math.min(cW / tw, cH / th);
+      const dw = Math.round(tw * scale);
+      const dh = Math.round(th * scale);
+      return {
+        canvasW: cW,
+        canvasH: cH,
+        sx: 0,
+        sy: 0,
+        sw: origW,
+        sh: origH,
+        dx: Math.round((cW - dw) / 2),
+        dy: Math.round((cH - dh) / 2),
+        dw,
+        dh,
+      };
+    }
+
+    // 'cover': scale to fill cW×cH, crop the overflow from the centre
+    const scale = Math.max(cW / tw, cH / th);
+    // Map back to original-bitmap coordinates
+    const srcScaleX = origW / tw;
+    const srcScaleY = origH / th;
+    const scaledW = tw * scale;
+    const scaledH = th * scale;
+    const cropX = (scaledW - cW) / 2;
+    const cropY = (scaledH - cH) / 2;
+    const sx = Math.round((cropX / scale) * srcScaleX);
+    const sy = Math.round((cropY / scale) * srcScaleY);
+    const sw = Math.round((cW / scale) * srcScaleX);
+    const sh = Math.round((cH / scale) * srcScaleY);
+    return {
+      canvasW: cW,
+      canvasH: cH,
+      sx,
+      sy,
+      sw,
+      sh,
+      dx: 0,
+      dy: 0,
+      dw: cW,
+      dh: cH,
+    };
+  }
+
+  // No exact dimensions — simple proportional resize to tw×th
+  return {
+    canvasW: tw,
+    canvasH: th,
+    sx: 0,
+    sy: 0,
+    sw: origW,
+    sh: origH,
+    dx: 0,
+    dy: 0,
+    dw: tw,
+    dh: th,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// EXIF helpers (Gap #9: retainExif)
+// ---------------------------------------------------------------------------
+
+/**
+ * Extracts the raw APP1/Exif segment (FF E1 … bytes) from a JPEG buffer.
+ * Returns `null` if not found or input is not JPEG.
+ */
+function extractExifSegment(buffer: ArrayBuffer): Uint8Array | null {
+  const view = new DataView(buffer);
+  const len = buffer.byteLength;
+  if (len < 4 || view.getUint8(0) !== 0xff || view.getUint8(1) !== 0xd8) return null;
+
+  let offset = 2;
+  while (offset + 3 < len) {
+    if (view.getUint8(offset) !== 0xff) break;
+    const marker = view.getUint8(offset + 1);
+    const segLen = view.getUint16(offset + 2); // includes the 2-byte length field
+    if (marker === 0xe1 && offset + 10 < len) {
+      // APP1 — check for 'Exif\0\0' header at offset+4
+      if (
+        view.getUint8(offset + 4) === 0x45 && // E
+        view.getUint8(offset + 5) === 0x78 && // x
+        view.getUint8(offset + 6) === 0x69 && // i
+        view.getUint8(offset + 7) === 0x66 // f
+      ) {
+        return new Uint8Array(buffer, offset, 2 + segLen);
+      }
+    }
+    if (segLen < 2) break;
+    offset += 2 + segLen;
+  }
+  return null;
+}
+
+/**
+ * Injects an EXIF APP1 segment into a JPEG ArrayBuffer immediately after SOI.
+ * Any existing APP1-Exif in the output is stripped first.
+ */
+function injectExifIntoJpeg(jpegBuffer: ArrayBuffer, exif: Uint8Array): ArrayBuffer {
+  const src = new Uint8Array(jpegBuffer);
+  // Skip past SOI (2 bytes) and any existing APP0/APP1 segments in output
+  let outStart = 2;
+  const view = new DataView(jpegBuffer);
+  while (outStart + 3 < jpegBuffer.byteLength) {
+    if (view.getUint8(outStart) !== 0xff) break;
+    const marker = view.getUint8(outStart + 1);
+    const segLen = view.getUint16(outStart + 2);
+    if (marker === 0xe1) {
+      // Strip existing APP1 (may be from canvas encoder)
+      outStart += 2 + segLen;
+    } else {
+      break;
+    }
+  }
+  // Build: SOI + injected EXIF + rest of output from outStart
+  const result = new Uint8Array(2 + exif.length + (src.length - outStart));
+  result[0] = 0xff;
+  result[1] = 0xd8;
+  result.set(exif, 2);
+  result.set(src.subarray(outStart), 2 + exif.length);
+  return result.buffer;
+}
+
+// ---------------------------------------------------------------------------
+// Shared decode helper: get original pixel dimensions
+// ---------------------------------------------------------------------------
+
+async function getOriginalDimensions(
+  blob: Blob,
+  input: ArrayBuffer | Blob,
+): Promise<{ width: number; height: number }> {
+  // Try zero-decode header first (~1µs)
+  const buf = input instanceof ArrayBuffer ? input : await blob.slice(0, 512).arrayBuffer();
+  const dims = getImageDimensionsFromHeader(buf);
+  if (dims) return dims;
+  // Fallback: probe decode (pays the GPU decode cost, but only once)
+  const tmp = await createImageBitmap(blob);
+  const result = { width: tmp.width, height: tmp.height };
+  tmp.close();
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// FAST PATH: Image Processing (worker variant — returns ArrayBuffer)
+// ---------------------------------------------------------------------------
+
 /**
  * FAST PATH: Image Processing
  * Uses OffscreenCanvas for hardware-accelerated image conversion.
@@ -13,75 +235,69 @@ export async function processImageFastPath(
   input: ArrayBuffer | Blob,
   options: CompressorOptions,
 ): Promise<ArrayBuffer> {
-  // Use the Blob directly when available — avoids a full data copy.
   const blob = input instanceof Blob ? input : new Blob([input]);
 
-  let targetWidth: number | undefined;
-  let targetHeight: number | undefined;
+  // Resolve original dimensions when any resize/layout option is active
+  const needsDims = !!(
+    options.maxWidth ||
+    options.maxHeight ||
+    options.minWidth ||
+    options.minHeight ||
+    options.width ||
+    options.height
+  );
 
-  // 1. Pre-calculate target dimensions for resize.
-  // Read pixel dimensions from the raw file header (zero-decode, ~1µs) to avoid
-  // the previous double-decode pattern (two createImageBitmap calls).
-  if (options.maxWidth || options.maxHeight) {
-    // Header parsing needs an ArrayBuffer — materialise lazily only here.
-    const buffer = input instanceof ArrayBuffer ? input : await blob.arrayBuffer();
-    const dims = getImageDimensionsFromHeader(buffer);
-    if (dims) {
-      const { width: origW, height: origH } = dims;
-      const ratio = origW / origH;
-      targetWidth = origW;
-      targetHeight = origH;
-
-      if (options.maxWidth && targetWidth > options.maxWidth) {
-        targetWidth = options.maxWidth;
-        targetHeight = Math.floor(targetWidth / ratio);
-      }
-      if (options.maxHeight && targetHeight > options.maxHeight) {
-        targetHeight = options.maxHeight;
-        targetWidth = Math.floor(targetHeight * ratio);
-      }
-      targetWidth = Math.floor(targetWidth);
-    } else {
-      // Fallback: single probe decode (header parse failed — non-standard format)
-      const tempBitmap = await createImageBitmap(blob);
-      const ratio = tempBitmap.width / tempBitmap.height;
-      targetWidth = tempBitmap.width;
-      targetHeight = tempBitmap.height;
-      tempBitmap.close();
-
-      if (options.maxWidth && targetWidth > options.maxWidth) {
-        targetWidth = options.maxWidth;
-        targetHeight = Math.floor(targetWidth / ratio);
-      }
-      if (options.maxHeight && targetHeight > options.maxHeight) {
-        targetHeight = options.maxHeight;
-        targetWidth = Math.floor(targetHeight * ratio);
-      }
-    }
+  let params: DrawParams | null = null;
+  if (needsDims) {
+    const { width: origW, height: origH } = await getOriginalDimensions(blob, input);
+    params = computeDrawParams(origW, origH, options);
   }
 
-  // 2. Decode (and resize if needed) in a single pass using the browser's GPU decoder
-  const bitmap = await createImageBitmap(blob, {
-    resizeWidth: targetWidth,
-    resizeHeight: targetHeight,
-    resizeQuality: 'high',
-  });
+  // Gap #8: checkOrientation — pass imageOrientation:'none' to suppress EXIF auto-rotate
+  const bitmapOpts: ImageBitmapOptions = {};
+  if (options.checkOrientation === false) bitmapOpts.imageOrientation = 'none';
 
-  const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+  const bitmap = await createImageBitmap(blob, bitmapOpts);
+  const origW = bitmap.width;
+  const origH = bitmap.height;
+
+  // If no resize constraints, derive simple params now that we have bitmap dims
+  if (!params) params = computeDrawParams(origW, origH, options);
+
+  const { canvasW, canvasH, sx, sy, sw, sh, dx, dy, dw, dh } = params;
+
+  const canvas = new OffscreenCanvas(canvasW, canvasH);
   const ctx = canvas.getContext('2d');
   if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
 
-  ctx.drawImage(bitmap, 0, 0);
+  // Gap #6: beforeDraw hook
+  options.beforeDraw?.(canvas, ctx as OffscreenCanvasRenderingContext2D);
+
+  ctx.drawImage(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
   bitmap.close();
 
-  const mimeType = getMimeType(options.type, options.format);
-  const outBlob = await canvas.convertToBlob({
-    type: mimeType,
-    quality: options.quality ?? 0.8,
-  });
+  // Gap #7: drew hook
+  options.drew?.(canvas, ctx as OffscreenCanvasRenderingContext2D);
 
-  return await outBlob.arrayBuffer();
+  const mimeType = getMimeType(options.type, options.format);
+  const outBlob = await canvas.convertToBlob({ type: mimeType, quality: options.quality ?? 0.8 });
+
+  // Gap #9: retainExif — re-inject original EXIF into JPEG output
+  if (options.retainExif && mimeType === 'image/jpeg') {
+    const srcBuf = input instanceof ArrayBuffer ? input : await blob.arrayBuffer();
+    const exif = extractExifSegment(srcBuf);
+    if (exif) {
+      const outBuf = await outBlob.arrayBuffer();
+      return injectExifIntoJpeg(outBuf, exif);
+    }
+  }
+
+  return outBlob.arrayBuffer();
 }
+
+// ---------------------------------------------------------------------------
+// FAST PATH: Zero-copy main-thread variant (returns Blob)
+// ---------------------------------------------------------------------------
 
 /**
  * Zero-copy, main-thread-optimised variant.
@@ -93,96 +309,102 @@ export async function processImageFastPath(
  *     pixel readback through an async GPU IPC call — measurably slower, especially
  *     for JPEG (no hardware encoder in Chrome's OffscreenCanvas path).
  *  3. Opaque context (alpha:false) for JPEG — skips alpha channel blending.
- *  4. createImageBitmap with premultiplyAlpha:'none' avoids an extra multiply pass.
+ *  4. premultiplyAlpha:'none' avoids an extra per-pixel multiply pass.
  */
 export async function processImageFastPathToBlob(
   input: ArrayBuffer | Blob,
   options: CompressorOptions,
 ): Promise<Blob> {
   const blob = input instanceof Blob ? input : new Blob([input]);
-  let targetWidth: number | undefined;
-  let targetHeight: number | undefined;
 
-  if (options.maxWidth || options.maxHeight) {
-    const buffer = input instanceof ArrayBuffer ? input : await blob.arrayBuffer();
-    const dims = getImageDimensionsFromHeader(buffer);
-    if (dims) {
-      const { width: origW, height: origH } = dims;
-      const ratio = origW / origH;
-      targetWidth = origW;
-      targetHeight = origH;
-      if (options.maxWidth && targetWidth > options.maxWidth) {
-        targetWidth = options.maxWidth;
-        targetHeight = Math.floor(targetWidth / ratio);
-      }
-      if (options.maxHeight && targetHeight > options.maxHeight) {
-        targetHeight = options.maxHeight;
-        targetWidth = Math.floor(targetHeight * ratio);
-      }
-      targetWidth = Math.floor(targetWidth);
-    } else {
-      const tempBitmap = await createImageBitmap(blob);
-      const ratio = tempBitmap.width / tempBitmap.height;
-      targetWidth = tempBitmap.width;
-      targetHeight = tempBitmap.height;
-      tempBitmap.close();
-      if (options.maxWidth && targetWidth > options.maxWidth) {
-        targetWidth = options.maxWidth;
-        targetHeight = Math.floor(targetWidth / ratio);
-      }
-      if (options.maxHeight && targetHeight > options.maxHeight) {
-        targetHeight = options.maxHeight;
-        targetWidth = Math.floor(targetHeight * ratio);
-      }
-    }
+  const needsDims = !!(
+    options.maxWidth ||
+    options.maxHeight ||
+    options.minWidth ||
+    options.minHeight ||
+    options.width ||
+    options.height
+  );
+
+  let params: DrawParams | null = null;
+  if (needsDims) {
+    const { width: origW, height: origH } = await getOriginalDimensions(blob, input);
+    params = computeDrawParams(origW, origH, options);
   }
 
   const mimeType = getMimeType(options.type, options.format);
   const quality = options.quality ?? 0.8;
 
-  // Optimisation: skip premultiplied-alpha pass when encoding to JPEG/WebP from
-  // an opaque source (premultiplyAlpha:'none' avoids an extra per-pixel multiply).
-  const bitmap = await createImageBitmap(blob, {
-    resizeWidth: targetWidth,
-    resizeHeight: targetHeight,
-    resizeQuality: 'high',
-    premultiplyAlpha: 'none',
-  });
+  // Gap #8: checkOrientation
+  const bitmapOpts: ImageBitmapOptions = { premultiplyAlpha: 'none' };
+  if (options.checkOrientation === false) bitmapOpts.imageOrientation = 'none';
 
-  const w = bitmap.width;
-  const h = bitmap.height;
+  const bitmap = await createImageBitmap(blob, bitmapOpts);
+  const origW = bitmap.width;
+  const origH = bitmap.height;
 
-  // Main thread has DOM access → HTMLCanvasElement is faster because its pixel
-  // store is CPU-backed (no GPU→CPU IPC round-trip before encoding).
-  // Workers have no `document` → fall back to OffscreenCanvas.
+  if (!params) params = computeDrawParams(origW, origH, options);
+
+  const { canvasW, canvasH, sx, sy, sw, sh, dx, dy, dw, dh } = params;
+
+  // Main thread has DOM access → HTMLCanvasElement is faster (CPU-backed pixel store)
   const hasDom = typeof document !== 'undefined';
 
+  let outBlob: Blob;
+
   if (hasDom) {
-    // JPEG can skip alpha channel entirely (opaque context = one less blend pass).
-    // alpha:false for JPEG — skips alpha channel blending (JPEG has no transparency).
     const isJpeg = mimeType === 'image/jpeg';
     const canvas = document.createElement('canvas');
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = canvasW;
+    canvas.height = canvasH;
     const ctx = canvas.getContext('2d', { alpha: !isJpeg })!;
-    ctx.drawImage(bitmap, 0, 0);
+
+    // Gap #6: beforeDraw hook
+    options.beforeDraw?.(canvas, ctx);
+
+    ctx.drawImage(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
     bitmap.close();
-    return new Promise<Blob>((resolve, reject) => {
+
+    // Gap #7: drew hook
+    options.drew?.(canvas, ctx);
+
+    outBlob = await new Promise<Blob>((resolve, reject) => {
       canvas.toBlob(
         (b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
         mimeType,
         quality,
       );
     });
+  } else {
+    // Worker fallback: OffscreenCanvas
+    const canvas = new OffscreenCanvas(canvasW, canvasH);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
+
+    // Gap #6: beforeDraw hook
+    options.beforeDraw?.(canvas, ctx as OffscreenCanvasRenderingContext2D);
+
+    ctx.drawImage(bitmap, sx, sy, sw, sh, dx, dy, dw, dh);
+    bitmap.close();
+
+    // Gap #7: drew hook
+    options.drew?.(canvas, ctx as OffscreenCanvasRenderingContext2D);
+
+    outBlob = await canvas.convertToBlob({ type: mimeType, quality });
   }
 
-  // Worker fallback: OffscreenCanvas
-  const canvas = new OffscreenCanvas(w, h);
-  const ctx = canvas.getContext('2d');
-  if (!ctx) throw new Error('Failed to get 2d context for OffscreenCanvas');
-  ctx.drawImage(bitmap, 0, 0);
-  bitmap.close();
-  return canvas.convertToBlob({ type: mimeType, quality });
+  // Gap #9: retainExif — re-inject original EXIF into JPEG output
+  if (options.retainExif && mimeType === 'image/jpeg') {
+    const srcBuf = input instanceof ArrayBuffer ? input : await blob.arrayBuffer();
+    const exif = extractExifSegment(srcBuf);
+    if (exif) {
+      const outBuf = await outBlob.arrayBuffer();
+      const injected = injectExifIntoJpeg(outBuf, exif);
+      return new Blob([injected], { type: mimeType });
+    }
+  }
+
+  return outBlob;
 }
 
 /**

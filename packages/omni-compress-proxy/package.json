@@ -1,6 +1,6 @@
 {
   "name": "@dharanish/omni-compress",
-  "version": "2.3.2",
+  "version": "2.3.3",
   "description": "Renamed to 'omni-compress'. This package re-exports omni-compress for backwards compatibility.",
   "author": "Dharanish V",
   "license": "MIT",
@@ -39,7 +39,7 @@
     "LICENSE"
   ],
   "dependencies": {
-    "omni-compress": "2.3.0"
+    "omni-compress": "2.3.3"
   },
   "engines": {
     "node": ">=18"

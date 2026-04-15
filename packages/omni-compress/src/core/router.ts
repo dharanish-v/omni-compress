@@ -35,6 +35,21 @@ export interface CompressorOptions {
   // Advanced Image Options
   maxWidth?: number;
   maxHeight?: number;
+  minWidth?: number;
+  minHeight?: number;
+  width?: number;
+  height?: number;
+  resize?: 'contain' | 'cover' | 'none';
+  checkOrientation?: boolean;
+  retainExif?: boolean;
+  beforeDraw?: (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ) => void;
+  drew?: (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ) => void;
   preserveMetadata?: boolean;
   // Advanced Audio Options
   bitrate?: string; // e.g., '128k', '192k'
@@ -64,6 +79,11 @@ export interface CompressResult {
   ratio: number;
   /** The target format that was used (e.g. 'webp', 'opus'). */
   format: string;
+  /**
+   * A `File` object with the output blob content and a corrected filename extension.
+   * `null` when the input was a plain `Blob` (no original filename).
+   */
+  file: File | null;
 }
 
 /** Options for compressImage(). */
@@ -76,6 +96,63 @@ export interface ImageOptions {
   maxWidth?: number;
   /** Resize output height to at most this many pixels (maintains aspect ratio). */
   maxHeight?: number;
+  /** Scale up if output width is below this value (maintains aspect ratio). */
+  minWidth?: number;
+  /** Scale up if output height is below this value (maintains aspect ratio). */
+  minHeight?: number;
+  /** Exact output canvas width in pixels. Use with `resize` to control fitting. */
+  width?: number;
+  /** Exact output canvas height in pixels. Use with `resize` to control fitting. */
+  height?: number;
+  /**
+   * Resize mode when both `width` and `height` are set.
+   * - `'contain'` (default): scale to fit within the canvas, letterbox if needed.
+   * - `'cover'`: scale to fill the canvas, cropping the overflow.
+   * - `'none'`: draw the image at its current size; canvas is cropped/padded.
+   */
+  resize?: 'contain' | 'cover' | 'none';
+  /**
+   * MIME type(s) eligible for auto format conversion (e.g. `'image/png'`).
+   * When the input's MIME type matches one of these AND the file size is below
+   * `convertSize`, the format is locked to the input format (no conversion).
+   * Default: `[]` (no restriction).
+   */
+  convertTypes?: string | string[];
+  /**
+   * Minimum file size (bytes) that triggers `convertTypes` auto-conversion.
+   * Files below this threshold keep their original format.
+   * Default: `5242880` (5 MB).
+   */
+  convertSize?: number;
+  /**
+   * Called on the canvas context after the canvas is created and filled,
+   * but before the image bitmap is drawn. Useful for applying background colours
+   * or watermarks. Browser fast path only (no-op on FFmpeg / Node paths).
+   */
+  beforeDraw?: (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ) => void;
+  /**
+   * Called on the canvas context after the image bitmap has been drawn,
+   * but before the canvas is encoded. Useful for overlays or post-processing.
+   * Browser fast path only (no-op on FFmpeg / Node paths).
+   */
+  drew?: (
+    canvas: HTMLCanvasElement | OffscreenCanvas,
+    ctx: CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D,
+  ) => void;
+  /**
+   * When `true` (default), EXIF orientation is applied automatically so the
+   * image is upright. Set to `false` to preserve the raw pixel orientation.
+   */
+  checkOrientation?: boolean;
+  /**
+   * When `true`, the original EXIF metadata is re-injected into the JPEG output.
+   * Only applies to JPEG input compressed to JPEG output on the browser fast path.
+   * Default: `false`.
+   */
+  retainExif?: boolean;
   /** When true, EXIF/metadata is preserved in the output. Default: false (stripped). */
   preserveMetadata?: boolean;
   /**

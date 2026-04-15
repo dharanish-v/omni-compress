@@ -14,6 +14,31 @@ const VALID_AUDIO_FORMATS = new Set(['opus', 'mp3', 'flac', 'wav', 'aac', 'ogg',
 const VALID_VIDEO_FORMATS = new Set(['mp4', 'webm', 'auto']);
 
 // ---------------------------------------------------------------------------
+// Global defaults (Gap #11) — merged into every compressImage() call
+// ---------------------------------------------------------------------------
+let _imageDefaults: Partial<ImageOptions> = {};
+
+/**
+ * Set module-level default options applied to every `compressImage()` call.
+ * Per-call options override these defaults.
+ *
+ * @example
+ * ```ts
+ * setDefaults({ quality: 0.7, maxWidth: 1920 });
+ * ```
+ */
+export function setDefaults(options: Partial<ImageOptions>): void {
+  _imageDefaults = { ..._imageDefaults, ...options };
+}
+
+/**
+ * Reset all module-level defaults set via `setDefaults()`.
+ */
+export function resetDefaults(): void {
+  _imageDefaults = {};
+}
+
+// ---------------------------------------------------------------------------
 // v2.0 named function exports (#33)
 // ---------------------------------------------------------------------------
 
@@ -39,18 +64,42 @@ export async function compressImage(
     throw new InvalidOptionsError('Options object is required');
   }
 
-  const format = (options.format || 'auto').toLowerCase();
-  if (!VALID_IMAGE_FORMATS.has(format)) {
+  // Gap #11: merge module-level defaults (per-call options win)
+  const opts: ImageOptions = { ..._imageDefaults, ...options };
+
+  const rawFormat = (opts.format || 'auto').toLowerCase();
+  if (!VALID_IMAGE_FORMATS.has(rawFormat)) {
     throw new FormatNotSupportedError(
-      `"${options.format}" is not a supported image format. Supported: webp, avif, jpeg, png`,
-      options.format as string,
+      `"${opts.format}" is not a supported image format. Supported: webp, avif, jpeg, png`,
+      opts.format as string,
     );
   }
 
-  if (options.quality !== undefined && (options.quality < 0 || options.quality > 1)) {
-    throw new InvalidOptionsError(
-      `Quality must be between 0.0 and 1.0. Received: ${options.quality}`,
-    );
+  if (opts.quality !== undefined && (opts.quality < 0 || opts.quality > 1)) {
+    throw new InvalidOptionsError(`Quality must be between 0.0 and 1.0. Received: ${opts.quality}`);
+  }
+
+  // Gap #4-5: convertTypes / convertSize
+  // If the input's MIME type is listed in convertTypes AND the file is below
+  // convertSize, lock the format to the input's own format (no conversion).
+  const inputMime = (input instanceof Blob ? input.type : '') || '';
+  const convertTypesArr: string[] = opts.convertTypes
+    ? Array.isArray(opts.convertTypes)
+      ? opts.convertTypes
+      : [opts.convertTypes]
+    : [];
+  const convertSize = opts.convertSize ?? 5 * 1024 * 1024; // 5 MB default
+
+  let format = rawFormat;
+  if (
+    convertTypesArr.length > 0 &&
+    convertTypesArr.includes(inputMime) &&
+    input.size < convertSize
+  ) {
+    // File is below the conversion threshold — keep original format
+    const inferredFormat = inputMime.split('/')[1] || rawFormat;
+    format = inferredFormat === 'jpeg' ? 'jpeg' : inferredFormat;
+    if (!VALID_IMAGE_FORMATS.has(format)) format = rawFormat;
   }
 
   const originalSize = input.size;
@@ -58,15 +107,32 @@ export async function compressImage(
   const compressorOptions: CompressorOptions = {
     type: 'image',
     format: format as any,
-    quality: options.quality,
-    maxWidth: options.maxWidth,
-    maxHeight: options.maxHeight,
-    preserveMetadata: options.preserveMetadata,
-    onProgress: options.onProgress,
-    strict: options.strict,
+    quality: opts.quality,
+    maxWidth: opts.maxWidth,
+    maxHeight: opts.maxHeight,
+    minWidth: opts.minWidth,
+    minHeight: opts.minHeight,
+    width: opts.width,
+    height: opts.height,
+    resize: opts.resize,
+    preserveMetadata: opts.preserveMetadata,
+    onProgress: opts.onProgress,
+    strict: opts.strict,
+    checkOrientation: opts.checkOrientation,
+    retainExif: opts.retainExif,
+    beforeDraw: opts.beforeDraw,
+    drew: opts.drew,
   };
 
-  const blob = await _compress(input, compressorOptions, options.signal);
+  const blob = await _compress(input, compressorOptions, opts.signal);
+
+  // Gap #10: build File with corrected extension
+  let file: File | null = null;
+  if (input instanceof File) {
+    const ext = compressorOptions.format === 'jpeg' ? 'jpg' : compressorOptions.format;
+    const baseName = input.name.replace(/\.[^.]+$/, '');
+    file = new File([blob], `${baseName}.${ext}`, { type: blob.type });
+  }
 
   return {
     blob,
@@ -74,6 +140,7 @@ export async function compressImage(
     compressedSize: blob.size,
     ratio: originalSize > 0 ? blob.size / originalSize : 1,
     format: compressorOptions.format,
+    file,
   };
 }
 
@@ -124,6 +191,7 @@ export async function compressAudio(
     compressedSize: blob.size,
     ratio: originalSize > 0 ? blob.size / originalSize : 1,
     format: compressorOptions.format,
+    file: null,
   };
 }
 
@@ -178,6 +246,7 @@ export async function compressVideo(
     compressedSize: blob.size,
     ratio: originalSize > 0 ? blob.size / originalSize : 1,
     format: compressorOptions.format,
+    file: null,
   };
 }
 
