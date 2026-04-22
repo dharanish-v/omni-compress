@@ -84,6 +84,11 @@ export interface CompressResult {
    * `null` when the input was a plain `Blob` (no original filename).
    */
   file: File | null;
+  /**
+   * Final encoder quality used (0.0–1.0). Set when `maxSizeMB` binary search
+   * ran and converged. `undefined` for single-pass compressions.
+   */
+  quality?: number;
 }
 
 /** Options for compressImage(). */
@@ -92,6 +97,26 @@ export interface ImageOptions {
   format?: 'webp' | 'avif' | 'jpeg' | 'png' | 'auto';
   /** Encoder quality from 0.0 (worst) to 1.0 (best). Default: 0.8. */
   quality?: number;
+  /**
+   * Target output file size in megabytes. When set, the library runs a binary
+   * search over quality values (up to 6 passes) to find the highest quality
+   * that produces output ≤ `maxSizeMB`. Applies to lossy formats only
+   * (WebP, JPEG, AVIF). PNG is lossless and ignores this option.
+   *
+   * If the target cannot be reached at minimum quality (0.05), the
+   * smallest achievable result is returned with a console warning.
+   *
+   * @example
+   * ```ts
+   * // Enforce a 500 KB output ceiling
+   * const { blob, quality } = await compressImage(file, {
+   *   format: 'webp',
+   *   maxSizeMB: 0.5,
+   * });
+   * console.log(`Final quality: ${quality}`);
+   * ```
+   */
+  maxSizeMB?: number;
   /** Resize output width to at most this many pixels (maintains aspect ratio). */
   maxWidth?: number;
   /** Resize output height to at most this many pixels (maintains aspect ratio). */

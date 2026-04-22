@@ -5,7 +5,7 @@ import {
   type AudioOptions,
   type VideoOptions,
 } from './core/router.js';
-import { _compress } from './core/processor.js';
+import { _compress, compressWithTarget } from './core/processor.js';
 import { logger } from './core/logger.js';
 import { InvalidOptionsError, FormatNotSupportedError } from './core/errors.js';
 
@@ -79,6 +79,12 @@ export async function compressImage(
     throw new InvalidOptionsError(`Quality must be between 0.0 and 1.0. Received: ${opts.quality}`);
   }
 
+  if (opts.maxSizeMB !== undefined && (typeof opts.maxSizeMB !== 'number' || opts.maxSizeMB <= 0)) {
+    throw new InvalidOptionsError(
+      `maxSizeMB must be a positive number. Received: ${opts.maxSizeMB}`,
+    );
+  }
+
   // Gap #4-5: convertTypes / convertSize
   // If the input's MIME type is listed in convertTypes AND the file is below
   // convertSize, lock the format to the input's own format (no conversion).
@@ -108,6 +114,7 @@ export async function compressImage(
     type: 'image',
     format: format as any,
     quality: opts.quality,
+    maxSizeMB: opts.maxSizeMB,
     maxWidth: opts.maxWidth,
     maxHeight: opts.maxHeight,
     minWidth: opts.minWidth,
@@ -124,7 +131,11 @@ export async function compressImage(
     drew: opts.drew,
   };
 
-  const blob = await _compress(input, compressorOptions, opts.signal);
+  const { blob, quality: finalQuality } = await compressWithTarget(
+    input,
+    compressorOptions,
+    opts.signal,
+  );
 
   // Gap #10: build File with corrected extension
   let file: File | null = null;
@@ -141,6 +152,7 @@ export async function compressImage(
     ratio: originalSize > 0 ? blob.size / originalSize : 1,
     format: compressorOptions.format,
     file,
+    quality: finalQuality,
   };
 }
 

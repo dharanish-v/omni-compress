@@ -172,7 +172,7 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 | ~~36~~ | ~~Core~~ | ~~`strict` mode — return original if compressed is larger~~                                      | **Resolved in v2.1.0**.                                                                                                                                                                                  |
 | ~~37~~ | ~~Core~~ | ~~Image resize modes (`contain`/`cover`/`none`) + `minWidth`/`minHeight`~~                       | **Resolved in v2.3.3**. Also added `width`/`height`, `beforeDraw`/`drew` hooks, `checkOrientation`, `retainExif`, `convertTypes`/`convertSize`, `file` in CompressResult, `setDefaults`/`resetDefaults`. |
 | ~~38~~ | ~~Core~~ | ~~Smart format auto-selection (`format: 'auto'`) + PNG→WebP auto-convert~~                       | **Resolved in v2.1.0**.                                                                                                                                                                                  |
-| 39     | Core     | Target file size with iterative quality search (enforce `maxSizeMB`)                             |
+| ~~39~~ | ~~Core~~ | ~~Target file size with iterative quality search (enforce `maxSizeMB`)~~                         | **Resolved** — binary search over quality (≤6 passes), `result.quality` reports final quality used. PNG/audio/video skip search (single pass).                                                           |
 | 16     | UX       | File reading latency + progress feedback for large files                                         |
 
 ### Performance roadmap (Speed-to-#1 initiative)

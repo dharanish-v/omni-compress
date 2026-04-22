@@ -10,6 +10,9 @@ import { logger } from './logger.js';
 import { AbortError } from './errors.js';
 import type { processWithNode as ProcessWithNodeFn } from '../adapters/node/childProcess.js';
 
+const MAX_BINARY_SEARCH_ITERATIONS = 6;
+const MIN_QUALITY = 0.05;
+
 // Dynamically imported to avoid breaking browser environments
 let processWithNode: typeof ProcessWithNodeFn | null = null;
 
@@ -139,4 +142,74 @@ export async function _compress(
   }
 
   return processedBlob;
+}
+
+/**
+ * Wraps _compress with an iterative binary search over quality to enforce
+ * `maxSizeMB`. Only active for lossy image formats (WebP, JPEG, AVIF).
+ * All other types fall straight through to a single `_compress` call.
+ *
+ * Returns the compressed Blob and the final quality value used
+ * (undefined when binary search was not needed / not applicable).
+ */
+export async function compressWithTarget(
+  input: File | Blob,
+  options: CompressorOptions,
+  signal?: AbortSignal,
+): Promise<{ blob: Blob; quality: number | undefined }> {
+  const targetBytes = (options.maxSizeMB ?? 0) * 1024 * 1024;
+  const format = options.format?.toLowerCase() ?? '';
+  // 'auto' always resolves to a lossy format (webp/avif) — include in binary search.
+  // PNG is lossless; quality has no effect on its size.
+  const isLossyImage = options.type === 'image' && format !== 'png';
+
+  if (!targetBytes || !isLossyImage) {
+    return { blob: await _compress(input, options, signal), quality: undefined };
+  }
+
+  const externalProgress = options.onProgress;
+  const startQuality = options.quality ?? 0.9;
+  const innerOptions: CompressorOptions = { ...options, onProgress: undefined };
+
+  let low = Math.min(MIN_QUALITY, startQuality);
+  let high = startQuality;
+  let currentQuality = startQuality;
+  let bestBlob: Blob | null = null;
+  let bestQuality: number = startQuality;
+  let lastBlob: Blob | null = null;
+
+  externalProgress?.(0);
+
+  for (let i = 0; i < MAX_BINARY_SEARCH_ITERATIONS; i++) {
+    if (signal?.aborted) throw new AbortError('Compression aborted');
+
+    const result = await _compress(input, { ...innerOptions, quality: currentQuality }, signal);
+    lastBlob = result;
+
+    externalProgress?.(Math.round(((i + 1) / MAX_BINARY_SEARCH_ITERATIONS) * 100));
+
+    if (result.size <= targetBytes) {
+      bestBlob = result;
+      bestQuality = currentQuality;
+      if (i === 0) break; // First pass already fits — done
+      low = currentQuality; // Try higher quality (better visual)
+    } else {
+      high = currentQuality; // Too large — reduce quality
+    }
+
+    const nextQuality = (low + high) / 2;
+    if (Math.abs(nextQuality - currentQuality) < 0.01 || nextQuality < MIN_QUALITY) break;
+    currentQuality = nextQuality;
+  }
+
+  externalProgress?.(100);
+
+  if (bestBlob === null) {
+    logger.warn(
+      `maxSizeMB: target ${options.maxSizeMB} MB unreachable at minimum quality ${MIN_QUALITY}. Returning best-effort result.`,
+    );
+    return { blob: lastBlob!, quality: currentQuality };
+  }
+
+  return { blob: bestBlob, quality: bestQuality };
 }

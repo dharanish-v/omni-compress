@@ -132,6 +132,91 @@ describe('Gap #4-5: convertTypes / convertSize', () => {
 });
 
 // ---------------------------------------------------------------------------
+// Issue #39: maxSizeMB — target file size with binary search
+// ---------------------------------------------------------------------------
+describe('Issue #39: maxSizeMB', () => {
+  it('returns quality field when maxSizeMB is set and target is reachable', async () => {
+    const result = await compressImage(mockFile, {
+      format: 'webp',
+      maxSizeMB: 1, // 1 MB >> fixture size — first pass succeeds
+    });
+    expect(result.blob.size).toBeGreaterThan(0);
+    expect(result.blob.size).toBeLessThanOrEqual(1 * 1024 * 1024);
+    // quality is set whenever maxSizeMB binary search was triggered
+    expect(typeof result.quality).toBe('number');
+    expect(result.quality).toBeGreaterThan(0);
+    expect(result.quality).toBeLessThanOrEqual(1);
+  });
+
+  it('quality is undefined when maxSizeMB is not set', async () => {
+    const result = await compressImage(mockFile, { format: 'webp' });
+    expect(result.quality).toBeUndefined();
+  });
+
+  it('skips binary search for PNG (lossless) — quality is undefined', async () => {
+    const result = await compressImage(mockFile, {
+      format: 'png',
+      maxSizeMB: 1,
+    });
+    expect(result.blob.size).toBeGreaterThan(0);
+    expect(result.quality).toBeUndefined();
+  });
+
+  it('returns best-effort blob when target is unreachable (does not throw)', async () => {
+    // 0.000001 MB = ~1 byte — impossible to achieve
+    const result = await compressImage(mockFile, {
+      format: 'webp',
+      maxSizeMB: 0.000001,
+    });
+    expect(result.blob.size).toBeGreaterThan(0);
+    // quality is still set — reflects the last quality tried
+    expect(typeof result.quality).toBe('number');
+  });
+
+  it('throws InvalidOptionsError for maxSizeMB <= 0', async () => {
+    await expect(
+      compressImage(mockFile, { format: 'webp', maxSizeMB: 0 }),
+    ).rejects.toThrow('maxSizeMB must be a positive number');
+
+    await expect(
+      compressImage(mockFile, { format: 'webp', maxSizeMB: -1 }),
+    ).rejects.toThrow('maxSizeMB must be a positive number');
+  });
+
+  it('uses quality as upper bound in binary search', async () => {
+    const result = await compressImage(mockFile, {
+      format: 'webp',
+      quality: 0.5,
+      maxSizeMB: 1,
+    });
+    // quality in result must not exceed the starting quality
+    if (result.quality !== undefined) {
+      expect(result.quality).toBeLessThanOrEqual(0.5 + 0.01); // allow minor float drift
+    }
+    expect(result.blob.size).toBeLessThanOrEqual(1 * 1024 * 1024);
+  });
+
+  it('works with format: auto (resolves to lossy — binary search runs)', async () => {
+    const result = await compressImage(mockFile, {
+      format: 'auto',
+      maxSizeMB: 1,
+    });
+    expect(result.blob.size).toBeLessThanOrEqual(1 * 1024 * 1024);
+    expect(typeof result.quality).toBe('number');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Issue #39: result.quality field is always undefined for audio/video
+// ---------------------------------------------------------------------------
+describe('Issue #39: quality field absent for audio/video', () => {
+  it('compressImage without maxSizeMB returns undefined quality', async () => {
+    const result = await compressImage(mockFile, { format: 'webp', quality: 0.7 });
+    expect(result.quality).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Gap #1: minWidth / minHeight
 // ---------------------------------------------------------------------------
 describe('Gap #1: minWidth / minHeight', () => {

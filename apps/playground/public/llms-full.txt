@@ -214,6 +214,13 @@ const { blob: video } = await compressVideo(videoFile, {
   bitrate: '1M',
 });
 
+// Target file size — binary-searches quality to stay under 500 KB
+const { blob: small, quality } = await compressImage(imageFile, {
+  format: 'webp',
+  maxSizeMB: 0.5,
+});
+console.log(`Compressed to ${(small.size / 1024).toFixed(0)} KB at quality ${quality?.toFixed(2)}`);
+
 // Archive multiple files into a ZIP
 import { archive } from 'omni-compress';
 const { blob: zip } = await archive([
@@ -247,28 +254,29 @@ const result = await compressImage(file, {
 
 **`ImageOptions`**
 
-| Property           | Type                                                   | Default | Description                                                                             |
-| ------------------ | ------------------------------------------------------ | ------- | --------------------------------------------------------------------------------------- |
-| `format`           | `'webp' \| 'avif' \| 'jpeg' \| 'png' \| 'auto'`       | `'auto'`| Target output format                                                                    |
-| `quality`          | `number`                                               | `0.8`   | Lossy quality `0.0` – `1.0`                                                             |
-| `maxWidth`         | `number`                                               | —       | Max output width in px (aspect ratio preserved, downscale only)                         |
-| `maxHeight`        | `number`                                               | —       | Max output height in px (aspect ratio preserved, downscale only)                        |
-| `minWidth`         | `number`                                               | —       | Min output width in px — upscales if below this value (aspect ratio preserved)          |
-| `minHeight`        | `number`                                               | —       | Min output height in px — upscales if below this value (aspect ratio preserved)         |
-| `width`            | `number`                                               | —       | Exact canvas width in px. Use with `resize` to control how the image fits               |
-| `height`           | `number`                                               | —       | Exact canvas height in px. Use with `resize` to control how the image fits              |
-| `resize`           | `'contain' \| 'cover' \| 'none'`                       | `'contain'` | Fitting mode when `width`/`height` are set. `contain`: letterbox. `cover`: crop-fill. `none`: draw at current size, canvas clips |
-| `convertTypes`     | `string \| string[]`                                   | `[]`    | MIME types (e.g. `'image/png'`) that are locked to their original format when below `convertSize` |
-| `convertSize`      | `number`                                               | `5242880` | Minimum file size (bytes) above which `convertTypes` conversion applies (default 5 MB) |
-| `beforeDraw`       | `(canvas, ctx) => void`                                | —       | Hook called after canvas creation, before drawing the image. Browser fast path only     |
-| `drew`             | `(canvas, ctx) => void`                                | —       | Hook called after drawing, before encoding. Browser fast path only                      |
-| `checkOrientation` | `boolean`                                              | `true`  | Auto-rotate image based on EXIF orientation. Set `false` to preserve raw pixel order    |
-| `retainExif`       | `boolean`                                              | `false` | Re-inject original EXIF into JPEG output. Browser fast path only (JPEG→JPEG)            |
-| `preserveMetadata` | `boolean`                                              | `false` | Keep EXIF data in the output (FFmpeg / Node paths)                                      |
-| `strict`           | `boolean`                                              | `false` | Return the original if the compressed output is larger                                  |
-| `useWorker`        | `boolean`                                              | Auto    | Force Web Worker (true) or Main Thread (false)                                          |
-| `onProgress`       | `(percent: number) => void`                            | —       | Progress callback `0` – `100`                                                           |
-| `signal`           | `AbortSignal`                                          | —       | Cancel the operation — throws `AbortError` when signalled                               |
+| Property           | Type                                            | Default     | Description                                                                                                                      |
+| ------------------ | ----------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `format`           | `'webp' \| 'avif' \| 'jpeg' \| 'png' \| 'auto'` | `'auto'`    | Target output format                                                                                                             |
+| `quality`          | `number`                                        | `0.8`       | Lossy quality `0.0` – `1.0`. When `maxSizeMB` is set, treated as the upper-bound starting quality for binary search              |
+| `maxSizeMB`        | `number`                                        | —           | Target output size ceiling in MB. Binary-searches over quality (up to 6 passes) to find the highest quality that fits. Lossy formats only (WebP, JPEG, AVIF). PNG ignored. See `result.quality` for the final quality used |
+| `maxWidth`         | `number`                                        | —           | Max output width in px (aspect ratio preserved, downscale only)                                                                  |
+| `maxHeight`        | `number`                                        | —           | Max output height in px (aspect ratio preserved, downscale only)                                                                 |
+| `minWidth`         | `number`                                        | —           | Min output width in px — upscales if below this value (aspect ratio preserved)                                                   |
+| `minHeight`        | `number`                                        | —           | Min output height in px — upscales if below this value (aspect ratio preserved)                                                  |
+| `width`            | `number`                                        | —           | Exact canvas width in px. Use with `resize` to control how the image fits                                                        |
+| `height`           | `number`                                        | —           | Exact canvas height in px. Use with `resize` to control how the image fits                                                       |
+| `resize`           | `'contain' \| 'cover' \| 'none'`                | `'contain'` | Fitting mode when `width`/`height` are set. `contain`: letterbox. `cover`: crop-fill. `none`: draw at current size, canvas clips |
+| `convertTypes`     | `string \| string[]`                            | `[]`        | MIME types (e.g. `'image/png'`) that are locked to their original format when below `convertSize`                                |
+| `convertSize`      | `number`                                        | `5242880`   | Minimum file size (bytes) above which `convertTypes` conversion applies (default 5 MB)                                           |
+| `beforeDraw`       | `(canvas, ctx) => void`                         | —           | Hook called after canvas creation, before drawing the image. Browser fast path only                                              |
+| `drew`             | `(canvas, ctx) => void`                         | —           | Hook called after drawing, before encoding. Browser fast path only                                                               |
+| `checkOrientation` | `boolean`                                       | `true`      | Auto-rotate image based on EXIF orientation. Set `false` to preserve raw pixel order                                             |
+| `retainExif`       | `boolean`                                       | `false`     | Re-inject original EXIF into JPEG output. Browser fast path only (JPEG→JPEG)                                                     |
+| `preserveMetadata` | `boolean`                                       | `false`     | Keep EXIF data in the output (FFmpeg / Node paths)                                                                               |
+| `strict`           | `boolean`                                       | `false`     | Return the original if the compressed output is larger                                                                           |
+| `useWorker`        | `boolean`                                       | Auto        | Force Web Worker (true) or Main Thread (false)                                                                                   |
+| `onProgress`       | `(percent: number) => void`                     | —           | Progress callback `0` – `100`                                                                                                    |
+| `signal`           | `AbortSignal`                                   | —           | Cancel the operation — throws `AbortError` when signalled                                                                        |
 
 #### `compressAudio(input, options): Promise<CompressResult>`
 
@@ -311,12 +319,13 @@ Compresses a video file via WebCodecs (fast path foundation) or FFmpeg Wasm (hea
 
 ```typescript
 interface CompressResult {
-  blob: Blob;            // The compressed output
-  originalSize: number;  // Input size in bytes
-  compressedSize: number;// Output size in bytes
-  ratio: number;         // compressedSize / originalSize (< 1.0 = smaller)
-  format: string;        // Target format used (e.g. 'webp')
-  file: File | null;     // File with corrected extension; null when input was a plain Blob
+  blob: Blob; // The compressed output
+  originalSize: number; // Input size in bytes
+  compressedSize: number; // Output size in bytes
+  ratio: number; // compressedSize / originalSize (< 1.0 = smaller)
+  format: string; // Target format used (e.g. 'webp')
+  file: File | null; // File with corrected extension; null when input was a plain Blob
+  quality?: number; // Final encoder quality used (set when maxSizeMB binary search ran)
 }
 ```
 
