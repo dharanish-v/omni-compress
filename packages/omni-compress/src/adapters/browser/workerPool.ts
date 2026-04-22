@@ -109,8 +109,19 @@ function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
       }
     };
 
-    worker.onerror = (error) => {
-      logger.error('Worker error:', error);
+    worker.onerror = (event: ErrorEvent) => {
+      const msg = event.message || '(no message)';
+      const loc = event.filename ? ` @ ${event.filename}:${event.lineno}` : '';
+      logger.error(`Worker crashed: ${msg}${loc}`);
+
+      // Reject every pending job owned by this worker so callers don't hang.
+      for (const [id, job] of pendingJobs) {
+        if (job.worker === worker) {
+          job.reject(new Error(`Worker crashed: ${msg}`));
+          pendingJobs.delete(id);
+        }
+      }
+
       const currentPool = workerPools.get(type) || [];
       workerPools.set(
         type,
@@ -118,6 +129,7 @@ function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
       );
       workerIdleTimers.delete(worker);
       worker.terminate();
+      drainQueue(type);
     };
 
     pool.push(worker);
@@ -222,8 +234,12 @@ function dispatchToWorker(
     abortCleanup = () => signal.removeEventListener('abort', onAbort);
   }
 
+  // Strip non-serializable (function) properties before postMessage.
+  // beforeDraw / drew are OffscreenCanvas hooks — main-thread only; no-op in workers.
   const safeOptions = { ...options };
   delete safeOptions.onProgress;
+  delete safeOptions.beforeDraw;
+  delete safeOptions.drew;
 
   const transfer = data instanceof ArrayBuffer ? [data] : [];
 
