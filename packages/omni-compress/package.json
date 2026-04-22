@@ -1,6 +1,6 @@
 {
   "name": "omni-compress",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "description": "Image, audio, and video compression for browser and Node.js. OffscreenCanvas fast path, FFmpeg Wasm fallback, Web Worker threading. Compress JPEG, PNG, WebP, AVIF, MP3, Opus, FLAC, MP4, WebM.",
   "author": "Dharanish V",
   "license": "MIT",
