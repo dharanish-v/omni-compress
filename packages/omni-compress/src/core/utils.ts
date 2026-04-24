@@ -90,6 +90,71 @@ export function isAudioFile(f: File | Blob): boolean {
 }
 
 /**
+ * Zero-decode image dimension parser.
+ * Reads width/height from raw file header bytes (~1µs, no GPU involvement).
+ * Supports JPEG (SOF0/SOF1/SOF2), PNG (IHDR), and WebP (VP8/VP8L/VP8X).
+ * Returns null for unknown formats — caller falls back to probe decode.
+ */
+export function getImageDimensionsFromHeader(
+  buffer: ArrayBuffer,
+): { width: number; height: number } | null {
+  const view = new DataView(buffer);
+  const len = buffer.byteLength;
+
+  // PNG: signature 0x89504E47 at byte 0; IHDR width/height at bytes 16–23
+  if (len >= 24 && view.getUint32(0) === 0x89504e47) {
+    return { width: view.getUint32(16), height: view.getUint32(20) };
+  }
+
+  // JPEG: starts with FF D8; scan for SOF0 (FFC0), SOF1 (FFC1), SOF2 (FFC2)
+  if (len >= 4 && view.getUint8(0) === 0xff && view.getUint8(1) === 0xd8) {
+    let offset = 2;
+    while (offset + 8 < len) {
+      if (view.getUint8(offset) !== 0xff) break;
+      const marker = view.getUint8(offset + 1);
+      if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
+        return {
+          height: view.getUint16(offset + 5),
+          width: view.getUint16(offset + 7),
+        };
+      }
+      if (offset + 3 >= len) break;
+      const segLen = view.getUint16(offset + 2);
+      if (segLen < 2) break;
+      offset += 2 + segLen;
+    }
+    return null;
+  }
+
+  // WebP: RIFF????WEBP at bytes 0–11
+  if (len >= 30 && view.getUint32(0) === 0x52494646 && view.getUint32(8) === 0x57454250) {
+    const chunkType = String.fromCharCode(
+      view.getUint8(12),
+      view.getUint8(13),
+      view.getUint8(14),
+      view.getUint8(15),
+    );
+    if (chunkType === 'VP8 ' && len >= 30) {
+      return {
+        width: view.getUint16(26, true) & 0x3fff,
+        height: view.getUint16(28, true) & 0x3fff,
+      };
+    }
+    if (chunkType === 'VP8L' && len >= 25) {
+      const bits = view.getUint32(21, true);
+      return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
+    }
+    if (chunkType === 'VP8X' && len >= 34) {
+      const w = (view.getUint8(24) | (view.getUint8(25) << 8) | (view.getUint8(26) << 16)) + 1;
+      const h = (view.getUint8(27) | (view.getUint8(28) << 8) | (view.getUint8(29) << 16)) + 1;
+      return { width: w, height: h };
+    }
+  }
+
+  return null;
+}
+
+/**
  * Checks if a file is a video file based on its MIME type or extension.
  */
 export function isVideoFile(f: File | Blob): boolean {

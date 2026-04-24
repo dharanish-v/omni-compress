@@ -1,7 +1,7 @@
-import type { CompressorOptions } from "../../core/router.js";
-import { EncoderError } from "../../core/errors.js";
-import { SAFE_SIZE_LIMITS } from "../../core/utils.js";
-import { logger } from "../../core/logger.js";
+import type { CompressorOptions } from '../../core/router.js';
+import { EncoderError } from '../../core/errors.js';
+import { SAFE_SIZE_LIMITS, getImageDimensionsFromHeader } from '../../core/utils.js';
+import { logger } from '../../core/logger.js';
 
 /**
  * Encodes an image to AVIF format using @jsquash/avif.
@@ -20,29 +20,40 @@ export async function encodeAVIF(
 
   // 1. Decode input image to raw pixels via createImageBitmap + OffscreenCanvas
   const blob = new Blob([buffer]);
-  
+
   let targetWidth: number | undefined;
   let targetHeight: number | undefined;
 
-  // Pre-calculate dimensions to leverage createImageBitmap's native resizer
   if (options.maxWidth || options.maxHeight) {
-    const tempBitmap = await createImageBitmap(blob);
-    const ratio = tempBitmap.width / tempBitmap.height;
-    targetWidth = tempBitmap.width;
-    targetHeight = tempBitmap.height;
-    tempBitmap.close();
+    // Zero-decode header parse first; single probe decode only as fallback
+    const hdrDims = getImageDimensionsFromHeader(buffer);
+    let origW: number;
+    let origH: number;
+    if (hdrDims) {
+      origW = hdrDims.width;
+      origH = hdrDims.height;
+    } else {
+      const probe = await createImageBitmap(blob);
+      origW = probe.width;
+      origH = probe.height;
+      probe.close();
+    }
+
+    const ratio = origW / origH;
+    targetWidth = origW;
+    targetHeight = origH;
 
     if (options.maxWidth && targetWidth > options.maxWidth) {
       targetWidth = options.maxWidth;
-      targetHeight = targetWidth / ratio;
+      targetHeight = Math.floor(targetWidth / ratio);
     }
-    if (options.maxHeight && targetHeight > (options.maxHeight || 0)) {
+    if (options.maxHeight && targetHeight > options.maxHeight) {
       targetHeight = options.maxHeight;
-      targetWidth = targetHeight * ratio;
+      targetWidth = Math.floor(targetHeight * ratio);
     }
 
-    targetWidth = Math.floor(targetWidth!);
-    targetHeight = Math.floor(targetHeight!);
+    targetWidth = Math.floor(targetWidth);
+    targetHeight = Math.floor(targetHeight);
   }
 
   const bitmap = await createImageBitmap(blob, {
@@ -52,9 +63,9 @@ export async function encodeAVIF(
   });
 
   const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
-  const ctx = canvas.getContext("2d");
-  if (!ctx) throw new EncoderError("Failed to get 2d context for OffscreenCanvas");
-  
+  const ctx = canvas.getContext('2d');
+  if (!ctx) throw new EncoderError('Failed to get 2d context for OffscreenCanvas');
+
   ctx.drawImage(bitmap, 0, 0);
   const imageData = ctx.getImageData(0, 0, bitmap.width, bitmap.height);
   bitmap.close(); // Release decoded image memory
@@ -62,14 +73,13 @@ export async function encodeAVIF(
   onProgress?.(30);
 
   // 2. Load encoder
-  const { encode } = await import("@jsquash/avif");
+  const { encode } = await import('@jsquash/avif');
 
   onProgress?.(50);
 
   // 3. Encode to AVIF
   // @jsquash/avif quality is 0-100 (integer), our API uses 0.0-1.0
-  const quality =
-    options.quality !== undefined ? Math.round(options.quality * 100) : 50;
+  const quality = options.quality !== undefined ? Math.round(options.quality * 100) : 50;
 
   logger.debug(`Encoding AVIF: ${imageData.width}x${imageData.height}, quality=${quality}`);
 
@@ -80,12 +90,10 @@ export async function encodeAVIF(
     });
 
     onProgress?.(100);
-    logger.debug(
-      `AVIF encoding complete: ${(avifBuffer.byteLength / 1024).toFixed(1)} KB`,
-    );
+    logger.debug(`AVIF encoding complete: ${(avifBuffer.byteLength / 1024).toFixed(1)} KB`);
 
     return avifBuffer;
   } catch (err) {
-    throw new EncoderError("AVIF encoding failed", err);
+    throw new EncoderError('AVIF encoding failed', err);
   }
 }

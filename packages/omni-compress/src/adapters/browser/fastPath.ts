@@ -1,5 +1,5 @@
 import type { CompressorOptions } from '../../core/router.js';
-import { getMimeType } from '../../core/utils.js';
+import { getMimeType, getImageDimensionsFromHeader } from '../../core/utils.js';
 
 // ---------------------------------------------------------------------------
 // Dimension computation (Gaps #1-3: minWidth/minHeight, width/height, resize)
@@ -610,79 +610,6 @@ function demuxWav(buffer: ArrayBuffer) {
     bitsPerSample: view.getUint16(34, true),
     dataOffset: 44, // Standard header length
   };
-}
-
-/**
- * Zero-decode image dimension parser.
- * Reads width/height from raw file header bytes (~1µs, no GPU involvement).
- * Supports JPEG (SOF0/SOF2), PNG (IHDR), and WebP (VP8/VP8L/VP8X).
- * Returns null for unknown formats — caller falls back to probe decode.
- */
-function getImageDimensionsFromHeader(
-  buffer: ArrayBuffer,
-): { width: number; height: number } | null {
-  const view = new DataView(buffer);
-  const len = buffer.byteLength;
-
-  // PNG: signature 0x89504E47 at byte 0; IHDR width/height at bytes 16–23
-  if (len >= 24 && view.getUint32(0) === 0x89504e47) {
-    return { width: view.getUint32(16), height: view.getUint32(20) };
-  }
-
-  // JPEG: starts with FF D8; scan for SOF0 (FFC0), SOF2 (FFC2), SOF1 (FFC1)
-  if (len >= 4 && view.getUint8(0) === 0xff && view.getUint8(1) === 0xd8) {
-    let offset = 2;
-    while (offset + 8 < len) {
-      if (view.getUint8(offset) !== 0xff) break;
-      const marker = view.getUint8(offset + 1);
-      // SOF0=0xC0, SOF1=0xC1, SOF2=0xC2 (progressive): height at +5, width at +7
-      if (marker === 0xc0 || marker === 0xc1 || marker === 0xc2) {
-        return {
-          height: view.getUint16(offset + 5),
-          width: view.getUint16(offset + 7),
-        };
-      }
-      // Skip this segment (marker + 2-byte length field)
-      if (offset + 3 >= len) break;
-      const segLen = view.getUint16(offset + 2);
-      if (segLen < 2) break;
-      offset += 2 + segLen;
-    }
-    return null;
-  }
-
-  // WebP: RIFF????WEBP at bytes 0–11
-  if (
-    len >= 30 &&
-    view.getUint32(0) === 0x52494646 && // 'RIFF'
-    view.getUint32(8) === 0x57454250 // 'WEBP'
-  ) {
-    const chunkType = String.fromCharCode(
-      view.getUint8(12),
-      view.getUint8(13),
-      view.getUint8(14),
-      view.getUint8(15),
-    );
-    if (chunkType === 'VP8 ' && len >= 30) {
-      // VP8 lossy: width at bytes 26–27 (14-bit, mask 0x3FFF), height at 28–29
-      const w = view.getUint16(26, true) & 0x3fff;
-      const h = view.getUint16(28, true) & 0x3fff;
-      return { width: w, height: h };
-    }
-    if (chunkType === 'VP8L' && len >= 25) {
-      // VP8 lossless: 4 bytes at offset 21, fields are 14-bit each
-      const bits = view.getUint32(21, true);
-      return { width: (bits & 0x3fff) + 1, height: ((bits >> 14) & 0x3fff) + 1 };
-    }
-    if (chunkType === 'VP8X' && len >= 34) {
-      // VP8X extended: canvas width-1 at bytes 24–26 (24-bit LE), height-1 at 27–29
-      const w = (view.getUint8(24) | (view.getUint8(25) << 8) | (view.getUint8(26) << 16)) + 1;
-      const h = (view.getUint8(27) | (view.getUint8(28) << 8) | (view.getUint8(29) << 16)) + 1;
-      return { width: w, height: h };
-    }
-  }
-
-  return null;
 }
 
 /**

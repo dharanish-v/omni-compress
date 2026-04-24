@@ -6,7 +6,7 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`omni-compress` (v2.3.6) — a universal, isomorphic compression and archiving library.
+`omni-compress` (v2.3.7) — a universal, isomorphic compression and archiving library.
 
 - **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`, `compressVideo`) work identically in browser and Node.js.
 - **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
@@ -177,18 +177,18 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 ### Performance roadmap (Speed-to-#1 initiative)
 
-| #   | Area | Summary                                                                | Expected Gain                   |
-| --- | ---- | ---------------------------------------------------------------------- | ------------------------------- |
-| 55  | Perf | WebCodecs VideoEncoder — GPU-accelerated H.264/AV1                     | **10-100x faster video**        |
-| 56  | Perf | Parallel archive compression — Promise.all in archive.ts               | **5-10x faster batch ZIP**      |
-| 57  | Perf | WebCodecs AudioEncoder rewrite — AudioDecoder→AudioEncoder pipeline    | **3-10x faster audio**          |
-| 58  | Perf | @jsquash/jpeg MozJPEG Wasm — deterministic, smaller JPEG output        | **5-16% smaller JPEG**          |
-| 59  | Perf | Eliminate double bitmap decode in fast path                            | **15-25% faster images**        |
-| 60  | Perf | @jsquash/oxipng — lossless PNG optimization                            | **20-35% smaller PNG**          |
-| 61  | Perf | FFmpeg speed flags — `-method 0`, `-compression_level 9`, `-threads 0` | **15-30% faster heavy path**    |
-| 62  | Perf | Zero-copy ArrayBuffer transfer — pre-convert before worker dispatch    | **Lower memory, 10-20% faster** |
-| 63  | Perf | Adaptive worker count (cap 8) + format-aware routing thresholds        | **2x throughput on 8-core**     |
-| 64  | Perf | Optional sharp Node backend — libvips (26x faster than jimp)           | **26x faster Node images**      |
+| #      | Area     | Summary                                                                | Expected Gain                                                                                                                    |
+| ------ | -------- | ---------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| 55     | Perf     | WebCodecs VideoEncoder — GPU-accelerated H.264/AV1                     | **10-100x faster video**                                                                                                         |
+| ~~56~~ | ~~Perf~~ | ~~Parallel archive compression — Promise.all in archive.ts~~           | **Resolved in v2.3.7** — archive() already parallelized; archiveStream() sequential by design (streaming output)                 |
+| 57     | Perf     | WebCodecs AudioEncoder rewrite — AudioDecoder→AudioEncoder pipeline    | **3-10x faster audio**                                                                                                           |
+| 58     | Perf     | @jsquash/jpeg MozJPEG Wasm — deterministic, smaller JPEG output        | **5-16% smaller JPEG**                                                                                                           |
+| ~~59~~ | ~~Perf~~ | ~~Eliminate double bitmap decode in fast path~~                        | **Resolved in v2.3.7** — getImageDimensionsFromHeader moved to utils.ts; avifEncoder.ts uses header parse, single probe fallback |
+| 60     | Perf     | @jsquash/oxipng — lossless PNG optimization                            | **20-35% smaller PNG**                                                                                                           |
+| 61     | Perf     | FFmpeg speed flags — `-method 0`, `-compression_level 9`, `-threads 0` | **15-30% faster heavy path**                                                                                                     |
+| 62     | Perf     | Zero-copy ArrayBuffer transfer — pre-convert before worker dispatch    | **Lower memory, 10-20% faster**                                                                                                  |
+| 63     | Perf     | Adaptive worker count (cap 8) + format-aware routing thresholds        | **2x throughput on 8-core**                                                                                                      |
+| 64     | Perf     | Optional sharp Node backend — libvips (26x faster than jimp)           | **26x faster Node images**                                                                                                       |
 
 ### P3: Low — DX / quality
 
