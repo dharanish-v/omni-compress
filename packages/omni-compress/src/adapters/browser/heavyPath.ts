@@ -146,7 +146,7 @@ export async function processImageHeavyPath(
       args.push('-vf', `scale=${w}:${h}:force_original_aspect_ratio=decrease`);
     }
 
-    // AVIF is handled by @jsquash/avif in image.worker.ts — never reaches here.
+    // Large AVIF (worker path) reaches here; small AVIF (main-thread path) uses @jsquash/avif instead.
     if (options.format === 'webp') {
       args.push('-c:v', 'libwebp');
       if (options.quality !== undefined) {

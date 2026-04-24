@@ -85,6 +85,7 @@ function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
         WorkerConfig.videoWorkerUrl || new URL('./workers/video.worker.js', import.meta.url).href;
     }
 
+    logger.debug(`Spawning ${type} worker: ${workerUrl}`);
     const worker = new Worker(workerUrl, { type: 'module' });
 
     worker.onmessage = (event: MessageEvent) => {
@@ -112,7 +113,7 @@ function getAvailableWorker(type: 'image' | 'audio' | 'video'): Worker {
     worker.onerror = (event: ErrorEvent) => {
       const msg = event.message || '(no message)';
       const loc = event.filename ? ` @ ${event.filename}:${event.lineno}` : '';
-      logger.error(`Worker crashed: ${msg}${loc}`);
+      logger.error(`Worker crashed: ${msg}${loc} [url: ${workerUrl}]`);
 
       // Reject every pending job owned by this worker so callers don't hang.
       for (const [id, job] of pendingJobs) {

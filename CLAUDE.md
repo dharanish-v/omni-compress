@@ -6,7 +6,7 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`omni-compress` (v2.3.1) — a universal, isomorphic compression and archiving library.
+`omni-compress` (v2.3.6) — a universal, isomorphic compression and archiving library.
 
 - **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`, `compressVideo`) work identically in browser and Node.js.
 - **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
@@ -40,7 +40,7 @@ packages/astro-omni-compress/ ← Astro image service implementation (published 
       node/
         childProcess.ts     ← spawn ffmpeg binary, temp file I/O
     workers/
-      image.worker.ts       ← AVIF → @jsquash/avif, else fast path → heavy path fallback
+      image.worker.ts       ← AVIF → FFmpeg heavy path; fast path → heavy path fallback (avifEncoder removed from worker to avoid Emscripten MT sub-worker 404 when SAB is available)
       audio.worker.ts       ← fast path → heavy path fallback
   tests/
     browser/                ← Playwright + Vitest browser tests
@@ -86,10 +86,10 @@ One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm 
 
 - Uses `@jsquash/avif` — standalone libaom-av1 Wasm module from Google's Squoosh project (1.1 MB gzipped)
 - NO SharedArrayBuffer required — @jsquash/avif auto-detects multi-threading support
-- NO COOP/COEP headers needed for AVIF encoding
+- **Vite bundling caveat (critical):** When SAB is available (COOP/COEP), `@jsquash/avif` init calls `new Worker(new URL("avif_enc_mt.worker.mjs", import.meta.url))`. Vite hashes that filename on build, causing a 404 and worker crash. **Never bundle `@jsquash/avif` into a Vite-processed Web Worker.**
+- `avifEncoder.ts` is used by `mainThread.ts` ONLY — for small AVIF files on the main thread (below `avifMainThreadThreshold`).
+- `image.worker.ts` routes AVIF to `processImageHeavyPath` (FFmpeg) — NOT to `encodeAVIF` — to avoid the sub-worker 404 crash.
 - **Vite config caveat:** Must be excluded from dependency pre-bundling (`optimizeDeps.exclude: ['@jsquash/avif']`) otherwise the Wasm fetch will fail.
-- `image.worker.ts` routes AVIF directly to `encodeAVIF()` before checking fast/heavy path
-- Completely independent from FFmpeg — no FFmpeg involvement in AVIF encoding
 
 ### FFmpeg Wasm (heavyPath.ts)
 
