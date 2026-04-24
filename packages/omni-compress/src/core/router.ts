@@ -1,4 +1,4 @@
-import { WorkerConfig } from './config.js';
+import { WorkerConfig, MAIN_THREAD_THRESHOLDS } from './config.js';
 
 // ---------------------------------------------------------------------------
 // v1.x legacy types — kept for the deprecated OmniCompressor.process() shim
@@ -388,7 +388,7 @@ export class Router {
         if (isMainThreadEligible) {
           const threshold = isAVIF
             ? WorkerConfig.avifMainThreadThreshold
-            : WorkerConfig.mainThreadThreshold;
+            : (MAIN_THREAD_THRESHOLDS[format] ?? WorkerConfig.mainThreadThreshold);
 
           if (fileSize < threshold) {
             shouldUseWorker = false;

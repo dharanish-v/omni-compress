@@ -31,8 +31,8 @@ const workerIdleTimers = new Map<Worker, ReturnType<typeof setTimeout>>();
 
 const WORKER_IDLE_TIMEOUT_MS = 60_000; // 60 seconds
 const MAX_CONCURRENT_PER_TYPE = Math.min(
-  4,
   typeof navigator !== 'undefined' ? navigator.hardwareConcurrency || 2 : 2,
+  8,
 );
 
 function resetWorkerIdleTimer(worker: Worker, type: 'image' | 'audio' | 'video') {

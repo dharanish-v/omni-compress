@@ -77,7 +77,8 @@ describe('Router (Browser Environment — mocked)', () => {
 
     it('uses Worker for large fast-path image above threshold', () => {
       mockBrowser();
-      const fileSize = WorkerConfig.mainThreadThreshold + 1;
+      // webp threshold is 8 MB (MAIN_THREAD_THRESHOLDS['webp'])
+      const fileSize = 8 * 1024 * 1024 + 1;
       const ctx = Router.evaluate({ type: 'image', format: 'webp' }, fileSize);
       expect(ctx.shouldUseWorker).toBe(true);
     });

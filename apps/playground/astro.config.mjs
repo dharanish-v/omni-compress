@@ -26,7 +26,7 @@ export default defineConfig({
       },
     ],
     optimizeDeps: {
-      exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@jsquash/avif']
+      exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util', '@jsquash/avif', '@jsquash/oxipng']
     },
     worker: {
       format: 'es'

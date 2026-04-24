@@ -1,4 +1,20 @@
 /**
+ * Per-format main-thread execution thresholds (in bytes).
+ * When a file's size is below this value the library runs on the main thread
+ * instead of spawning a Web Worker, avoiding IPC overhead.
+ *
+ * Formats not listed fall back to `WorkerConfig.mainThreadThreshold`.
+ * JPEG/PNG use higher limits because OffscreenCanvas is GPU-accelerated for
+ * those formats and runs very fast even at 10-20 MB.
+ */
+export const MAIN_THREAD_THRESHOLDS: Record<string, number> = {
+  jpeg: 20 * 1024 * 1024, // 20 MB — GPU-accelerated JPEG fast path
+  jpg: 20 * 1024 * 1024,
+  png: 16 * 1024 * 1024, // 16 MB — GPU-accelerated PNG fast path
+  webp: 8 * 1024 * 1024, // 8 MB — GPU-accelerated WebP fast path
+};
+
+/**
  * Global configuration for Web Workers and execution thresholds.
  */
 export const WorkerConfig = {
