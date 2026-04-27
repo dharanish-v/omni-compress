@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Router } from '../../src/core/router';
-import { WorkerConfig } from '../../src/core/config';
+import { WorkerConfig, MAIN_THREAD_THRESHOLDS } from '../../src/core/config';
 
 describe('Router (Node Environment)', () => {
   it('detects node environment', () => {
@@ -57,18 +57,18 @@ describe('Router (Browser Environment — mocked)', () => {
       expect(Router.isFastPathSupported({ type: 'audio', format: 'flac' })).toBe(false);
     });
 
-    it('returns true for fast-path video formats', () => {
+    it('returns false for video (WebCodecs VideoEncoder not yet implemented — issue #55)', () => {
       mockBrowser();
-      expect(Router.isFastPathSupported({ type: 'video', format: 'mp4' })).toBe(true);
-      expect(Router.isFastPathSupported({ type: 'video', format: 'webm' })).toBe(true);
+      expect(Router.isFastPathSupported({ type: 'video', format: 'mp4' })).toBe(false);
+      expect(Router.isFastPathSupported({ type: 'video', format: 'webm' })).toBe(false);
     });
   });
 
   // evaluate routing in browser
   describe('evaluate — worker routing', () => {
-    it('uses main thread for small fast-path image below threshold', () => {
+    it('uses main thread for small fast-path image below per-format threshold', () => {
       mockBrowser();
-      const fileSize = WorkerConfig.mainThreadThreshold - 1;
+      const fileSize = MAIN_THREAD_THRESHOLDS['webp'] - 1; // 8 MB - 1
       const ctx = Router.evaluate({ type: 'image', format: 'webp' }, fileSize);
       expect(ctx.env).toBe('browser');
       expect(ctx.isFastPath).toBe(true);
@@ -77,10 +77,33 @@ describe('Router (Browser Environment — mocked)', () => {
 
     it('uses Worker for large fast-path image above threshold', () => {
       mockBrowser();
-      // webp threshold is 8 MB (MAIN_THREAD_THRESHOLDS['webp'])
-      const fileSize = 8 * 1024 * 1024 + 1;
+      const fileSize = MAIN_THREAD_THRESHOLDS['webp'] + 1; // 8 MB + 1
       const ctx = Router.evaluate({ type: 'image', format: 'webp' }, fileSize);
       expect(ctx.shouldUseWorker).toBe(true);
+    });
+
+    it('uses Worker for image when Worker is warm and file exceeds warmWorkerThreshold', () => {
+      mockBrowser();
+      const fileSize = WorkerConfig.warmWorkerThreshold + 1; // 512 KB + 1
+      const ctx = Router.evaluate(
+        { type: 'image', format: 'webp' },
+        fileSize,
+        '',
+        () => true, // warm
+      );
+      expect(ctx.shouldUseWorker).toBe(true);
+    });
+
+    it('uses main thread for image when Worker is warm but file is tiny', () => {
+      mockBrowser();
+      const fileSize = WorkerConfig.warmWorkerThreshold - 1; // 512 KB - 1
+      const ctx = Router.evaluate(
+        { type: 'image', format: 'webp' },
+        fileSize,
+        '',
+        () => true,
+      );
+      expect(ctx.shouldUseWorker).toBe(false);
     });
 
     it('uses main thread for small AVIF below avifMainThreadThreshold', () => {
@@ -101,6 +124,46 @@ describe('Router (Browser Environment — mocked)', () => {
       mockBrowser();
       const ctx = Router.evaluate({ type: 'audio', format: 'mp3' }, 100);
       expect(ctx.isFastPath).toBe(false);
+      expect(ctx.shouldUseWorker).toBe(true);
+    });
+
+    it('always uses Worker for video regardless of size (WebCodecs not implemented)', () => {
+      mockBrowser();
+      const ctx = Router.evaluate({ type: 'video', format: 'mp4' }, 100);
+      expect(ctx.isFastPath).toBe(false);
+      expect(ctx.shouldUseWorker).toBe(true);
+    });
+
+    it('uses main thread for small WAV → AAC fast path (cold worker)', () => {
+      mockBrowser();
+      const fileSize = WorkerConfig.audioMainThreadThreshold - 1; // 1 MB - 1
+      const ctx = Router.evaluate(
+        { type: 'audio', format: 'aac' },
+        fileSize,
+        'audio/wav',
+      );
+      expect(ctx.isFastPath).toBe(true);
+      expect(ctx.shouldUseWorker).toBe(false);
+    });
+
+    it('uses Worker for non-WAV audio fast path (skip wasteful throw-retry cycle)', () => {
+      mockBrowser();
+      const ctx = Router.evaluate(
+        { type: 'audio', format: 'aac' },
+        100, // tiny file
+        'audio/mpeg', // MP3 input — not WAV
+      );
+      expect(ctx.isFastPath).toBe(true);
+      expect(ctx.shouldUseWorker).toBe(true);
+    });
+
+    it('uses Worker for audio fast path with unknown MIME type (conservative)', () => {
+      mockBrowser();
+      const ctx = Router.evaluate(
+        { type: 'audio', format: 'opus' },
+        100,
+        '', // empty type — unknown
+      );
       expect(ctx.shouldUseWorker).toBe(true);
     });
 

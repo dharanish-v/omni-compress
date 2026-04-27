@@ -261,6 +261,15 @@ function dispatchToWorker(
   );
 }
 
+/**
+ * Returns true when at least one Worker of the given type has been initialised
+ * (i.e. is in the pool, busy or idle). A warm Worker has no cold-start cost;
+ * only postMessage overhead (~1 ms) remains, so a lower routing threshold applies.
+ */
+export function isWorkerWarm(type: 'image' | 'audio' | 'video'): boolean {
+  return (workerPools.get(type)?.length ?? 0) > 0;
+}
+
 export function processWithBrowserWorker(
   data: File | Blob | ArrayBuffer,
   options: CompressorOptions,

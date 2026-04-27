@@ -5,7 +5,7 @@ import {
   getMimeType,
   assertFileSizeWithinLimit,
 } from './utils.js';
-import { processWithBrowserWorker } from '../adapters/browser/workerPool.js';
+import { processWithBrowserWorker, isWorkerWarm } from '../adapters/browser/workerPool.js';
 import { logger } from './logger.js';
 import { AbortError } from './errors.js';
 import type { processWithNode as ProcessWithNodeFn } from '../adapters/node/childProcess.js';
@@ -57,7 +57,7 @@ export async function _compress(
     logger.info(`Auto-format resolved: ${options.format}`, { type: options.type });
   }
   logger.info('Starting compression', { type: options.type, format: options.format });
-  const route = Router.evaluate(options, input.size);
+  const route = Router.evaluate(options, input.size, input.type, isWorkerWarm);
   logger.debug('Route evaluated', route);
 
   const fileSize = input.size;

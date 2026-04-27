@@ -1,5 +1,7 @@
 import { WorkerConfig, MAIN_THREAD_THRESHOLDS } from './config.js';
 
+type WorkerType = 'image' | 'audio' | 'video';
+
 // ---------------------------------------------------------------------------
 // v1.x legacy types — kept for the deprecated OmniCompressor.process() shim
 // ---------------------------------------------------------------------------
@@ -354,8 +356,11 @@ export class Router {
       // Browsers can sometimes encode these natively
       return FAST_PATH_AUDIO_FORMATS.has(format);
     } else {
-      // Video Fast Path via WebCodecs
-      return FAST_PATH_VIDEO_FORMATS.has(format);
+      // Video Fast Path (WebCodecs VideoEncoder) not yet implemented — see issue #55.
+      // processVideoFastPath always throws; returning true here causes a wasteful
+      // main-thread attempt before falling back to the Worker every time.
+      void FAST_PATH_VIDEO_FORMATS; // keep the set for documentation purposes
+      return false;
     }
   }
 
@@ -366,10 +371,20 @@ export class Router {
    * thresholds to decide whether to run on the main thread or in a Web Worker.
    *
    * @param options - The compression options including type and format.
-   * @param fileSize - Input file size in bytes (used for main-thread vs Worker routing).
+   * @param fileSize - Input file size in bytes.
+   * @param inputMimeType - MIME type of the input (e.g. `'audio/wav'`). Used to
+   *   short-circuit audio fast-path for non-WAV inputs that would otherwise throw.
+   * @param isWorkerWarmFn - Optional callback that returns true when a Worker of
+   *   the given type is already initialised. When warm, a lower threshold is used
+   *   (cold-start cost is gone; only postMessage overhead remains).
    * @returns A {@link RouteContext} describing the chosen execution path.
    */
-  static evaluate(options: CompressorOptions, fileSize: number): RouteContext {
+  static evaluate(
+    options: CompressorOptions,
+    fileSize: number,
+    inputMimeType = '',
+    isWorkerWarmFn?: (type: WorkerType) => boolean,
+  ): RouteContext {
     const env = this.getEnvironment();
     const isFastPath = this.isFastPathSupported(options);
     const format = options.format.toLowerCase();
@@ -381,17 +396,36 @@ export class Router {
       if (options.useWorker !== undefined) {
         shouldUseWorker = options.useWorker;
       } else {
-        // 2. Automated routing based on file size and type
+        // 2. Automated routing based on file size, type, and worker warmth
         const isAVIF = format === 'avif';
         const isMainThreadEligible = isFastPath || isAVIF;
 
         if (isMainThreadEligible) {
-          const threshold = isAVIF
-            ? WorkerConfig.avifMainThreadThreshold
-            : (MAIN_THREAD_THRESHOLDS[format] ?? WorkerConfig.mainThreadThreshold);
+          if (options.type === 'audio' && isFastPath) {
+            // WebCodecs audio fast path only demuxes WAV input (decodeAudio in fastPath.ts).
+            // Non-WAV inputs throw immediately on the main thread, then retry in the Worker
+            // where they also throw, wasting two dispatch cycles before reaching FFmpeg.
+            // Skip the main-thread attempt entirely for non-WAV audio.
+            const isWavInput =
+              inputMimeType === 'audio/wav' ||
+              inputMimeType === 'audio/wave' ||
+              inputMimeType === 'audio/x-wav';
 
-          if (fileSize < threshold) {
-            shouldUseWorker = false;
+            if (isWavInput) {
+              const warm = isWorkerWarmFn?.('audio') ?? false;
+              const threshold = warm
+                ? WorkerConfig.warmWorkerThreshold
+                : WorkerConfig.audioMainThreadThreshold;
+              shouldUseWorker = fileSize >= threshold;
+            }
+            // Non-WAV: shouldUseWorker stays true → goes straight to Worker
+          } else {
+            const coldThreshold = isAVIF
+              ? WorkerConfig.avifMainThreadThreshold
+              : (MAIN_THREAD_THRESHOLDS[format] ?? WorkerConfig.mainThreadThreshold);
+            const warm = isWorkerWarmFn?.(options.type as WorkerType) ?? false;
+            const threshold = warm ? WorkerConfig.warmWorkerThreshold : coldThreshold;
+            shouldUseWorker = fileSize >= threshold;
           }
         }
       }

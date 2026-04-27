@@ -43,4 +43,18 @@ export const WorkerConfig = {
    * Default: 512KB (512 * 1024).
    */
   avifMainThreadThreshold: 512 * 1024,
+  /**
+   * Threshold (in bytes) for WAV audio fast-path execution on the main thread.
+   * WebCodecs AudioEncoder is CPU-intensive per byte — use a lower limit than images.
+   * Non-WAV inputs always bypass the main thread (fast path only decodes WAV).
+   * Default: 1MB (1 * 1024 * 1024).
+   */
+  audioMainThreadThreshold: 1 * 1024 * 1024,
+  /**
+   * When a Worker is already warm (loaded within the idle window),
+   * cold-start cost is gone. Only postMessage overhead (~1 ms) remains.
+   * Use this lower threshold instead of per-engine cold thresholds.
+   * Default: 512KB (512 * 1024).
+   */
+  warmWorkerThreshold: 512 * 1024,
 };
