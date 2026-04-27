@@ -96,6 +96,7 @@
     "@ffmpeg/ffmpeg": "^0.12.10",
     "@ffmpeg/util": "^0.12.1",
     "@jsquash/avif": "^2.1.1",
+    "@jsquash/jpeg": "^1.6.0",
     "@jsquash/oxipng": "^2.3.0",
     "fflate": "^0.8.2"
   },

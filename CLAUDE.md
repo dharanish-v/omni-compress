@@ -97,6 +97,14 @@ One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm 
 - `image.worker.ts` routes AVIF to `processImageHeavyPath` (FFmpeg) — NOT to `encodeAVIF` — to avoid the sub-worker 404 crash.
 - **Vite config caveat:** Must be excluded from dependency pre-bundling (`optimizeDeps.exclude: ['@jsquash/avif']`) otherwise the Wasm fetch will fail.
 
+### JPEG optimization (jpegEncoder.ts)
+
+- Uses `@jsquash/jpeg` — MozJPEG Wasm (progressive scan reordering, trellis quantization)
+- **5-16% smaller output** than canvas libjpeg-turbo at equivalent quality; identical across Chrome/Firefox/Safari
+- Applied in `mainThread.ts` ONLY via `JpegEncoderFn` callback injected into `processImageFastPathToBlob`
+- NOT in image.worker.ts — `@jsquash/jpeg` loads its Wasm via `import.meta.url`; tsup-bundled workers would resolve the URL relative to the bundle file, missing the Wasm binary
+- **Vite config caveat:** Must be in `optimizeDeps.exclude: ['@jsquash/jpeg']`.
+
 ### PNG optimization (pngOptimizer.ts)
 
 - Uses `@jsquash/oxipng` — OxiPNG lossless optimizer (20-35% smaller output vs raw OffscreenCanvas PNG)
@@ -190,19 +198,19 @@ archiveStream(entries: ArchiveEntry[], options: ArchiveOptions): ReadableStream<
 
 ### Performance roadmap (Speed-to-#1 initiative)
 
-| #      | Area     | Summary                                                                                                 | Expected Gain                                                                                                                                                 |
-| ------ | -------- | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ~~53~~ | ~~Perf~~ | ~~Smarter routing — per-engine thresholds, warm Worker detection, non-WAV audio skip, video dead code~~ | **Resolved in v2.3.9** — `audioMainThreadThreshold`=1MB, `warmWorkerThreshold`=512KB; non-WAV audio bypasses main thread; video fast-path disabled until #55. |
-| 55     | Perf     | WebCodecs VideoEncoder — GPU-accelerated H.264/AV1                                                      | **10-100x faster video**                                                                                                                                      |
-| ~~56~~ | ~~Perf~~ | ~~Parallel archive compression — Promise.all in archive.ts~~                                            | **Resolved in v2.3.7** — archive() already parallelized; archiveStream() sequential by design (streaming output)                                              |
-| 57     | Perf     | WebCodecs AudioEncoder rewrite — AudioDecoder→AudioEncoder pipeline                                     | **3-10x faster audio**                                                                                                                                        |
-| 58     | Perf     | @jsquash/jpeg MozJPEG Wasm — deterministic, smaller JPEG output                                         | **5-16% smaller JPEG**                                                                                                                                        |
-| ~~59~~ | ~~Perf~~ | ~~Eliminate double bitmap decode in fast path~~                                                         | **Resolved in v2.3.7** — getImageDimensionsFromHeader moved to utils.ts; avifEncoder.ts uses header parse, single probe fallback                              |
-| ~~60~~ | ~~Perf~~ | ~~@jsquash/oxipng — lossless PNG optimization~~                                                         | **Resolved in v2.3.8** — applied on main thread only (oxipng MT uses wasm-bindgen-rayon sub-workers; Vite hashes filenames → crash in image worker)           |
-| 61     | Perf     | FFmpeg speed flags — `-method 0`, `-compression_level 9`, `-threads 0`                                  | **15-30% faster heavy path**                                                                                                                                  |
-| 62     | Perf     | Zero-copy ArrayBuffer transfer — pre-convert before worker dispatch                                     | **Lower memory, 10-20% faster**                                                                                                                               |
-| ~~63~~ | ~~Perf~~ | ~~Adaptive worker count (cap 8) + format-aware routing thresholds~~                                     | **Resolved in v2.3.8** — cap raised to 8; MAIN_THREAD_THRESHOLDS: jpeg/jpg=20MB, png=16MB, webp=8MB                                                           |
-| 64     | Perf     | Optional sharp Node backend — libvips (26x faster than jimp)                                            | **26x faster Node images**                                                                                                                                    |
+| #      | Area     | Summary                                                                                                 | Expected Gain                                                                                                                                                   |
+| ------ | -------- | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ~~53~~ | ~~Perf~~ | ~~Smarter routing — per-engine thresholds, warm Worker detection, non-WAV audio skip, video dead code~~ | **Resolved in v2.3.9** — `audioMainThreadThreshold`=1MB, `warmWorkerThreshold`=512KB; non-WAV audio bypasses main thread; video fast-path disabled until #55.   |
+| 55     | Perf     | WebCodecs VideoEncoder — GPU-accelerated H.264/AV1                                                      | **10-100x faster video**                                                                                                                                        |
+| ~~56~~ | ~~Perf~~ | ~~Parallel archive compression — Promise.all in archive.ts~~                                            | **Resolved in v2.3.7** — archive() already parallelized; archiveStream() sequential by design (streaming output)                                                |
+| 57     | Perf     | WebCodecs AudioEncoder rewrite — AudioDecoder→AudioEncoder pipeline                                     | **3-10x faster audio**                                                                                                                                          |
+| ~~58~~ | ~~Perf~~ | ~~@jsquash/jpeg MozJPEG Wasm — deterministic, smaller JPEG output~~                                     | **Resolved in v2.3.9** — main-thread fast path via `JpegEncoderFn` callback in `processImageFastPathToBlob`; not in worker (Wasm `import.meta.url` path issue). |
+| ~~59~~ | ~~Perf~~ | ~~Eliminate double bitmap decode in fast path~~                                                         | **Resolved in v2.3.7** — getImageDimensionsFromHeader moved to utils.ts; avifEncoder.ts uses header parse, single probe fallback                                |
+| ~~60~~ | ~~Perf~~ | ~~@jsquash/oxipng — lossless PNG optimization~~                                                         | **Resolved in v2.3.8** — applied on main thread only (oxipng MT uses wasm-bindgen-rayon sub-workers; Vite hashes filenames → crash in image worker)             |
+| 61     | Perf     | FFmpeg speed flags — `-method 0`, `-compression_level 9`, `-threads 0`                                  | **15-30% faster heavy path**                                                                                                                                    |
+| 62     | Perf     | Zero-copy ArrayBuffer transfer — pre-convert before worker dispatch                                     | **Lower memory, 10-20% faster**                                                                                                                                 |
+| ~~63~~ | ~~Perf~~ | ~~Adaptive worker count (cap 8) + format-aware routing thresholds~~                                     | **Resolved in v2.3.8** — cap raised to 8; MAIN_THREAD_THRESHOLDS: jpeg/jpg=20MB, png=16MB, webp=8MB                                                             |
+| 64     | Perf     | Optional sharp Node backend — libvips (26x faster than jimp)                                            | **26x faster Node images**                                                                                                                                      |
 
 ### P3: Low — DX / quality
 

@@ -299,6 +299,9 @@ export async function processImageFastPath(
 // FAST PATH: Zero-copy main-thread variant (returns Blob)
 // ---------------------------------------------------------------------------
 
+/** Optional Wasm JPEG encoder injected by mainThread.ts (avoids bundling Wasm into workers). */
+export type JpegEncoderFn = (imageData: ImageData, quality: number) => Promise<ArrayBuffer>;
+
 /**
  * Zero-copy, main-thread-optimised variant.
  *
@@ -310,10 +313,15 @@ export async function processImageFastPath(
  *     for JPEG (no hardware encoder in Chrome's OffscreenCanvas path).
  *  3. Opaque context (alpha:false) for JPEG — skips alpha channel blending.
  *  4. premultiplyAlpha:'none' avoids an extra per-pixel multiply pass.
+ *
+ * @param jpegEncoderFn - When provided and format is JPEG, pixel data is extracted
+ *   via getImageData() and passed to this encoder instead of canvas.toBlob()/convertToBlob().
+ *   Intended for MozJPEG (5-16% smaller). Not bundled here to avoid pulling Wasm into workers.
  */
 export async function processImageFastPathToBlob(
   input: ArrayBuffer | Blob,
   options: CompressorOptions,
+  jpegEncoderFn?: JpegEncoderFn,
 ): Promise<Blob> {
   const blob = input instanceof Blob ? input : new Blob([input]);
 
@@ -368,13 +376,18 @@ export async function processImageFastPathToBlob(
     // Gap #7: drew hook
     options.drew?.(canvas, ctx);
 
-    outBlob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob(
-        (b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
-        mimeType,
-        quality,
-      );
-    });
+    if (jpegEncoderFn && mimeType === 'image/jpeg') {
+      const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
+      outBlob = new Blob([await jpegEncoderFn(imageData, quality)], { type: 'image/jpeg' });
+    } else {
+      outBlob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob(
+          (b) => (b ? resolve(b) : reject(new Error('canvas.toBlob returned null'))),
+          mimeType,
+          quality,
+        );
+      });
+    }
   } else {
     // Worker fallback: OffscreenCanvas
     const canvas = new OffscreenCanvas(canvasW, canvasH);
@@ -390,7 +403,12 @@ export async function processImageFastPathToBlob(
     // Gap #7: drew hook
     options.drew?.(canvas, ctx as OffscreenCanvasRenderingContext2D);
 
-    outBlob = await canvas.convertToBlob({ type: mimeType, quality });
+    if (jpegEncoderFn && mimeType === 'image/jpeg') {
+      const imageData = ctx.getImageData(0, 0, canvasW, canvasH);
+      outBlob = new Blob([await jpegEncoderFn(imageData, quality)], { type: 'image/jpeg' });
+    } else {
+      outBlob = await canvas.convertToBlob({ type: mimeType, quality });
+    }
   }
 
   // Gap #9: retainExif — re-inject original EXIF into JPEG output

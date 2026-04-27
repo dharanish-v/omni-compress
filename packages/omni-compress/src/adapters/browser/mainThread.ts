@@ -5,6 +5,7 @@ import {
 } from './fastPath.js';
 import { encodeAVIF } from './avifEncoder.js';
 import { optimizePNG } from './pngOptimizer.js';
+import { encodeJPEG } from './jpegEncoder.js';
 import type { CompressorOptions } from '../../core/router.js';
 
 /**
@@ -31,11 +32,16 @@ export async function processOnMainThread(
   // 2. Image Fast Path (OffscreenCanvas) — returns Blob directly (zero-copy, issue #62)
   if (options.type === 'image' && isFastPath) {
     onProgress?.(50);
-    const blob = await processImageFastPathToBlob(input, options);
+    const fmt = options.format.toLowerCase();
+    // JPEG: pass MozJPEG encoder — 5-16% smaller than canvas libjpeg-turbo.
+    // Only on main thread — @jsquash/jpeg Wasm uses import.meta.url for its
+    // binary; bundled-worker path resolution would fail.
+    const isJpeg = fmt === 'jpeg' || fmt === 'jpg';
+    const blob = await processImageFastPathToBlob(input, options, isJpeg ? encodeJPEG : undefined);
     // PNG: run through OxiPNG for lossless size reduction (20–35% smaller).
     // Only on main thread — oxipng MT mode creates sub-workers whose filenames
     // Vite hashes, causing 404 crashes in the image worker.
-    if (options.format === 'png') {
+    if (fmt === 'png') {
       const pngBuf = await blob.arrayBuffer();
       const optimized = await optimizePNG(pngBuf);
       return new Blob([optimized], { type: 'image/png' });
