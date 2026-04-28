@@ -39,10 +39,12 @@ export const WorkerConfig = {
   mainThreadThreshold: 4 * 1024 * 1024,
   /**
    * Threshold (in bytes) for AVIF main-thread execution.
-   * AVIF is much heavier than WebP/JPEG, so the threshold is lower by default.
-   * Default: 512KB (512 * 1024).
+   * Set to Infinity so AVIF always runs on the main thread via @jsquash/avif.
+   * @ffmpeg/core-mt excludes libaom-av1, so routing AVIF to the FFmpeg heavy
+   * path in a Worker always fails. @jsquash/avif handles multi-threading
+   * internally (via its own sub-workers) when SharedArrayBuffer is available.
    */
-  avifMainThreadThreshold: 512 * 1024,
+  avifMainThreadThreshold: Infinity,
   /**
    * Threshold (in bytes) for WAV audio fast-path execution on the main thread.
    * WebCodecs AudioEncoder is CPU-intensive per byte — use a lower limit than images.

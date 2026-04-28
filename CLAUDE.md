@@ -6,7 +6,7 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`omni-compress` (v2.3.9) — a universal, isomorphic compression and archiving library.
+`omni-compress` (v2.3.10) — a universal, isomorphic compression and archiving library.
 
 - **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`, `compressVideo`) work identically in browser and Node.js.
 - **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
@@ -73,8 +73,9 @@ compressImage() / compressAudio() / compressVideo()
       → Per-engine main-thread thresholds (config.ts):
           Image (cold): jpeg/jpg=20MB, png=16MB, webp=8MB (GPU-accelerated)
           WAV audio (cold): 1MB (WebCodecs AudioEncoder is CPU-intensive)
-          AVIF (cold): 512KB (@jsquash/avif libaom is heavy)
+          AVIF: always main thread (avifMainThreadThreshold=Infinity) — @ffmpeg/core-mt excludes libaom-av1
           Any type (warm Worker): 512KB — cold-start cost gone; only postMessage overhead remains
+          Note: warm-worker override does NOT apply to AVIF (would bypass the Infinity ceiling)
       → Non-WAV audio fast path (MP3, FLAC, OGG → AAC/Opus): always Worker
           (FastPath only demuxes WAV; non-WAV would throw on main thread, waste a dispatch cycle)
       → Video: always Worker until WebCodecs VideoEncoder implemented (#55)
@@ -94,8 +95,8 @@ One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm 
 - Uses `@jsquash/avif` — standalone libaom-av1 Wasm module from Google's Squoosh project (1.1 MB gzipped)
 - NO SharedArrayBuffer required — @jsquash/avif auto-detects multi-threading support
 - **Vite bundling caveat (critical):** When SAB is available (COOP/COEP), `@jsquash/avif` init calls `new Worker(new URL("avif_enc_mt.worker.mjs", import.meta.url))`. Vite hashes that filename on build, causing a 404 and worker crash. **Never bundle `@jsquash/avif` into a Vite-processed Web Worker.**
-- `avifEncoder.ts` is used by `mainThread.ts` ONLY — for small AVIF files on the main thread (below `avifMainThreadThreshold`).
-- `image.worker.ts` routes AVIF to `processImageHeavyPath` (FFmpeg) — NOT to `encodeAVIF` — to avoid the sub-worker 404 crash.
+- `avifEncoder.ts` is used by `mainThread.ts` ONLY — ALL AVIF files go to main thread (`avifMainThreadThreshold=Infinity`).
+- `image.worker.ts` does NOT handle AVIF — `@ffmpeg/core-mt` excludes `libaom-av1`; routing AVIF to the worker always fails. The warm-worker override is also blocked for AVIF in `router.ts`.
 - **Vite config caveat:** Must be excluded from dependency pre-bundling (`optimizeDeps.exclude: ['@jsquash/avif']`) otherwise the Wasm fetch will fail.
 
 ### JPEG optimization (jpegEncoder.ts)

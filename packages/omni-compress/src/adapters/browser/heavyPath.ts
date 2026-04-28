@@ -146,7 +146,8 @@ export async function processImageHeavyPath(
       args.push('-vf', vfFilters.join(','));
     }
 
-    // Large AVIF (worker path) reaches here; small AVIF (main-thread path) uses @jsquash/avif instead.
+    // AVIF never reaches this path — @ffmpeg/core-mt excludes libaom-av1.
+    // All AVIF encoding is handled by @jsquash/avif on the main thread (avifMainThreadThreshold=Infinity).
     if (options.format === 'webp') {
       args.push('-c:v', 'libwebp');
       if (options.quality !== undefined) {
@@ -154,25 +155,6 @@ export async function processImageHeavyPath(
       }
       // method 0 = fastest encode (skip pre-analysis passes), ~2-3x speedup in Wasm
       args.push('-compression_level', '0', '-method', '0');
-    } else if (options.format === 'avif') {
-      // -b:v 0 required for CRF constrained-quality mode; -still-picture 1 for valid AVIF.
-      // cpu-used 8 = fastest libaom-av1 (~10x speedup vs default)
-      const crf =
-        options.quality !== undefined
-          ? Math.max(0, Math.min(63, Math.round((1 - options.quality) * 63)))
-          : 32;
-      args.push(
-        '-c:v',
-        'libaom-av1',
-        '-crf',
-        String(crf),
-        '-b:v',
-        '0',
-        '-still-picture',
-        '1',
-        '-cpu-used',
-        '8',
-      );
     }
 
     args.push(outputFileName);

@@ -106,18 +106,20 @@ describe('Router (Browser Environment — mocked)', () => {
       expect(ctx.shouldUseWorker).toBe(false);
     });
 
-    it('uses main thread for small AVIF below avifMainThreadThreshold', () => {
+    it('always uses main thread for AVIF regardless of file size (@ffmpeg/core-mt lacks libaom-av1)', () => {
       mockBrowser();
-      const fileSize = WorkerConfig.avifMainThreadThreshold - 1;
-      const ctx = Router.evaluate({ type: 'image', format: 'avif' }, fileSize);
-      expect(ctx.shouldUseWorker).toBe(false);
+      // avifMainThreadThreshold is Infinity — all AVIF stays on main thread
+      for (const fileSize of [1, 512 * 1024, 5 * 1024 * 1024, 100 * 1024 * 1024]) {
+        const ctx = Router.evaluate({ type: 'image', format: 'avif' }, fileSize);
+        expect(ctx.shouldUseWorker).toBe(false);
+      }
     });
 
-    it('uses Worker for AVIF above avifMainThreadThreshold', () => {
+    it('AVIF stays on main thread even when image worker is warm', () => {
       mockBrowser();
-      const fileSize = WorkerConfig.avifMainThreadThreshold + 1;
-      const ctx = Router.evaluate({ type: 'image', format: 'avif' }, fileSize);
-      expect(ctx.shouldUseWorker).toBe(true);
+      // warm-worker override must NOT apply to AVIF
+      const ctx = Router.evaluate({ type: 'image', format: 'avif' }, 5 * 1024 * 1024, '', () => true);
+      expect(ctx.shouldUseWorker).toBe(false);
     });
 
     it('always uses Worker for heavy-path formats (mp3) regardless of size', () => {

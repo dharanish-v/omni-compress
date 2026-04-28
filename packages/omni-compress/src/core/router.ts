@@ -451,7 +451,9 @@ export class Router {
             const coldThreshold = isAVIF
               ? WorkerConfig.avifMainThreadThreshold
               : (MAIN_THREAD_THRESHOLDS[format] ?? WorkerConfig.mainThreadThreshold);
-            const warm = isWorkerWarmFn?.(options.type as WorkerType) ?? false;
+            // AVIF must not use the warm-worker override: @ffmpeg/core-mt excludes
+            // libaom-av1, so AVIF in the worker always fails regardless of warmth.
+            const warm = !isAVIF && (isWorkerWarmFn?.(options.type as WorkerType) ?? false);
             const threshold = warm ? WorkerConfig.warmWorkerThreshold : coldThreshold;
             shouldUseWorker = fileSize >= threshold;
           }
