@@ -8,6 +8,7 @@ import ffmpegPath from 'ffmpeg-static';
 import type { CompressorOptions } from '../../core/router.js';
 import { fileToArrayBuffer } from '../../core/utils.js';
 import { AbortError } from '../../core/errors.js';
+import { buildImageVfFilters } from '../../core/ffmpegFilters.js';
 import { logger } from '../../core/logger.js';
 
 /**
@@ -63,63 +64,7 @@ export async function processWithNode(
     }
 
     if (options.type === 'image') {
-      // Build video filter chain for resize options
-      const vfFilters: string[] = [];
-
-      // Gap #2-3: exact width/height with resize mode
-      if (options.width || options.height) {
-        const cW = options.width ?? 0;
-        const cH = options.height ?? 0;
-        const mode = options.resize ?? 'contain';
-
-        if (mode === 'contain') {
-          // Fit within cW×cH, pad with black/transparent to fill
-          const scaleW = cW || -1;
-          const scaleH = cH || -1;
-          vfFilters.push(
-            `scale=${scaleW}:${scaleH}:force_original_aspect_ratio=decrease`,
-            `pad=${cW || 'iw'}:${cH || 'ih'}:(ow-iw)/2:(oh-ih)/2`,
-          );
-        } else if (mode === 'cover') {
-          // Fill cW×cH, crop overflow from centre
-          const scaleW = cW || -1;
-          const scaleH = cH || -1;
-          vfFilters.push(
-            `scale=${scaleW}:${scaleH}:force_original_aspect_ratio=increase`,
-            `crop=${cW || 'iw'}:${cH || 'ih'}`,
-          );
-        } else {
-          // 'none': canvas = cW×cH, image drawn at its size (may clip)
-          vfFilters.push(`scale=${cW || 'iw'}:${cH || 'ih'}`);
-        }
-      } else if (options.maxWidth || options.maxHeight) {
-        // Gap #1 (maxWidth/maxHeight) — ceiling downscale, aspect-ratio preserving
-        const w = options.maxWidth || -1;
-        const h = options.maxHeight || -1;
-        if (w !== -1 && h !== -1) {
-          vfFilters.push(
-            `scale='min(${w},iw)':'min(${h},ih)':force_original_aspect_ratio=decrease`,
-          );
-        } else {
-          vfFilters.push(`scale=${w}:${h}`);
-        }
-      }
-
-      // Gap #1: minWidth/minHeight — floor upscale, aspect-ratio preserving
-      if (options.minWidth || options.minHeight) {
-        const mW = options.minWidth || 0;
-        const mH = options.minHeight || 0;
-        if (mW && mH) {
-          vfFilters.push(
-            `scale='max(${mW},iw)':'max(${mH},ih)':force_original_aspect_ratio=increase`,
-          );
-        } else if (mW) {
-          vfFilters.push(`scale='max(${mW},iw)':-1`);
-        } else {
-          vfFilters.push(`scale=-1:'max(${mH},ih)'`);
-        }
-      }
-
+      const vfFilters = buildImageVfFilters(options);
       if (vfFilters.length > 0) {
         args.push('-vf', vfFilters.join(','));
       }

@@ -41,7 +41,19 @@ export interface CompressorOptions {
   minHeight?: number;
   width?: number;
   height?: number;
-  resize?: 'contain' | 'cover' | 'none';
+  resize?: 'contain' | 'cover' | 'fill' | 'inside' | 'outside' | 'none';
+  /**
+   * Anchor point for letterboxing (contain) or cropping (cover).
+   * Default: 'center'. Values: 'center', 'top', 'right', 'bottom', 'left',
+   * 'top-left', 'top-right', 'bottom-left', 'bottom-right'.
+   * Also accepts compass aliases: 'north', 'east', 'south', 'west', etc.
+   */
+  position?: string;
+  /**
+   * When true, the image is never scaled above its original dimensions,
+   * even when the target box is larger. Disables minWidth/minHeight upscaling.
+   */
+  withoutEnlargement?: boolean;
   checkOrientation?: boolean;
   retainExif?: boolean;
   beforeDraw?: (
@@ -135,9 +147,25 @@ export interface ImageOptions {
    * Resize mode when both `width` and `height` are set.
    * - `'contain'` (default): scale to fit within the canvas, letterbox if needed.
    * - `'cover'`: scale to fill the canvas, cropping the overflow.
+   * - `'fill'`: stretch to fill the canvas exactly, ignoring aspect ratio.
+   * - `'inside'`: scale down to fit within bounds; never upscales; no letterbox.
+   * - `'outside'`: scale to cover bounds without cropping; may exceed bounds in one dimension.
    * - `'none'`: draw the image at its current size; canvas is cropped/padded.
    */
-  resize?: 'contain' | 'cover' | 'none';
+  resize?: 'contain' | 'cover' | 'fill' | 'inside' | 'outside' | 'none';
+  /**
+   * Anchor point for letterboxing (contain) or cropping (cover).
+   * Default: `'center'`. Accepts: `'center'`, `'top'`, `'right'`, `'bottom'`,
+   * `'left'`, `'top-left'`, `'top-right'`, `'bottom-left'`, `'bottom-right'`.
+   * Also accepts compass direction aliases: `'north'`, `'east'`, `'south'`, `'west'`, etc.
+   */
+  position?: string;
+  /**
+   * When `true`, the image is never upscaled beyond its original dimensions,
+   * even when the target canvas is larger. Also disables `minWidth`/`minHeight`.
+   * Default: `false`.
+   */
+  withoutEnlargement?: boolean;
   /**
    * MIME type(s) eligible for auto format conversion (e.g. `'image/png'`).
    * When the input's MIME type matches one of these AND the file size is below

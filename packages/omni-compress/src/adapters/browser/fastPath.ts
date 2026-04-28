@@ -29,11 +29,38 @@ interface DrawParams {
  *  2. minWidth / minHeight — floor upscale (aspect-ratio preserving)
  *  3. width / height + resize mode — exact canvas dimensions with fitting
  */
+/** Resolve a position string to horizontal and vertical anchor values. */
+function resolvePosition(pos?: string): {
+  hAnchor: 'start' | 'center' | 'end';
+  vAnchor: 'start' | 'center' | 'end';
+} {
+  const p = (pos ?? 'center').toLowerCase().replace(/[\s_]/g, '-');
+  const hasLeft = p.includes('left') || p.includes('west');
+  const hasRight = p.includes('right') || p.includes('east');
+  const hasTop = p.includes('top') || p.includes('north');
+  const hasBottom = p.includes('bottom') || p.includes('south');
+  return {
+    hAnchor: hasLeft ? 'start' : hasRight ? 'end' : 'center',
+    vAnchor: hasTop ? 'start' : hasBottom ? 'end' : 'center',
+  };
+}
+
+/** Compute offset so that `inner` is anchored within `container`. */
+function anchorOffset(
+  container: number,
+  inner: number,
+  anchor: 'start' | 'center' | 'end',
+): number {
+  if (anchor === 'start') return 0;
+  if (anchor === 'end') return Math.max(0, container - inner);
+  return Math.round((container - inner) / 2);
+}
+
 function computeDrawParams(origW: number, origH: number, opts: CompressorOptions): DrawParams {
   let tw = origW;
   let th = origH;
 
-  // Step 1: ceiling downscale
+  // Step 1: ceiling downscale (maxWidth/maxHeight)
   if (opts.maxWidth && tw > opts.maxWidth) {
     th = Math.round((th * opts.maxWidth) / tw);
     tw = opts.maxWidth;
@@ -43,24 +70,27 @@ function computeDrawParams(origW: number, origH: number, opts: CompressorOptions
     th = opts.maxHeight;
   }
 
-  // Step 2: floor upscale
-  if (opts.minWidth && tw < opts.minWidth) {
-    th = Math.round((th * opts.minWidth) / tw);
-    tw = opts.minWidth;
-  }
-  if (opts.minHeight && th < opts.minHeight) {
-    tw = Math.round((tw * opts.minHeight) / th);
-    th = opts.minHeight;
+  // Step 2: floor upscale (minWidth/minHeight) — skipped when withoutEnlargement
+  if (!opts.withoutEnlargement) {
+    if (opts.minWidth && tw < opts.minWidth) {
+      th = Math.round((th * opts.minWidth) / tw);
+      tw = opts.minWidth;
+    }
+    if (opts.minHeight && th < opts.minHeight) {
+      tw = Math.round((tw * opts.minHeight) / th);
+      th = opts.minHeight;
+    }
   }
 
-  // Step 3: exact canvas size with resize mode
+  // Step 3: exact canvas with resize mode
   if (opts.width || opts.height) {
     const cW = opts.width ?? tw;
     const cH = opts.height ?? th;
     const mode = opts.resize ?? 'contain';
+    const { hAnchor, vAnchor } = resolvePosition(opts.position);
 
     if (mode === 'none') {
-      // Canvas is cW×cH; image drawn at current (tw×th) size from top-left, may clip
+      // Canvas is cW×cH; image drawn at current (tw×th) size, may clip
       return {
         canvasW: cW,
         canvasH: cH,
@@ -75,9 +105,43 @@ function computeDrawParams(origW: number, origH: number, opts: CompressorOptions
       };
     }
 
+    if (mode === 'fill') {
+      // Stretch to fill exactly — ignore aspect ratio
+      return {
+        canvasW: cW,
+        canvasH: cH,
+        sx: 0,
+        sy: 0,
+        sw: origW,
+        sh: origH,
+        dx: 0,
+        dy: 0,
+        dw: cW,
+        dh: cH,
+      };
+    }
+
+    if (mode === 'inside') {
+      // Fit inside bounds without upscaling; canvas sized to actual output (no letterbox)
+      const scale = Math.min(1, Math.min(cW / tw, cH / th));
+      const dw = Math.round(tw * scale);
+      const dh = Math.round(th * scale);
+      return { canvasW: dw, canvasH: dh, sx: 0, sy: 0, sw: origW, sh: origH, dx: 0, dy: 0, dw, dh };
+    }
+
+    if (mode === 'outside') {
+      // Scale to cover the box without cropping; output may exceed box in one dimension.
+      // withoutEnlargement: don't upscale (image stays <= original size if already larger than box).
+      const rawScale = Math.max(cW / tw, cH / th);
+      const scale = opts.withoutEnlargement ? Math.min(1, rawScale) : rawScale;
+      const dw = Math.round(tw * scale);
+      const dh = Math.round(th * scale);
+      return { canvasW: dw, canvasH: dh, sx: 0, sy: 0, sw: origW, sh: origH, dx: 0, dy: 0, dw, dh };
+    }
+
     if (mode === 'contain') {
-      // Scale tw×th to fit inside cW×cH, centred
-      const scale = Math.min(cW / tw, cH / th);
+      const rawScale = Math.min(cW / tw, cH / th);
+      const scale = opts.withoutEnlargement ? Math.min(1, rawScale) : rawScale;
       const dw = Math.round(tw * scale);
       const dh = Math.round(th * scale);
       return {
@@ -87,38 +151,27 @@ function computeDrawParams(origW: number, origH: number, opts: CompressorOptions
         sy: 0,
         sw: origW,
         sh: origH,
-        dx: Math.round((cW - dw) / 2),
-        dy: Math.round((cH - dh) / 2),
+        dx: anchorOffset(cW, dw, hAnchor),
+        dy: anchorOffset(cH, dh, vAnchor),
         dw,
         dh,
       };
     }
 
-    // 'cover': scale to fill cW×cH, crop the overflow from the centre
-    const scale = Math.max(cW / tw, cH / th);
-    // Map back to original-bitmap coordinates
+    // 'cover': scale to fill cW×cH, crop with position anchor
+    const rawScale = Math.max(cW / tw, cH / th);
+    const scale = opts.withoutEnlargement ? Math.min(1, rawScale) : rawScale;
     const srcScaleX = origW / tw;
     const srcScaleY = origH / th;
     const scaledW = tw * scale;
     const scaledH = th * scale;
-    const cropX = (scaledW - cW) / 2;
-    const cropY = (scaledH - cH) / 2;
+    const cropX = anchorOffset(scaledW, cW, hAnchor);
+    const cropY = anchorOffset(scaledH, cH, vAnchor);
     const sx = Math.round((cropX / scale) * srcScaleX);
     const sy = Math.round((cropY / scale) * srcScaleY);
     const sw = Math.round((cW / scale) * srcScaleX);
     const sh = Math.round((cH / scale) * srcScaleY);
-    return {
-      canvasW: cW,
-      canvasH: cH,
-      sx,
-      sy,
-      sw,
-      sh,
-      dx: 0,
-      dy: 0,
-      dw: cW,
-      dh: cH,
-    };
+    return { canvasW: cW, canvasH: cH, sx, sy, sw, sh, dx: 0, dy: 0, dw: cW, dh: cH };
   }
 
   // No exact dimensions — simple proportional resize to tw×th

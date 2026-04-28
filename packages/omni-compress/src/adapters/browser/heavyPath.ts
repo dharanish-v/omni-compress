@@ -1,6 +1,7 @@
 import type { CompressorOptions } from '../../core/router.js';
 import { SAFE_SIZE_LIMITS } from '../../core/utils.js';
 import { logger } from '../../core/logger.js';
+import { buildImageVfFilters } from '../../core/ffmpegFilters.js';
 
 // --- FFmpeg Singleton (ST — single-threaded core) ---
 // Reuses a single FFmpeg Wasm instance across compressions within the same
@@ -140,10 +141,9 @@ export async function processImageHeavyPath(
       args.push('-map_metadata', '-1');
     }
 
-    if (options.maxWidth || options.maxHeight) {
-      const w = options.maxWidth || -1;
-      const h = options.maxHeight || -1;
-      args.push('-vf', `scale=${w}:${h}:force_original_aspect_ratio=decrease`);
+    const vfFilters = buildImageVfFilters(options);
+    if (vfFilters.length > 0) {
+      args.push('-vf', vfFilters.join(','));
     }
 
     // Large AVIF (worker path) reaches here; small AVIF (main-thread path) uses @jsquash/avif instead.
