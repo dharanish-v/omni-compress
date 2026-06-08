@@ -22,6 +22,13 @@ let currentMtSupported: boolean = false;
 
 const IDLE_TIMEOUT_MS = 30_000; // 30 seconds
 
+function suspendIdleTimer() {
+  if (idleTimer !== null) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+}
+
 function resetIdleTimer() {
   if (idleTimer !== null) {
     clearTimeout(idleTimer);
@@ -75,10 +82,7 @@ async function getFFmpeg(config?: FFmpegConfig) {
         if (isMT && config.workerUrl)
           loadConfig.workerURL = await toBlobURL(config.workerUrl, 'text/javascript');
       } else {
-        // Default: Use @ffmpeg/core or @ffmpeg/core-mt from unpkg or local node_modules
-        // (Default behavior of ffmpeg.load() is usually sufficient if files are co-located)
         if (isMT) {
-          // Force multi-threaded core
           const baseURL = 'https://unpkg.com/@ffmpeg/core-mt@0.12.6/dist/esm';
           loadConfig.coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
           loadConfig.wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
@@ -86,6 +90,12 @@ async function getFFmpeg(config?: FFmpegConfig) {
             `${baseURL}/ffmpeg-core.worker.js`,
             'text/javascript',
           );
+        } else {
+          // Single-threaded fallback (no SharedArrayBuffer) — must provide explicit URLs.
+          // ffmpeg.load({}) without URLs fails to resolve the core relative to the worker bundle.
+          const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm';
+          loadConfig.coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+          loadConfig.wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
         }
       }
 
@@ -133,6 +143,7 @@ export async function processImageHeavyPath(
   try {
     ffmpeg.on('progress', progressHandler);
     await ffmpeg.writeFile(inputFileName, fileData);
+    suspendIdleTimer();
 
     // -map 0:v:0: Select only the first video stream
     const args = ['-nostdin', '-y', '-threads', threadCount, '-i', inputFileName, '-map', '0:v:0'];
@@ -205,6 +216,7 @@ export async function processAudioHeavyPath(
   try {
     ffmpeg.on('progress', progressHandler);
     await ffmpeg.writeFile(inputFileName, fileData);
+    suspendIdleTimer();
 
     if (options.format === 'opus') {
       // With MT support, Opus might be more stable, but we'll keep the two-pass
@@ -350,6 +362,7 @@ export async function processVideoHeavyPath(
   try {
     ffmpeg.on('progress', progressHandler);
     await ffmpeg.writeFile(inputFileName, fileData);
+    suspendIdleTimer();
 
     const args = ['-nostdin', '-y', '-threads', threadCount, '-i', inputFileName];
 

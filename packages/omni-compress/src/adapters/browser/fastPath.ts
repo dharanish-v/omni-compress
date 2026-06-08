@@ -490,6 +490,12 @@ export async function processAudioFastPath(
     throw new Error('WebCodecs API not supported in this environment.');
   }
 
+  // WebCodecs AudioEncoder outputs raw Opus frames with no container — not a valid standalone file.
+  // Force fallback to heavy path (FFmpeg libopus → Ogg container).
+  if (options.format.toLowerCase() === 'opus') {
+    throw new Error('Opus requires Ogg container. Use heavy path.');
+  }
+
   // 1. Decode input buffer to raw AudioData chunks
   const audioDataChunks = await decodeAudio(buffer);
   if (audioDataChunks.length === 0) {

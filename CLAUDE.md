@@ -78,17 +78,19 @@ compressImage() / compressAudio() / compressVideo()
           Note: warm-worker override does NOT apply to AVIF (would bypass the Infinity ceiling)
       → Non-WAV audio fast path (MP3, FLAC, OGG → AAC/Opus): always Worker
           (FastPath only demuxes WAV; non-WAV would throw on main thread, waste a dispatch cycle)
+      → Opus format: always HeavyPath regardless of input — WebCodecs AudioEncoder outputs raw Opus
+          frames with no Ogg container. fastPath.ts throws early for Opus → Worker catches → HeavyPath.
       → Video: always Worker until WebCodecs VideoEncoder implemented (#55)
       → (Main Thread OR WorkerPool)
           → AVIF: @jsquash/avif (standalone libaom-av1 Wasm, 1.1 MB gzipped)
-          → FastPath (OffscreenCanvas/WebCodecs): WebP, JPEG, PNG images; WAV→AAC/Opus audio
-          → HeavyPath (FFmpeg Wasm): everything else, also fallback from FastPath
+          → FastPath (OffscreenCanvas/WebCodecs): WebP, JPEG, PNG images; WAV→AAC audio
+          → HeavyPath (FFmpeg Wasm): everything else, Opus always, fallback from FastPath
   → node: childProcess (native ffmpeg binary, no Wasm, no size limit)
 ```
 
 ### Worker concurrency (workerPool.ts)
 
-One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm singleton inside the worker uses fixed VFS filenames — concurrent dispatch causes collisions. Jobs queue and drain automatically. Workers terminate after 60s idle. FFmpeg singleton terminates after 30s idle.
+One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm singleton inside the worker uses fixed VFS filenames — concurrent dispatch causes collisions. Jobs queue and drain automatically. Workers terminate after 60s idle. FFmpeg singleton terminates after 30s idle **only when idle** — the idle timer is suspended (`suspendIdleTimer()`) before `ffmpeg.exec()` and restarted in the `finally` block, preventing termination during long encodes (e.g. large video files).
 
 ### AVIF encoding (avifEncoder.ts)
 
@@ -118,7 +120,9 @@ One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm 
 
 - Uses `@ffmpeg/ffmpeg` v0.12.x + `@ffmpeg/core-mt` (v0.12.6)
 - **Multi-threaded** support when `SharedArrayBuffer` is available (Cross-Origin Isolated).
+- **Single-threaded fallback** when `SharedArrayBuffer` is unavailable: loads `@ffmpeg/core@0.12.6` from unpkg.com (explicit URLs required — `ffmpeg.load({})` with empty config fails to resolve relative to the worker bundle).
 - Singleton reused across calls; VFS cleaned between calls
+- Idle timer suspended during active `ffmpeg.exec()` (`suspendIdleTimer()` before exec, `resetIdleTimer()` in `finally`) — prevents termination during long video encodes.
 - 250 MB hard limit (`FileTooLargeError`) before loading into Wasm
 - Opus special case: 2-pass (resample to 48kHz WAV → encode) to avoid OOM crash in single-threaded Wasm
 

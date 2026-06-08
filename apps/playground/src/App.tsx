@@ -51,8 +51,16 @@ export default function App({ initialTheme = 'en' }: AppProps) {
     removeFile,
   } = useFileHandling(isMuted);
 
-  const { isProcessing, progress, stats, compressedUrl, handleCompress, handleCancel } =
-    useCompression(isMuted);
+  const {
+    isProcessing,
+    progress,
+    stats,
+    compressedUrl,
+    setStats,
+    setCompressedUrl,
+    handleCompress,
+    handleCancel,
+  } = useCompression(isMuted);
 
   // UI State
   const [selectedFormat, setSelectedFormat] = useState<string>('');
@@ -77,6 +85,15 @@ export default function App({ initialTheme = 'en' }: AppProps) {
   const isAllAudio = files.length > 0 && files.every((f) => isAudioFile(f));
   const isAllVideos = files.length > 0 && files.every((f) => isVideoFile(f));
   const isMixedOrGeneric = files.length > 0 && !isAllImages && !isAllAudio && !isAllVideos;
+
+  // Clear results when file selection changes
+  useEffect(() => {
+    setStats(null);
+    if (compressedUrl) {
+      URL.revokeObjectURL(compressedUrl);
+      setCompressedUrl(null);
+    }
+  }, [files]);
 
   // Auto-select format based on files
   useEffect(() => {
@@ -216,6 +233,7 @@ export default function App({ initialTheme = 'en' }: AppProps) {
                 onDrop={handleDrop}
                 fileInputRef={fileInputRef}
                 onFileChange={handleFileChange}
+                t={t}
               />
 
               <CompressionControls

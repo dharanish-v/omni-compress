@@ -282,7 +282,7 @@ const result = await compressImage(file, {
 
 #### `compressAudio(input, options): Promise<CompressResult>`
 
-Compresses an audio file via WebCodecs (fast path) or FFmpeg Wasm (heavy path).
+Compresses an audio file via WebCodecs AAC fast path or FFmpeg Wasm heavy path. Opus always uses FFmpeg Wasm to produce a valid Ogg container.
 
 **`AudioOptions`**
 
@@ -501,7 +501,7 @@ try {
 | Format   | Fast Path (WebCodecs) | Heavy Path (FFmpeg Wasm) | Node (OS binary) |
 | -------- | --------------------- | ------------------------ | ---------------- |
 | MP3      | —                     | ✅ libmp3lame            | ✅ ffmpeg        |
-| Opus/OGG | ✅ (Opus)             | ✅ libopus               | ✅ ffmpeg        |
+| Opus/OGG | —                     | ✅ libopus (Ogg)         | ✅ ffmpeg        |
 | FLAC     | —                     | ✅ flac                  | ✅ ffmpeg        |
 | WAV      | —                     | ✅                       | ✅ ffmpeg        |
 | AAC      | ✅                    | ✅                       | ✅ ffmpeg        |
