@@ -55,6 +55,8 @@ describe('Router (Browser Environment — mocked)', () => {
       mockBrowser();
       expect(Router.isFastPathSupported({ type: 'audio', format: 'mp3' })).toBe(false);
       expect(Router.isFastPathSupported({ type: 'audio', format: 'flac' })).toBe(false);
+      // webm (Opus in WebM container) is heavy-path only — FFmpeg muxes the container.
+      expect(Router.isFastPathSupported({ type: 'audio', format: 'webm' })).toBe(false);
     });
 
     it('returns false for video (WebCodecs VideoEncoder not yet implemented — issue #55)', () => {

@@ -228,8 +228,14 @@ export interface ImageOptions {
 
 /** Options for compressAudio(). */
 export interface AudioOptions {
-  /** Target output format. Default: 'auto' (converts WAV/FLAC to MP3). */
-  format?: 'opus' | 'mp3' | 'flac' | 'wav' | 'aac' | 'auto';
+  /**
+   * Target output format. Default: 'auto' (converts WAV/FLAC to MP3).
+   *
+   * `'webm'` encodes Opus audio in a WebM container — useful for broad Safari
+   * compatibility (WebM Opus is supported on macOS 11.3+, whereas Ogg Opus
+   * requires macOS 15.4+). Same codec as `'opus'`, different container.
+   */
+  format?: 'opus' | 'webm' | 'mp3' | 'flac' | 'wav' | 'aac' | 'auto';
   /** Target bitrate, e.g. '128k', '192k'. Encoder default if omitted. */
   bitrate?: string;
   /** Output channel count. Defaults to input channel count. */

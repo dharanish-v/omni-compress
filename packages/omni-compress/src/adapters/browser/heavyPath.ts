@@ -218,11 +218,13 @@ export async function processAudioHeavyPath(
     await ffmpeg.writeFile(inputFileName, fileData);
     suspendIdleTimer();
 
-    if (options.format === 'opus') {
-      // With MT support, Opus might be more stable, but we'll keep the two-pass
-      // approach for now as it's guaranteed to be safe for memory.
+    if (options.format === 'opus' || options.format === 'webm') {
+      // Both 'opus' (Ogg container) and 'webm' (WebM container) encode the Opus
+      // codec via libopus. WebM Opus has broader Safari support (macOS 11.3+ vs
+      // Ogg Opus on macOS 15.4+). The two-pass approach (resample → encode) is
+      // guaranteed safe for single-threaded Wasm memory; we keep it for both.
       const intermediateFile = 'resampled.wav';
-      const opusOutputFile = 'output.ogg';
+      const opusOutputFile = options.format === 'webm' ? 'output.webm' : 'output.ogg';
 
       // Pass 1: Resample to 48kHz PCM
       const resampleArgs = [

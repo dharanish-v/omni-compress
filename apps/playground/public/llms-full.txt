@@ -288,7 +288,7 @@ Compresses an audio file via WebCodecs AAC fast path or FFmpeg Wasm heavy path. 
 
 | Property           | Type                                          | Default  | Description                                               |
 | ------------------ | --------------------------------------------- | -------- | --------------------------------------------------------- |
-| `format`           | `'opus' \| 'mp3' \| 'flac' \| 'wav' \| 'aac'` | —        | Target output format                                      |
+| `format`           | `'opus' \| 'webm' \| 'mp3' \| 'flac' \| 'wav' \| 'aac'` | —        | Target output format. `'webm'` = Opus codec in a WebM container (broader Safari support than Ogg Opus) |
 | `bitrate`          | `string`                                      | `'128k'` | Target bitrate, e.g. `'96k'`, `'192k'`                    |
 | `channels`         | `1 \| 2`                                      | Auto     | Output channel count (1 = mono, 2 = stereo)               |
 | `sampleRate`       | `number`                                      | Auto     | Output sample rate in Hz, e.g. `48000`                    |
@@ -502,6 +502,7 @@ try {
 | -------- | --------------------- | ------------------------ | ---------------- |
 | MP3      | —                     | ✅ libmp3lame            | ✅ ffmpeg        |
 | Opus/OGG | —                     | ✅ libopus (Ogg)         | ✅ ffmpeg        |
+| WebM Opus| —                     | ✅ libopus (WebM)        | ✅ ffmpeg        |
 | FLAC     | —                     | ✅ flac                  | ✅ ffmpeg        |
 | WAV      | —                     | ✅                       | ✅ ffmpeg        |
 | AAC      | ✅                    | ✅                       | ✅ ffmpeg        |

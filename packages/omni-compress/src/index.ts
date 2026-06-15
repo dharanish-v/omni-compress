@@ -10,7 +10,7 @@ import { logger } from './core/logger.js';
 import { InvalidOptionsError, FormatNotSupportedError } from './core/errors.js';
 
 const VALID_IMAGE_FORMATS = new Set(['webp', 'avif', 'jpeg', 'jpg', 'png', 'auto']);
-const VALID_AUDIO_FORMATS = new Set(['opus', 'mp3', 'flac', 'wav', 'aac', 'ogg', 'auto']);
+const VALID_AUDIO_FORMATS = new Set(['opus', 'webm', 'mp3', 'flac', 'wav', 'aac', 'ogg', 'auto']);
 const VALID_VIDEO_FORMATS = new Set(['mp4', 'webm', 'auto']);
 
 // ---------------------------------------------------------------------------
@@ -177,7 +177,7 @@ export async function compressAudio(
   const format = (options.format || 'auto').toLowerCase();
   if (!VALID_AUDIO_FORMATS.has(format)) {
     throw new FormatNotSupportedError(
-      `"${options.format}" is not a supported audio format. Supported: opus, mp3, flac, wav, aac`,
+      `"${options.format}" is not a supported audio format. Supported: opus, webm, mp3, flac, wav, aac`,
       options.format as string,
     );
   }

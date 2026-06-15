@@ -109,7 +109,9 @@ export async function processWithNode(
         args.push('-acodec', 'libmp3lame', '-b:a', options.bitrate || '128k');
       } else if (options.format === 'flac') {
         args.push('-acodec', 'flac');
-      } else if (options.format === 'opus') {
+      } else if (options.format === 'opus' || options.format === 'webm') {
+        // 'webm' = Opus codec in a WebM container (broader Safari support than Ogg Opus).
+        // FFmpeg selects the container from the output file extension (.opus/.ogg vs .webm).
         args.push('-acodec', 'libopus', '-b:a', options.bitrate || '128k');
       } else if (options.format === 'aac') {
         args.push('-acodec', 'aac', '-b:a', options.bitrate || '128k');

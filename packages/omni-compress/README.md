@@ -158,16 +158,16 @@ Compresses an audio file via WebCodecs AAC fast path or FFmpeg Wasm heavy path. 
 
 **`AudioOptions`**
 
-| Property           | Type                                          | Default  | Description                                               |
-| ------------------ | --------------------------------------------- | -------- | --------------------------------------------------------- |
-| `format`           | `'opus' \| 'mp3' \| 'flac' \| 'wav' \| 'aac'` | —        | Target output format                                      |
-| `bitrate`          | `string`                                      | `'128k'` | Target bitrate, e.g. `'96k'`, `'192k'`                    |
-| `channels`         | `1 \| 2`                                      | Auto     | Output channel count (1 = mono, 2 = stereo)               |
-| `sampleRate`       | `number`                                      | Auto     | Output sample rate in Hz, e.g. `48000`                    |
-| `preserveMetadata` | `boolean`                                     | `false`  | Keep audio tags in the output                             |
-| `useWorker`        | `boolean`                                     | Auto     | Force Web Worker (true) or Main Thread (false)            |
-| `onProgress`       | `(percent: number) => void`                   | —        | Progress callback `0` – `100`                             |
-| `signal`           | `AbortSignal`                                 | —        | Cancel the operation — throws `AbortError` when signalled |
+| Property           | Type                                                    | Default  | Description                                                                                            |
+| ------------------ | ------------------------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ |
+| `format`           | `'opus' \| 'webm' \| 'mp3' \| 'flac' \| 'wav' \| 'aac'` | —        | Target output format. `'webm'` = Opus codec in a WebM container (broader Safari support than Ogg Opus) |
+| `bitrate`          | `string`                                                | `'128k'` | Target bitrate, e.g. `'96k'`, `'192k'`                                                                 |
+| `channels`         | `1 \| 2`                                                | Auto     | Output channel count (1 = mono, 2 = stereo)                                                            |
+| `sampleRate`       | `number`                                                | Auto     | Output sample rate in Hz, e.g. `48000`                                                                 |
+| `preserveMetadata` | `boolean`                                               | `false`  | Keep audio tags in the output                                                                          |
+| `useWorker`        | `boolean`                                               | Auto     | Force Web Worker (true) or Main Thread (false)                                                         |
+| `onProgress`       | `(percent: number) => void`                             | —        | Progress callback `0` – `100`                                                                          |
+| `signal`           | `AbortSignal`                                           | —        | Cancel the operation — throws `AbortError` when signalled                                              |
 
 #### `compressVideo(input, options): Promise<CompressResult>`
 
@@ -370,13 +370,14 @@ try {
 
 ### Audio
 
-| Format   | Fast Path (WebCodecs) | Heavy Path (FFmpeg Wasm) | Node (OS binary) |
-| -------- | --------------------- | ------------------------ | ---------------- |
-| MP3      | —                     | ✅ libmp3lame            | ✅ ffmpeg        |
-| Opus/OGG | —                     | ✅ libopus (Ogg)         | ✅ ffmpeg        |
-| FLAC     | —                     | ✅ flac                  | ✅ ffmpeg        |
-| WAV      | —                     | ✅                       | ✅ ffmpeg        |
-| AAC      | ✅                    | ✅                       | ✅ ffmpeg        |
+| Format    | Fast Path (WebCodecs) | Heavy Path (FFmpeg Wasm) | Node (OS binary) |
+| --------- | --------------------- | ------------------------ | ---------------- |
+| MP3       | —                     | ✅ libmp3lame            | ✅ ffmpeg        |
+| Opus/OGG  | —                     | ✅ libopus (Ogg)         | ✅ ffmpeg        |
+| WebM Opus | —                     | ✅ libopus (WebM)        | ✅ ffmpeg        |
+| FLAC      | —                     | ✅ flac                  | ✅ ffmpeg        |
+| WAV       | —                     | ✅                       | ✅ ffmpeg        |
+| AAC       | ✅                    | ✅                       | ✅ ffmpeg        |
 
 ### Video
 

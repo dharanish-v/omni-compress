@@ -73,4 +73,24 @@ describe('Node Adapter (child_process FFmpeg)', () => {
 
     expect(result.size).toBeGreaterThan(0);
   });
+
+  it('should compress a WAV to WebM Opus (Opus codec in WebM container)', async () => {
+    const inputPath = path.join(fixturesDir, 'sample.wav');
+    const blob = new Blob([fs.readFileSync(inputPath)], { type: 'audio/wav' });
+
+    const result = await OmniCompressor.process(blob, {
+      type: 'audio',
+      format: 'webm',
+      bitrate: '64k',
+      originalFileName: 'sample.wav',
+    });
+
+    expect(result).toBeInstanceOf(Blob);
+    expect(result.size).toBeGreaterThan(0);
+    expect(result.type).toBe('audio/webm');
+
+    // Verify the output is a real WebM/Matroska container (EBML magic bytes: 0x1A 0x45 0xDF 0xA3).
+    const header = new Uint8Array(await result.arrayBuffer()).subarray(0, 4);
+    expect(Array.from(header)).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+  });
 });

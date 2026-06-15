@@ -61,6 +61,10 @@ describe('getMimeType', () => {
     expect(getMimeType('audio', 'wav')).toBe('audio/wav');
   });
 
+  it('returns audio/webm for webm audio (Opus in WebM container)', () => {
+    expect(getMimeType('audio', 'webm')).toBe('audio/webm');
+  });
+
   it('returns video/mp4 for mp4', () => {
     expect(getMimeType('video', 'mp4')).toBe('video/mp4');
   });

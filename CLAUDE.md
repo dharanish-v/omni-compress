@@ -6,7 +6,7 @@ Read this before touching any file. It replaces the need to explore the codebase
 
 ## What this project is
 
-`omni-compress` (v2.3.11) — a universal, isomorphic compression and archiving library.
+`omni-compress` (v2.4.0) — a universal, isomorphic compression and archiving library.
 
 - **Isomorphic Core**: ZIP archiving (`archive`) and media processing (`compressImage`, `compressAudio`, `compressVideo`) work identically in browser and Node.js.
 - **Browser**: Routes through Web Workers, uses OffscreenCanvas fast path, @jsquash/avif for AVIF, or FFmpeg Wasm heavy path.
@@ -78,8 +78,11 @@ compressImage() / compressAudio() / compressVideo()
           Note: warm-worker override does NOT apply to AVIF (would bypass the Infinity ceiling)
       → Non-WAV audio fast path (MP3, FLAC, OGG → AAC/Opus): always Worker
           (FastPath only demuxes WAV; non-WAV would throw on main thread, waste a dispatch cycle)
-      → Opus format: always HeavyPath regardless of input — WebCodecs AudioEncoder outputs raw Opus
-          frames with no Ogg container. fastPath.ts throws early for Opus → Worker catches → HeavyPath.
+      → Opus / WebM format: always HeavyPath regardless of input — WebCodecs AudioEncoder outputs raw Opus
+          frames with no container. fastPath.ts throws early for Opus → Worker catches → HeavyPath.
+          `format: 'webm'` = Opus codec in WebM container (broader Safari support: macOS 11.3+ vs Ogg Opus
+          macOS 15.4+). Same two-pass libopus encode as Opus; only the output container differs (.webm vs .ogg).
+          'webm' is not in FAST_PATH_AUDIO_FORMATS → routes straight to Worker/HeavyPath.
       → Video: always Worker until WebCodecs VideoEncoder implemented (#55)
       → (Main Thread OR WorkerPool)
           → AVIF: @jsquash/avif (standalone libaom-av1 Wasm, 1.1 MB gzipped)
@@ -124,7 +127,7 @@ One active job per worker type (image, audio, video) at a time. The FFmpeg Wasm 
 - Singleton reused across calls; VFS cleaned between calls
 - Idle timer suspended during active `ffmpeg.exec()` (`suspendIdleTimer()` before exec, `resetIdleTimer()` in `finally`) — prevents termination during long video encodes.
 - 250 MB hard limit (`FileTooLargeError`) before loading into Wasm
-- Opus special case: 2-pass (resample to 48kHz WAV → encode) to avoid OOM crash in single-threaded Wasm
+- Opus / WebM Opus special case: 2-pass (resample to 48kHz WAV → encode) to avoid OOM crash in single-threaded Wasm. Output container chosen by format: `.ogg` for `opus`, `.webm` for `webm`. Both use libopus + matroska/ogg muxer already present in `@ffmpeg/core-mt`.
 
 ### COOP/COEP (SharedArrayBuffer)
 

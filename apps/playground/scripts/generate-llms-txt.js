@@ -28,7 +28,7 @@ const { blob, ratio } = await compressImage(file, {
 
 // Audio compression
 const { blob: audio } = await compressAudio(file, {
-  format: 'opus',          // 'opus' | 'mp3' | 'flac' | 'wav' | 'aac'
+  format: 'opus',          // 'opus' | 'webm' | 'mp3' | 'flac' | 'wav' | 'aac' ('webm' = Opus in WebM container)
   bitrate: '96k',          // optional
   signal: controller.signal
 });
