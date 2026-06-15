@@ -9,3 +9,11 @@ coverage/
 
 # TypeDoc generated API docs (regenerated in CI)
 apps/playground/public/api/
+
+# Test artifacts
+apps/playground/test-results/
+.playwright-mcp/
+
+# Generated assets
+apps/playground/public/og-social-preview.png
+apps/playground/public/coverage.json
